@@ -7,6 +7,7 @@ const db = require("./db");
 const { handleMessage } = require("./bot");
 const { sendText } = require("./whatsapp");
 const { BERBERLER, HIZMETLER, SAATLER } = require("./config");
+const sheets = require("./sheets");
 
 const app = express();
 app.use(express.json());
@@ -108,6 +109,9 @@ app.post("/api/randevular/:id/durum", async (req, res) => {
     return res.status(404).json({ hata: "Randevu bulunamadı." });
   }
 
+  // Google Sheets'te hücre rengini/etiketini güncelle (fire-and-forget)
+  sheets.updateRandevuDurum(kayit).catch(() => {});
+
   const tarih = new Date(kayit.tarih + "T00:00:00").toLocaleDateString("tr-TR", {
     weekday: "long",
     day: "numeric",
@@ -138,6 +142,17 @@ app.post("/api/randevular/:id/durum", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// 4b) Google Sheets'i sıfırdan yeniden senkronla (drift onarımı)
+// ---------------------------------------------------------------------------
+app.post("/api/sheets/resync", async (req, res) => {
+  if (!sheets.isEnabled()) {
+    return res.status(503).json({ hata: "Google Sheets yapılandırılmamış." });
+  }
+  const sonuc = await sheets.tumunuYenidenSenkronla(db.getAll());
+  res.json({ ok: true, ...sonuc });
+});
+
+// ---------------------------------------------------------------------------
 // 5) Dashboard
 // ---------------------------------------------------------------------------
 app.use("/dashboard", express.static(path.join(__dirname, "..", "dashboard")));
@@ -153,6 +168,18 @@ const server = app.listen(PORT, () => {
   console.log(`🚀 Berber Randevu Botu çalışıyor: http://localhost:${PORT}`);
   console.log(`📊 Dashboard: http://localhost:${PORT}/dashboard`);
 });
+
+// Arşivleyici: başlangıçta + her 24 saatte geçmiş günleri arşive taşı
+if (sheets.isEnabled()) {
+  const arsivCalistir = () =>
+    sheets
+      .arsivle()
+      .then((r) => r.tasinan && console.log(`📦 ${r.tasinan} eski sekme arşivlendi.`))
+      .catch(() => {});
+  // unref: bu zamanlayıcılar süreç çıkışını engellemesin (testler temiz kapansın)
+  setTimeout(arsivCalistir, 10000).unref(); // açılıştan 10 sn sonra
+  setInterval(arsivCalistir, 24 * 60 * 60 * 1000).unref(); // her 24 saat
+}
 
 // Test'lerin sunucuyu kapatabilmesi için dışa aktar
 module.exports = { app, server };
