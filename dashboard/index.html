@@ -197,6 +197,15 @@
     <div class="kart bekleyen"> <div class="sayi" id="s-bekleyen">0</div> <div class="etiket">Onay Bekleyen</div></div>
   </div>
 
+  <div class="takvim-kutu" style="background:var(--kart);border:1px solid var(--cizgi);border-radius:14px;padding:16px;margin-bottom:18px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <button id="ayOnceki" class="durum-btn">‹</button>
+      <strong id="ayBaslik" style="font-size:16px;"></strong>
+      <button id="aySonraki" class="durum-btn">›</button>
+    </div>
+    <div id="takvimGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;"></div>
+  </div>
+
   <div class="filtre">
     <input type="text" id="arama" placeholder="🔍 Ad veya telefon ara..." />
     <div class="durum-btnlar">
@@ -234,11 +243,59 @@
 
 <script>
   let randevular = [];
+  let seciliTarih = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  })();
+  let takvimAy = new Date(); // gösterilen ay
   let filtreDurum = "hepsi";
   let filtreBerber = "hepsi";
   let arama = "";
   let siralama = { kol: "tarih", yon: "desc" };
   let oncekiDurumlar = {}; // flash tespiti için
+
+  // --- Takvim ---
+  const GUNLER = ["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"];
+  function takvimRender() {
+    const yil = takvimAy.getFullYear(), ay = takvimAy.getMonth();
+    document.getElementById("ayBaslik").textContent =
+      takvimAy.toLocaleDateString("tr-TR", { month: "long", year: "numeric" });
+
+    const grid = document.getElementById("takvimGrid");
+    grid.innerHTML = "";
+    GUNLER.forEach((g) => {
+      const el = document.createElement("div");
+      el.textContent = g;
+      el.style.cssText = "text-align:center;font-size:11px;color:var(--soluk);font-weight:700;padding:4px;";
+      grid.appendChild(el);
+    });
+
+    const ilk = new Date(yil, ay, 1);
+    let basOfset = (ilk.getDay() + 6) % 7;
+    for (let i = 0; i < basOfset; i++) grid.appendChild(document.createElement("div"));
+
+    const gunSayisi = new Date(yil, ay + 1, 0).getDate();
+    for (let g = 1; g <= gunSayisi; g++) {
+      const deger = `${yil}-${String(ay+1).padStart(2,"0")}-${String(g).padStart(2,"0")}`;
+      const adet = randevular.filter((r) => r.tarih === deger && r.durum !== "iptal").length;
+      const hucre = document.createElement("button");
+      hucre.className = "takvim-gun";
+      hucre.style.cssText =
+        "position:relative;padding:10px 4px;border:1px solid var(--cizgi);border-radius:8px;background:#fff;cursor:pointer;font-size:14px;" +
+        (deger === seciliTarih ? "outline:2px solid var(--yesil2);background:#ecfdf5;" : "");
+      hucre.textContent = g;
+      if (adet > 0) {
+        const rozet = document.createElement("span");
+        rozet.textContent = adet;
+        rozet.style.cssText = "position:absolute;top:2px;right:4px;background:var(--yesil1);color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:0 5px;";
+        hucre.appendChild(rozet);
+      }
+      hucre.addEventListener("click", () => { seciliTarih = deger; takvimRender(); render(); cizelgeRender(); });
+      grid.appendChild(hucre);
+    }
+  }
+  document.getElementById("ayOnceki").addEventListener("click", () => { takvimAy.setMonth(takvimAy.getMonth()-1); takvimRender(); });
+  document.getElementById("aySonraki").addEventListener("click", () => { takvimAy.setMonth(takvimAy.getMonth()+1); takvimRender(); });
 
   // --- Canlı saat ---
   function saatGuncelle() {
@@ -256,6 +313,7 @@
       tespitFlash(yeni);
       randevular = yeni;
       berberSecenekleriDoldur();
+      takvimRender();
       render();
     } catch (e) {
       document.getElementById("footer").textContent = "⚠️ Sunucuya bağlanılamadı.";
