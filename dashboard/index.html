@@ -219,6 +219,11 @@
     </select>
   </div>
 
+  <div class="cizelge-kutu" style="background:var(--kart);border:1px solid var(--cizgi);border-radius:14px;padding:16px;margin-bottom:18px;overflow-x:auto;">
+    <h3 id="cizelgeBaslik" style="margin-bottom:12px;font-size:16px;"></h3>
+    <div id="cizelge"></div>
+  </div>
+
   <div class="tablo-kutu">
     <table>
       <thead>
@@ -248,6 +253,14 @@
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   })();
   let takvimAy = new Date(); // gösterilen ay
+  let BERBERLER = [], SAATLER = [];
+  async function configCek() {
+    try {
+      const res = await fetch("/api/config");
+      const c = await res.json();
+      BERBERLER = c.berberler; SAATLER = c.saatler;
+    } catch (e) {}
+  }
   let filtreDurum = "hepsi";
   let filtreBerber = "hepsi";
   let arama = "";
@@ -297,6 +310,55 @@
   document.getElementById("ayOnceki").addEventListener("click", () => { takvimAy.setMonth(takvimAy.getMonth()-1); takvimRender(); });
   document.getElementById("aySonraki").addEventListener("click", () => { takvimAy.setMonth(takvimAy.getMonth()+1); takvimRender(); });
 
+  // --- Günlük çizelge ---
+  const DURUM_RENK = {
+    bekliyor: { bg: "#fef9c3", fg: "#713f12" },
+    "onaylı": { bg: "#d1fae5", fg: "#065f46" },
+    iptal:    { bg: "#fee2e2", fg: "#991b1b" },
+  };
+  function cizelgeRender() {
+    const baslik = document.getElementById("cizelgeBaslik");
+    baslik.textContent = new Date(seciliTarih + "T00:00:00")
+      .toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) + " — Günlük Çizelge";
+
+    const gunRand = randevular.filter((r) => r.tarih === seciliTarih);
+    const harita = {};
+    gunRand.forEach((r) => {
+      const key = r.saat + "|" + r.berberId;
+      if (!harita[key] || harita[key].durum === "iptal") harita[key] = r;
+    });
+
+    let html = '<table style="width:100%;border-collapse:collapse;min-width:600px;"><thead><tr>';
+    html += '<th style="padding:8px;border:1px solid var(--cizgi);background:#f9fafb;font-size:12px;">Saat</th>';
+    BERBERLER.forEach((b) => {
+      html += `<th style="padding:8px;border:1px solid var(--cizgi);background:#f9fafb;font-size:12px;">${kacis(b.ad)}</th>`;
+    });
+    html += "</tr></thead><tbody>";
+
+    SAATLER.forEach((saat) => {
+      html += `<tr><td style="padding:8px;border:1px solid var(--cizgi);font-weight:700;font-size:13px;background:#fafafa;">${saat}</td>`;
+      BERBERLER.forEach((b) => {
+        const r = harita[saat + "|" + b.id];
+        if (r) {
+          const renk = DURUM_RENK[r.durum] || DURUM_RENK.bekliyor;
+          const etiket = r.durum === "iptal"
+            ? `${kacis(r.ad)} — İPTAL (${r.iptalEden === "musteri" ? "müşteri" : "berber"})`
+            : kacis(r.ad);
+          html += `<td class="cizelge-hucre" data-id="${r.id}" style="padding:8px;border:1px solid var(--cizgi);background:${renk.bg};color:${renk.fg};font-size:12px;cursor:pointer;">${etiket}</td>`;
+        } else {
+          html += '<td style="padding:8px;border:1px solid var(--cizgi);"></td>';
+        }
+      });
+      html += "</tr>";
+    });
+    html += "</tbody></table>";
+    document.getElementById("cizelge").innerHTML = html;
+
+    document.querySelectorAll(".cizelge-hucre").forEach((td) => {
+      td.addEventListener("click", () => hucreMenu(td.dataset.id));
+    });
+  }
+
   // --- Canlı saat ---
   function saatGuncelle() {
     const d = new Date();
@@ -314,6 +376,7 @@
       randevular = yeni;
       berberSecenekleriDoldur();
       takvimRender();
+      cizelgeRender();
       render();
     } catch (e) {
       document.getElementById("footer").textContent = "⚠️ Sunucuya bağlanılamadı.";
@@ -484,8 +547,11 @@
   });
 
   // --- Başlat + 10 sn'de bir otomatik yenile ---
-  veriCek();
-  setInterval(veriCek, 10000);
+  (async () => {
+    await configCek();
+    veriCek();
+    setInterval(veriCek, 10000);
+  })();
 </script>
 </body>
 </html>
