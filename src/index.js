@@ -6,6 +6,7 @@ const path = require("path");
 const db = require("./db");
 const { handleMessage } = require("./bot");
 const { sendText } = require("./whatsapp");
+const { BERBERLER, HIZMETLER, SAATLER } = require("./config");
 
 const app = express();
 app.use(express.json());
@@ -78,7 +79,14 @@ app.post("/webhook", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// 3) Tüm randevular (dashboard için)
+// 3) Berber/hizmet/saat listesi (dashboard çizelgesi için)
+// ---------------------------------------------------------------------------
+app.get("/api/config", (req, res) => {
+  res.json({ berberler: BERBERLER, hizmetler: HIZMETLER, saatler: SAATLER });
+});
+
+// ---------------------------------------------------------------------------
+// 4) Tüm randevular (dashboard için)
 // ---------------------------------------------------------------------------
 app.get("/api/randevular", (req, res) => {
   res.json(db.getAll());
@@ -141,7 +149,10 @@ app.get("/dashboard", (req, res) => {
 // Kök yol -> dashboard'a yönlendir
 app.get("/", (req, res) => res.redirect("/dashboard"));
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Berber Randevu Botu çalışıyor: http://localhost:${PORT}`);
   console.log(`📊 Dashboard: http://localhost:${PORT}/dashboard`);
 });
+
+// Test'lerin sunucuyu kapatabilmesi için dışa aktar
+module.exports = { app, server };

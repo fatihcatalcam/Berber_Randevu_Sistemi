@@ -197,6 +197,15 @@
     <div class="kart bekleyen"> <div class="sayi" id="s-bekleyen">0</div> <div class="etiket">Onay Bekleyen</div></div>
   </div>
 
+  <div class="takvim-kutu" style="background:var(--kart);border:1px solid var(--cizgi);border-radius:14px;padding:16px;margin-bottom:18px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <button id="ayOnceki" class="durum-btn">‹</button>
+      <strong id="ayBaslik" style="font-size:16px;"></strong>
+      <button id="aySonraki" class="durum-btn">›</button>
+    </div>
+    <div id="takvimGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;"></div>
+  </div>
+
   <div class="filtre">
     <input type="text" id="arama" placeholder="🔍 Ad veya telefon ara..." />
     <div class="durum-btnlar">
@@ -208,6 +217,11 @@
     <select id="berberFiltre">
       <option value="hepsi">Tüm Berberler</option>
     </select>
+  </div>
+
+  <div class="cizelge-kutu" style="background:var(--kart);border:1px solid var(--cizgi);border-radius:14px;padding:16px;margin-bottom:18px;overflow-x:auto;">
+    <h3 id="cizelgeBaslik" style="margin-bottom:12px;font-size:16px;"></h3>
+    <div id="cizelge"></div>
   </div>
 
   <div class="tablo-kutu">
@@ -234,11 +248,116 @@
 
 <script>
   let randevular = [];
+  let seciliTarih = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  })();
+  let takvimAy = new Date(); // gösterilen ay
+  let BERBERLER = [], SAATLER = [];
+  async function configCek() {
+    try {
+      const res = await fetch("/api/config");
+      const c = await res.json();
+      BERBERLER = c.berberler; SAATLER = c.saatler;
+    } catch (e) {}
+  }
   let filtreDurum = "hepsi";
   let filtreBerber = "hepsi";
   let arama = "";
   let siralama = { kol: "tarih", yon: "desc" };
   let oncekiDurumlar = {}; // flash tespiti için
+
+  // --- Takvim ---
+  const GUNLER = ["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"];
+  function takvimRender() {
+    const yil = takvimAy.getFullYear(), ay = takvimAy.getMonth();
+    document.getElementById("ayBaslik").textContent =
+      takvimAy.toLocaleDateString("tr-TR", { month: "long", year: "numeric" });
+
+    const grid = document.getElementById("takvimGrid");
+    grid.innerHTML = "";
+    GUNLER.forEach((g) => {
+      const el = document.createElement("div");
+      el.textContent = g;
+      el.style.cssText = "text-align:center;font-size:11px;color:var(--soluk);font-weight:700;padding:4px;";
+      grid.appendChild(el);
+    });
+
+    const ilk = new Date(yil, ay, 1);
+    let basOfset = (ilk.getDay() + 6) % 7;
+    for (let i = 0; i < basOfset; i++) grid.appendChild(document.createElement("div"));
+
+    const gunSayisi = new Date(yil, ay + 1, 0).getDate();
+    for (let g = 1; g <= gunSayisi; g++) {
+      const deger = `${yil}-${String(ay+1).padStart(2,"0")}-${String(g).padStart(2,"0")}`;
+      const adet = randevular.filter((r) => r.tarih === deger && r.durum !== "iptal").length;
+      const hucre = document.createElement("button");
+      hucre.className = "takvim-gun";
+      hucre.style.cssText =
+        "position:relative;padding:10px 4px;border:1px solid var(--cizgi);border-radius:8px;background:#fff;cursor:pointer;font-size:14px;" +
+        (deger === seciliTarih ? "outline:2px solid var(--yesil2);background:#ecfdf5;" : "");
+      hucre.textContent = g;
+      if (adet > 0) {
+        const rozet = document.createElement("span");
+        rozet.textContent = adet;
+        rozet.style.cssText = "position:absolute;top:2px;right:4px;background:var(--yesil1);color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:0 5px;";
+        hucre.appendChild(rozet);
+      }
+      hucre.addEventListener("click", () => { seciliTarih = deger; takvimRender(); render(); cizelgeRender(); });
+      grid.appendChild(hucre);
+    }
+  }
+  document.getElementById("ayOnceki").addEventListener("click", () => { takvimAy.setMonth(takvimAy.getMonth()-1); takvimRender(); });
+  document.getElementById("aySonraki").addEventListener("click", () => { takvimAy.setMonth(takvimAy.getMonth()+1); takvimRender(); });
+
+  // --- Günlük çizelge ---
+  const DURUM_RENK = {
+    bekliyor: { bg: "#fef9c3", fg: "#713f12" },
+    "onaylı": { bg: "#d1fae5", fg: "#065f46" },
+    iptal:    { bg: "#fee2e2", fg: "#991b1b" },
+  };
+  function cizelgeRender() {
+    const baslik = document.getElementById("cizelgeBaslik");
+    baslik.textContent = new Date(seciliTarih + "T00:00:00")
+      .toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) + " — Günlük Çizelge";
+
+    const gunRand = randevular.filter((r) => r.tarih === seciliTarih);
+    const harita = {};
+    gunRand.forEach((r) => {
+      const key = r.saat + "|" + r.berberId;
+      if (!harita[key] || harita[key].durum === "iptal") harita[key] = r;
+    });
+
+    let html = '<table style="width:100%;border-collapse:collapse;min-width:600px;"><thead><tr>';
+    html += '<th style="padding:8px;border:1px solid var(--cizgi);background:#f9fafb;font-size:12px;">Saat</th>';
+    BERBERLER.forEach((b) => {
+      html += `<th style="padding:8px;border:1px solid var(--cizgi);background:#f9fafb;font-size:12px;">${kacis(b.ad)}</th>`;
+    });
+    html += "</tr></thead><tbody>";
+
+    SAATLER.forEach((saat) => {
+      html += `<tr><td style="padding:8px;border:1px solid var(--cizgi);font-weight:700;font-size:13px;background:#fafafa;">${saat}</td>`;
+      BERBERLER.forEach((b) => {
+        const r = harita[saat + "|" + b.id];
+        if (r) {
+          const renk = DURUM_RENK[r.durum] || DURUM_RENK.bekliyor;
+          const etiket = r.durum === "iptal"
+            ? `${kacis(r.ad)} — İPTAL (${r.iptalEden === "musteri" ? "müşteri" : "berber"})`
+            : kacis(r.ad);
+          html += `<td class="cizelge-hucre" data-id="${r.id}" style="padding:8px;border:1px solid var(--cizgi);background:${renk.bg};color:${renk.fg};font-size:12px;cursor:pointer;">${etiket}</td>`;
+        } else {
+          html += '<td style="padding:8px;border:1px solid var(--cizgi);"></td>';
+        }
+      });
+      html += "</tr>";
+    });
+    html += "</tbody></table>";
+    document.getElementById("cizelge").innerHTML = html;
+
+    document.querySelectorAll(".cizelge-hucre").forEach((td) => {
+      td.addEventListener("click", () => hucreMenu(td.dataset.id));
+    });
+  }
 
   // --- Canlı saat ---
   function saatGuncelle() {
@@ -256,6 +375,8 @@
       tespitFlash(yeni);
       randevular = yeni;
       berberSecenekleriDoldur();
+      takvimRender();
+      cizelgeRender();
       render();
     } catch (e) {
       document.getElementById("footer").textContent = "⚠️ Sunucuya bağlanılamadı.";
@@ -425,9 +546,25 @@
     });
   });
 
+  // --- Hücre tıklama menüsü ---
+  function hucreMenu(id) {
+    const r = randevular.find((x) => x.id === id);
+    if (!r) return;
+    const tarih = new Date(r.tarih + "T00:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long" });
+    const mesaj = `${r.ad}\n${r.berber} — ${r.hizmet}\n${tarih} ${r.saat} — ${r.fiyat}₺\nDurum: ${durumYazi(r.durum)}\n\n[Tamam] = Onayla`;
+    if (confirm(mesaj)) {
+      durumDegistir(id, "onaylı");
+    } else if (confirm(`${r.ad} randevusunu İPTAL etmek istiyor musun?`)) {
+      durumDegistir(id, "iptal");
+    }
+  }
+
   // --- Başlat + 10 sn'de bir otomatik yenile ---
-  veriCek();
-  setInterval(veriCek, 10000);
+  (async () => {
+    await configCek();
+    veriCek();
+    setInterval(veriCek, 10000);
+  })();
 </script>
 </body>
 </html>
