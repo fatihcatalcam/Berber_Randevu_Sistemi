@@ -546,6 +546,19 @@
     });
   });
 
+  // --- Hücre tıklama menüsü ---
+  function hucreMenu(id) {
+    const r = randevular.find((x) => x.id === id);
+    if (!r) return;
+    const tarih = new Date(r.tarih + "T00:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long" });
+    const mesaj = `${r.ad}\n${r.berber} — ${r.hizmet}\n${tarih} ${r.saat} — ${r.fiyat}₺\nDurum: ${durumYazi(r.durum)}\n\n[Tamam] = Onayla`;
+    if (confirm(mesaj)) {
+      durumDegistir(id, "onaylı");
+    } else if (confirm(`${r.ad} randevusunu İPTAL etmek istiyor musun?`)) {
+      durumDegistir(id, "iptal");
+    }
+  }
+
   // --- Başlat + 10 sn'de bir otomatik yenile ---
   (async () => {
     await configCek();
