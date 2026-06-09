@@ -1,6 +1,7 @@
 const db = require("./db");
 const { BERBERLER, HIZMETLER, SAATLER, gelecekTarihler } = require("./config");
 const { sendText, sendButtons, sendList } = require("./whatsapp");
+const sheets = require("./sheets");
 
 // ---------------------------------------------------------------------------
 // Yardımcılar
@@ -272,6 +273,9 @@ async function adimOnay(telefon, metin, s) {
       saat: s.veri.saat,
       fiyat: s.veri.fiyat,
     });
+
+    // Google Sheets'e canlı yaz (fire-and-forget — hata bot'u durdurmaz)
+    sheets.syncRandevu(kayit).catch(() => {});
 
     const tarih = new Date(kayit.tarih + "T00:00:00").toLocaleDateString(
       "tr-TR",
