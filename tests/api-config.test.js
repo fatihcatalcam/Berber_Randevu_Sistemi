@@ -2,10 +2,12 @@ const test = require("node:test");
 const assert = require("node:assert");
 const http = require("http");
 
-test("GET /api/config berber/hizmet/saat dondurur", async () => {
+test("GET /api/config berber/hizmet/saat dondurur", async (t) => {
   process.env.PORT = "3199";
   delete require.cache[require.resolve("../src/index")];
-  require("../src/index");
+  const { server } = require("../src/index");
+  // Sunucuyu test bitince kapat (açık handle kalmasın, suite asılı kalmasın)
+  t.after(() => new Promise((r) => server.close(r)));
   await new Promise((r) => setTimeout(r, 400));
 
   const data = await new Promise((resolve, reject) => {

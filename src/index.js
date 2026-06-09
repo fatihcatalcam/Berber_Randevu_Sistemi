@@ -149,7 +149,10 @@ app.get("/dashboard", (req, res) => {
 // Kök yol -> dashboard'a yönlendir
 app.get("/", (req, res) => res.redirect("/dashboard"));
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Berber Randevu Botu çalışıyor: http://localhost:${PORT}`);
   console.log(`📊 Dashboard: http://localhost:${PORT}/dashboard`);
 });
+
+// Test'lerin sunucuyu kapatabilmesi için dışa aktar
+module.exports = { app, server };
