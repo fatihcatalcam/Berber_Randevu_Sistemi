@@ -1,16 +1,37 @@
 // ---------------------------------------------------------------------------
-// TEK DOĞRULUK KAYNAĞI
-// Berber eklemek için: BERBERLER dizisine yeni nesne ekle (id benzersiz olsun,
-// fiyat içinde 4 hizmetin de fiyatı olsun). bot, dashboard ve çizelge otomatik
-// bu listeyi kullanır. Başka hiçbir yeri değiştirmene gerek yok.
+// TEK DOĞRULUK KAYNAĞI — berber eklemek veya fiyat değiştirmek için burası
+// PIN = dashboard giriş şifresi (her berber kendi PINini değiştirebilir)
 // ---------------------------------------------------------------------------
 
 const BERBERLER = [
-  { id: "ahmet",  ad: "Ahmet Usta",  uzmanlik: "Klasik Tıraş & Saç",   fiyat: { sac: 150, sakal: 100, kombin: 220, cocuk: 100 } },
-  { id: "mehmet", ad: "Mehmet Bey",  uzmanlik: "Modern Kesim & Sakal", fiyat: { sac: 160, sakal: 110, kombin: 240, cocuk: 100 } },
-  { id: "kemal",  ad: "Kemal Usta",  uzmanlik: "Fade & Tasarım",       fiyat: { sac: 180, sakal: 120, kombin: 270, cocuk: 120 } },
-  // PLACEHOLDER — gerçek berberleri buraya ekle (8-9 berber):
-  // { id: "berber4", ad: "Berber 4", uzmanlik: "...", fiyat: { sac: 150, sakal: 100, kombin: 220, cocuk: 100 } },
+  {
+    id: "resul",
+    ad: "Resul Tabu",
+    uzmanlik: "Saç & Sakal Tasarımı",
+    pin: "1234",
+    fiyat: { sac: 900, sakal: 300, kombin: 1200, cocuk: 900 },
+  },
+  {
+    id: "ahmet",
+    ad: "Ahmet Usta",
+    uzmanlik: "Klasik Tıraş & Saç",
+    pin: "1111",
+    fiyat: { sac: 650, sakal: 250, kombin: 900, cocuk: 650 },
+  },
+  {
+    id: "mehmet",
+    ad: "Mehmet Bey",
+    uzmanlik: "Modern Kesim & Sakal",
+    pin: "2222",
+    fiyat: { sac: 650, sakal: 250, kombin: 900, cocuk: 650 },
+  },
+  {
+    id: "kemal",
+    ad: "Kemal Usta",
+    uzmanlik: "Fade & Tasarım",
+    pin: "3333",
+    fiyat: { sac: 650, sakal: 250, kombin: 900, cocuk: 650 },
+  },
 ];
 
 const HIZMETLER = [
@@ -36,7 +57,11 @@ function gelecekTarihler(kacGun = 7) {
   for (let i = 0; i < kacGun; i++) {
     const d = new Date(bugun);
     d.setDate(bugun.getDate() + i);
-    const etiket = d.toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
+    const etiket = d.toLocaleDateString("tr-TR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
     const yil = d.getFullYear();
     const ay = String(d.getMonth() + 1).padStart(2, "0");
     const gun = String(d.getDate()).padStart(2, "0");
