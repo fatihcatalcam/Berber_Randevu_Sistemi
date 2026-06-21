@@ -1,115 +1,173 @@
-const fs = require("fs");
-const path = require("path");
+const { Pool } = require("pg");
 
-const DB_PATH = path.join(__dirname, "..", "data", "randevular.json");
-const KAPALI_PATH = path.join(__dirname, "..", "data", "kapali_saatler.json");
+// DATABASE_URL yoksa pool null kalır; init() erken çıkar, sorgular hata fırlatır.
+const pool = process.env.DATABASE_URL
+  ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } })
+  : null;
 
-function ensureDir() {
-  const dir = path.join(__dirname, "..", "data");
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-}
-
-function read() {
-  ensureDir();
-  if (!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, "[]", "utf8");
-  try {
-    return JSON.parse(fs.readFileSync(DB_PATH, "utf8") || "[]");
-  } catch (err) {
-    console.error("DB okuma hatası:", err.message);
-    return [];
+// ---------------------------------------------------------------------------
+// Tablo oluşturma — uygulama açılışında çağrılır
+// ---------------------------------------------------------------------------
+async function init() {
+  if (!pool) {
+    console.warn("⚠️  DATABASE_URL tanımlı değil — veritabanı devre dışı.");
+    return;
   }
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS randevular (
+      id           TEXT PRIMARY KEY,
+      ad           TEXT,
+      telefon      TEXT,
+      berber_id    TEXT,
+      berber       TEXT,
+      hizmet_id    TEXT,
+      hizmet       TEXT,
+      tarih        TEXT,
+      saat         TEXT,
+      fiyat        INTEGER,
+      gercek_fiyat INTEGER,
+      durum        TEXT    DEFAULT 'bekliyor',
+      iptal_eden   TEXT,
+      kisi_sayisi  INTEGER,
+      kisiler      JSONB,
+      olusturulma  BIGINT
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS kapali_saatler (
+      berber_id TEXT NOT NULL,
+      tarih     TEXT NOT NULL,
+      saat      TEXT NOT NULL,
+      PRIMARY KEY (berber_id, tarih, saat)
+    )
+  `);
+  console.log("✅ Veritabanı tabloları hazır.");
 }
 
-function write(list) {
-  ensureDir();
-  fs.writeFileSync(DB_PATH, JSON.stringify(list, null, 2), "utf8");
-}
-
-function getAll() {
-  return read().sort((a, b) => b.olusturulma - a.olusturulma);
-}
-
-function add(randevu) {
-  const list = read();
-  const kayit = {
-    ...randevu,
-    id: Date.now().toString(),
-    olusturulma: Date.now(),
-    durum: "bekliyor",
+// ---------------------------------------------------------------------------
+// Yardımcı: DB satırı → JS nesnesi
+// ---------------------------------------------------------------------------
+function rowToRandevu(row) {
+  return {
+    id:          row.id,
+    ad:          row.ad,
+    telefon:     row.telefon,
+    berberId:    row.berber_id,
+    berber:      row.berber,
+    hizmetId:    row.hizmet_id,
+    hizmet:      row.hizmet,
+    tarih:       row.tarih,
+    saat:        row.saat,
+    fiyat:       row.fiyat,
+    gercekFiyat: row.gercek_fiyat  ?? undefined,
+    durum:       row.durum,
+    iptalEden:   row.iptal_eden    ?? undefined,
+    kisiSayisi:  row.kisi_sayisi   ?? undefined,
+    kisiler:     row.kisiler       ?? undefined,
+    olusturulma: Number(row.olusturulma),
   };
-  list.push(kayit);
-  write(list);
-  return kayit;
 }
 
-function getBusySlots(berberId, tarih) {
-  const randevuSlots = read()
-    .filter((r) => r.berberId === berberId && r.tarih === tarih && r.durum !== "iptal")
-    .map((r) => r.saat);
-  const kapaliSlots = getKapaliListByBerber(berberId, tarih);
-  return [...new Set([...randevuSlots, ...kapaliSlots])];
+// ---------------------------------------------------------------------------
+// Randevular
+// ---------------------------------------------------------------------------
+async function getAll() {
+  const res = await pool.query("SELECT * FROM randevular ORDER BY olusturulma DESC");
+  return res.rows.map(rowToRandevu);
 }
 
-function updateStatus(id, durum, iptalEden) {
-  const list = read();
-  const idx = list.findIndex((r) => r.id === id);
-  if (idx === -1) return null;
-  list[idx].durum = durum;
-  if (iptalEden) list[idx].iptalEden = iptalEden;
-  write(list);
-  return list[idx];
+async function add(randevu) {
+  const id          = Date.now().toString();
+  const olusturulma = Date.now();
+  await pool.query(
+    `INSERT INTO randevular
+       (id, ad, telefon, berber_id, berber, hizmet_id, hizmet,
+        tarih, saat, fiyat, durum, kisi_sayisi, kisiler, olusturulma)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+    [
+      id, randevu.ad, randevu.telefon,
+      randevu.berberId, randevu.berber,
+      randevu.hizmetId, randevu.hizmet,
+      randevu.tarih, randevu.saat, randevu.fiyat,
+      "bekliyor",
+      randevu.kisiSayisi || null,
+      randevu.kisiler    ? JSON.stringify(randevu.kisiler) : null,
+      olusturulma,
+    ]
+  );
+  return { ...randevu, id, olusturulma, durum: "bekliyor" };
 }
 
-function updateFiyat(id, gercekFiyat) {
-  const list = read();
-  const idx = list.findIndex((r) => r.id === id);
-  if (idx === -1) return null;
-  list[idx].gercekFiyat = gercekFiyat;
-  write(list);
-  return list[idx];
+async function getBusySlots(berberId, tarih) {
+  const [r1, r2] = await Promise.all([
+    pool.query(
+      "SELECT saat FROM randevular WHERE berber_id=$1 AND tarih=$2 AND durum!='iptal'",
+      [berberId, tarih]
+    ),
+    pool.query(
+      "SELECT saat FROM kapali_saatler WHERE berber_id=$1 AND tarih=$2",
+      [berberId, tarih]
+    ),
+  ]);
+  return [...new Set([...r1.rows.map((r) => r.saat), ...r2.rows.map((r) => r.saat)])];
 }
 
-// --- Kapalı saatler ---------------------------------------------------------
+async function updateStatus(id, durum, iptalEden = null) {
+  const res = await pool.query(
+    `UPDATE randevular
+     SET durum=$1, iptal_eden=COALESCE($2, iptal_eden)
+     WHERE id=$3 RETURNING *`,
+    [durum, iptalEden, id]
+  );
+  return res.rows.length ? rowToRandevu(res.rows[0]) : null;
+}
 
-function readKapali() {
-  ensureDir();
-  try {
-    if (!fs.existsSync(KAPALI_PATH)) return {};
-    return JSON.parse(fs.readFileSync(KAPALI_PATH, "utf8") || "{}");
-  } catch {
-    return {};
+async function updateFiyat(id, gercekFiyat) {
+  const res = await pool.query(
+    "UPDATE randevular SET gercek_fiyat=$1 WHERE id=$2 RETURNING *",
+    [gercekFiyat, id]
+  );
+  return res.rows.length ? rowToRandevu(res.rows[0]) : null;
+}
+
+// ---------------------------------------------------------------------------
+// Kapalı saatler
+// ---------------------------------------------------------------------------
+async function getKapaliSaatler() {
+  const res  = await pool.query("SELECT berber_id, tarih, saat FROM kapali_saatler");
+  const data = {};
+  for (const row of res.rows) {
+    if (!data[row.berber_id])              data[row.berber_id] = {};
+    if (!data[row.berber_id][row.tarih])   data[row.berber_id][row.tarih] = [];
+    data[row.berber_id][row.tarih].push(row.saat);
   }
+  return data;
 }
 
-function writeKapali(data) {
-  ensureDir();
-  fs.writeFileSync(KAPALI_PATH, JSON.stringify(data, null, 2), "utf8");
+async function getKapaliListByBerber(berberId, tarih) {
+  const res = await pool.query(
+    "SELECT saat FROM kapali_saatler WHERE berber_id=$1 AND tarih=$2",
+    [berberId, tarih]
+  );
+  return res.rows.map((r) => r.saat);
 }
 
-function getKapaliSaatler() {
-  return readKapali();
-}
-
-function getKapaliListByBerber(berberId, tarih) {
-  const data = readKapali();
-  return (data[berberId] && data[berberId][tarih]) || [];
-}
-
-function setKapaliSaat(berberId, tarih, saat, kapali) {
-  const data = readKapali();
-  if (!data[berberId]) data[berberId] = {};
-  if (!data[berberId][tarih]) data[berberId][tarih] = [];
-
+async function setKapaliSaat(berberId, tarih, saat, kapali) {
   if (kapali) {
-    if (!data[berberId][tarih].includes(saat)) data[berberId][tarih].push(saat);
+    await pool.query(
+      "INSERT INTO kapali_saatler (berber_id, tarih, saat) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",
+      [berberId, tarih, saat]
+    );
   } else {
-    data[berberId][tarih] = data[berberId][tarih].filter((s) => s !== saat);
-    if (!data[berberId][tarih].length) delete data[berberId][tarih];
+    await pool.query(
+      "DELETE FROM kapali_saatler WHERE berber_id=$1 AND tarih=$2 AND saat=$3",
+      [berberId, tarih, saat]
+    );
   }
-  writeKapali(data);
 }
 
 module.exports = {
+  init,
   getAll,
   add,
   getBusySlots,
