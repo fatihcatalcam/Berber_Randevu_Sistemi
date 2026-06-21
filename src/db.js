@@ -50,7 +50,22 @@ async function init() {
   `);
   // Mevcut tabloya aciklama sütunu ekle (yoksa)
   await pool.query(`ALTER TABLE randevular ADD COLUMN IF NOT EXISTS aciklama TEXT`);
+  // Aynı berber/tarih/saat için iptal olmayan iki randevu engellenir (çift rezervasyon koruması)
+  try {
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS uniq_randevu_slot
+      ON randevular (berber_id, tarih, saat)
+      WHERE durum <> 'iptal'
+    `);
+  } catch (e) {
+    console.warn("⚠️  Slot benzersizlik indeksi oluşturulamadı (mevcut çakışma olabilir):", e.message);
+  }
   console.log("✅ Veritabanı tabloları hazır.");
+}
+
+// Slot dolu hatası — çağıranlar bunu yakalayıp kullanıcıya bildirir
+class SlotDoluError extends Error {
+  constructor() { super("Seçilen saat dolu."); this.code = "SLOT_DOLU"; }
 }
 
 // ---------------------------------------------------------------------------
@@ -89,23 +104,29 @@ async function getAll() {
 async function add(randevu) {
   const id          = Date.now().toString();
   const olusturulma = Date.now();
-  await pool.query(
-    `INSERT INTO randevular
-       (id, ad, telefon, berber_id, berber, hizmet_id, hizmet,
-        tarih, saat, fiyat, durum, kisi_sayisi, kisiler, olusturulma)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-    [
-      id, randevu.ad, randevu.telefon,
-      randevu.berberId, randevu.berber,
-      randevu.hizmetId, randevu.hizmet,
-      randevu.tarih, randevu.saat, randevu.fiyat,
-      "bekliyor",
-      randevu.kisiSayisi || null,
-      randevu.kisiler    ? JSON.stringify(randevu.kisiler) : null,
-      olusturulma,
-    ]
-  );
-  return { ...randevu, id, olusturulma, durum: "bekliyor" };
+  const durum       = randevu.durum || "bekliyor";
+  try {
+    await pool.query(
+      `INSERT INTO randevular
+         (id, ad, telefon, berber_id, berber, hizmet_id, hizmet,
+          tarih, saat, fiyat, durum, kisi_sayisi, kisiler, olusturulma)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+      [
+        id, randevu.ad, randevu.telefon,
+        randevu.berberId, randevu.berber,
+        randevu.hizmetId, randevu.hizmet,
+        randevu.tarih, randevu.saat, randevu.fiyat,
+        durum,
+        randevu.kisiSayisi || null,
+        randevu.kisiler    ? JSON.stringify(randevu.kisiler) : null,
+        olusturulma,
+      ]
+    );
+  } catch (e) {
+    if (e.code === "23505") throw new SlotDoluError(); // benzersizlik ihlali = slot dolu
+    throw e;
+  }
+  return { ...randevu, id, olusturulma, durum };
 }
 
 async function getBusySlots(berberId, tarih) {
@@ -209,6 +230,7 @@ async function setKapaliSaat(berberId, tarih, saat, kapali) {
 
 module.exports = {
   init,
+  SlotDoluError,
   getAll,
   add,
   getBusySlots,

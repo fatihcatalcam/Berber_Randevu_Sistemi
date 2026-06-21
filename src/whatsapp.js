@@ -26,6 +26,7 @@ async function send(payload) {
 
 // 1) Düz metin mesajı
 async function sendText(to, text) {
+  if (!to) return null; // telefonsuz (elle eklenen) randevuda gönderme
   return send({
     messaging_product: "whatsapp",
     to,

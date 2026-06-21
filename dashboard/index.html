@@ -645,7 +645,7 @@ async function pinGiris() {
     });
     const data = await res.json();
     if (data.ok) {
-      auth = { role: data.role, berberId: data.berberId || null, ad: data.ad || "Admin" };
+      auth = { role: data.role, berberId: data.berberId || null, ad: data.ad || "Admin", token: data.token };
       sessionStorage.setItem("berberPanelAuth", JSON.stringify(auth));
       loginGizle();
     } else {
@@ -659,6 +659,14 @@ async function pinGiris() {
 // ============================================================
 // API
 // ============================================================
+// Korumalı uçlara token başlığı ekler; 401'de oturumu kapatır
+async function authFetch(url, opts = {}) {
+  opts.headers = { ...(opts.headers || {}), Authorization: "Bearer " + (auth?.token || "") };
+  const res = await fetch(url, opts);
+  if (res.status === 401) { cikis(); throw new Error("Oturum süresi doldu."); }
+  return res;
+}
+
 async function configCek() {
   try {
     const c = await (await fetch("/api/config")).json();
@@ -669,8 +677,8 @@ async function configCek() {
 async function veriCek() {
   try {
     const [rRes, kRes] = await Promise.all([
-      fetch("/api/randevular"),
-      fetch("/api/kapali-saatler"),
+      authFetch("/api/randevular"),
+      authFetch("/api/kapali-saatler"),
     ]);
     const yeni = await rRes.json();
     kapaliSaatler = await kRes.json();
@@ -688,7 +696,7 @@ async function veriCek() {
 
 async function durumDegistir(id, durum) {
   try {
-    const res = await fetch(`/api/randevular/${id}/durum`, {
+    const res = await authFetch(`/api/randevular/${id}/durum`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ durum }),
     });
@@ -700,7 +708,7 @@ async function durumDegistir(id, durum) {
 async function saatToggle(kapali) {
   document.getElementById("contextMenu").style.display = "none";
   try {
-    await fetch("/api/kapali-saat", {
+    await authFetch("/api/kapali-saat", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ berberId: ctxBerberId, tarih: ctxTarih, saat: ctxSaat, kapali }),
     });
@@ -1108,7 +1116,7 @@ async function elleRandevuKaydet() {
   if (!saat || saat === "") { alert("Boş saat yok, başka gün veya berber seçin."); return; }
 
   try {
-    const res = await fetch("/api/randevular", {
+    const res = await authFetch("/api/randevular", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ad, telefon, berberId, hizmetId, tarih, saat, fiyat: isNaN(fiyat) ? undefined : fiyat }),
@@ -1179,7 +1187,7 @@ async function tasiKaydet() {
   const saat  = document.getElementById("tasiSaat").value;
   if (!tarih || !saat) return;
   try {
-    const res = await fetch(`/api/randevular/${modalRandevuId}/tasi`, {
+    const res = await authFetch(`/api/randevular/${modalRandevuId}/tasi`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tarih, saat }),
     });
@@ -1192,7 +1200,7 @@ async function tasiKaydet() {
 async function notKaydet() {
   const aciklama = document.getElementById("notInput").value.trim();
   try {
-    await fetch(`/api/randevular/${modalRandevuId}/aciklama`, {
+    await authFetch(`/api/randevular/${modalRandevuId}/aciklama`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ aciklama }),
     });
@@ -1204,7 +1212,7 @@ async function fiyatKaydetModal() {
   const val = document.getElementById("fiyatInput").value;
   if (val === "" || isNaN(Number(val)) || Number(val) < 0) { alert("Geçerli bir fiyat girin."); return; }
   try {
-    await fetch(`/api/randevular/${modalRandevuId}/fiyat`, {
+    await authFetch(`/api/randevular/${modalRandevuId}/fiyat`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ gercekFiyat: Number(val) }),
     });

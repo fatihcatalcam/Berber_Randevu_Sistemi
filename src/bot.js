@@ -26,8 +26,18 @@ function resetSession(telefon) {
 
 function getSession(telefon) {
   if (!sessions[telefon]) resetSession(telefon);
+  sessions[telefon].sonAktif = Date.now();
   return sessions[telefon];
 }
+
+// Atıl oturumları periyodik temizle (bellek sızıntısını önler)
+const OTURUM_OMUR_MS = 30 * 60 * 1000; // 30 dk
+setInterval(() => {
+  const simdi = Date.now();
+  for (const tel of Object.keys(sessions)) {
+    if (simdi - (sessions[tel].sonAktif || 0) > OTURUM_OMUR_MS) delete sessions[tel];
+  }
+}, 10 * 60 * 1000).unref();
 
 // ---------------------------------------------------------------------------
 // Ana yönlendirici
@@ -350,19 +360,41 @@ async function adimOnay(telefon, metin, s) {
     const kisiler    = s.veri.kisiler;
     const kisiSayisi = s.veri.kisiSayisi || 1;
 
-    const kayit = await db.add({
-      ad:        s.veri.ad,
-      telefon:   s.veri.telefon,
-      berberId:  s.veri.berberId,
-      berber:    s.veri.berber,
-      hizmetId:  kisiler[0].hizmetId,
-      hizmet:    s.veri.hizmet,
-      tarih:     s.veri.tarih,
-      saat:      s.veri.saat,
-      fiyat:     s.veri.fiyat,
-      kisiSayisi: kisiSayisi > 1 ? kisiSayisi : undefined,
-      kisiler:    kisiSayisi > 1 ? kisiler    : undefined,
-    });
+    // Onay anında slotları yeniden kontrol et (çift rezervasyon koruması)
+    const dolu = await db.getBusySlots(s.veri.berberId, s.veri.tarih);
+    const baslangicIdx = SAATLER.indexOf(s.veri.saat);
+    let cakisma = baslangicIdx === -1;
+    for (let i = 0; i < kisiSayisi && !cakisma; i++) {
+      const slot = SAATLER[baslangicIdx + i];
+      if (!slot || dolu.includes(slot)) cakisma = true;
+    }
+    if (cakisma) {
+      await sendText(telefon, "😔 Maalesef bu saat az önce doldu. Lütfen başka bir saat seçin.");
+      return adimTarih(telefon, `tarih_${s.veri.tarih}`, s);
+    }
+
+    let kayit;
+    try {
+      kayit = await db.add({
+        ad:        s.veri.ad,
+        telefon:   s.veri.telefon,
+        berberId:  s.veri.berberId,
+        berber:    s.veri.berber,
+        hizmetId:  kisiler[0].hizmetId,
+        hizmet:    s.veri.hizmet,
+        tarih:     s.veri.tarih,
+        saat:      s.veri.saat,
+        fiyat:     s.veri.fiyat,
+        kisiSayisi: kisiSayisi > 1 ? kisiSayisi : undefined,
+        kisiler:    kisiSayisi > 1 ? kisiler    : undefined,
+      });
+    } catch (e) {
+      if (e.code === "SLOT_DOLU") {
+        await sendText(telefon, "😔 Maalesef bu saat az önce doldu. Lütfen başka bir saat seçin.");
+        return adimTarih(telefon, `tarih_${s.veri.tarih}`, s);
+      }
+      throw e;
+    }
 
     sheets.syncRandevu(kayit).catch(() => {});
 
