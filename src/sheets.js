@@ -86,6 +86,7 @@ const DURUM_RENK = {
   bekliyor: hexToRgb("fef9c3"),
   "onaylı": hexToRgb("d1fae5"),
   iptal: hexToRgb("fee2e2"),
+  gelmedi: hexToRgb("ffedd5"),
 };
 const BEYAZ      = hexToRgb("ffffff");
 const KAPALI_RENK = hexToRgb("d1d5db"); // gri — berber kapalı saat
@@ -116,6 +117,7 @@ function hucreEtiket(randevu) {
     const kim = randevu.iptalEden === "musteri" ? "müşteri" : "berber";
     return `${randevu.ad} — İPTAL (${kim})`;
   }
+  if (randevu.durum === "gelmedi") return `${randevu.ad} — GELMEDİ`;
   return randevu.ad;
 }
 

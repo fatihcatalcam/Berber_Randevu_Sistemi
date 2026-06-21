@@ -197,7 +197,7 @@ app.post("/api/randevular/:id/durum", requireAuth, ah(async (req, res) => {
   const { id } = req.params;
   const { durum, iptalEden } = req.body;
 
-  if (!["onaylı", "iptal"].includes(durum))
+  if (!["onaylı", "iptal", "gelmedi"].includes(durum))
     return res.status(400).json({ hata: "Geçersiz durum." });
 
   const kayit = await db.updateStatus(
@@ -308,6 +308,19 @@ app.post("/api/kapali-saat", requireAuth, ah(async (req, res) => {
     return res.status(400).json({ hata: "Eksik parametre." });
   await db.setKapaliSaat(berberId, tarih, saat, kapali !== false);
   sheets.syncKapaliSaat(berberId, tarih, saat, kapali !== false).catch(() => {});
+  res.json({ ok: true });
+}));
+
+// Tüm günü kapat/aç (berber izinli/hasta vb.)
+app.get("/api/kapali-gunler", requireAuth, ah(async (req, res) => {
+  res.json(await db.getKapaliGunler());
+}));
+
+app.post("/api/kapali-gun", requireAuth, ah(async (req, res) => {
+  const { berberId, tarih, kapali } = req.body;
+  if (!berberId || !tarih)
+    return res.status(400).json({ hata: "Eksik parametre." });
+  await db.setKapaliGun(berberId, tarih, kapali !== false);
   res.json({ ok: true });
 }));
 

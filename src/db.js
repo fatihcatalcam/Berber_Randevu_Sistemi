@@ -1,4 +1,5 @@
 const { Pool } = require("pg");
+const { SAATLER } = require("./config");
 
 // Saat string'ine dakika ekler: "10:00" + 30 → "10:30"
 function slotEkle(saat, dk) {
@@ -46,6 +47,13 @@ async function init() {
       tarih     TEXT NOT NULL,
       saat      TEXT NOT NULL,
       PRIMARY KEY (berber_id, tarih, saat)
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS kapali_gunler (
+      berber_id TEXT NOT NULL,
+      tarih     TEXT NOT NULL,
+      PRIMARY KEY (berber_id, tarih)
     )
   `);
   // Mevcut tabloya aciklama sütunu ekle (yoksa)
@@ -130,7 +138,7 @@ async function add(randevu) {
 }
 
 async function getBusySlots(berberId, tarih) {
-  const [r1, r2] = await Promise.all([
+  const [r1, r2, r3] = await Promise.all([
     pool.query(
       "SELECT saat, kisi_sayisi FROM randevular WHERE berber_id=$1 AND tarih=$2 AND durum!='iptal'",
       [berberId, tarih]
@@ -139,7 +147,13 @@ async function getBusySlots(berberId, tarih) {
       "SELECT saat FROM kapali_saatler WHERE berber_id=$1 AND tarih=$2",
       [berberId, tarih]
     ),
+    pool.query(
+      "SELECT 1 FROM kapali_gunler WHERE berber_id=$1 AND tarih=$2",
+      [berberId, tarih]
+    ),
   ]);
+  // Gün tamamen kapalıysa tüm slotlar dolu sayılır
+  if (r3.rows.length) return [...SAATLER];
   const dolu = new Set(r2.rows.map((r) => r.saat));
   for (const row of r1.rows) {
     const n = row.kisi_sayisi || 1;
@@ -196,14 +210,45 @@ async function getTodayAppointments(tarih) {
 // Kapalı saatler
 // ---------------------------------------------------------------------------
 async function getKapaliSaatler() {
-  const res  = await pool.query("SELECT berber_id, tarih, saat FROM kapali_saatler");
+  const [res, gun] = await Promise.all([
+    pool.query("SELECT berber_id, tarih, saat FROM kapali_saatler"),
+    pool.query("SELECT berber_id, tarih FROM kapali_gunler"),
+  ]);
+  const data = {};
+  const ekle = (berberId, tarih, saat) => {
+    if (!data[berberId])         data[berberId] = {};
+    if (!data[berberId][tarih])  data[berberId][tarih] = [];
+    if (!data[berberId][tarih].includes(saat)) data[berberId][tarih].push(saat);
+  };
+  for (const row of res.rows) ekle(row.berber_id, row.tarih, row.saat);
+  // Kapalı günleri tüm saatlere genişlet (panelde her hücre kilitli görünür)
+  for (const row of gun.rows) for (const s of SAATLER) ekle(row.berber_id, row.tarih, s);
+  return data;
+}
+
+// Kapalı günler — { berberId: [tarih, ...] }
+async function getKapaliGunler() {
+  const res  = await pool.query("SELECT berber_id, tarih FROM kapali_gunler");
   const data = {};
   for (const row of res.rows) {
-    if (!data[row.berber_id])              data[row.berber_id] = {};
-    if (!data[row.berber_id][row.tarih])   data[row.berber_id][row.tarih] = [];
-    data[row.berber_id][row.tarih].push(row.saat);
+    if (!data[row.berber_id]) data[row.berber_id] = [];
+    data[row.berber_id].push(row.tarih);
   }
   return data;
+}
+
+async function setKapaliGun(berberId, tarih, kapali) {
+  if (kapali) {
+    await pool.query(
+      "INSERT INTO kapali_gunler (berber_id, tarih) VALUES ($1,$2) ON CONFLICT DO NOTHING",
+      [berberId, tarih]
+    );
+  } else {
+    await pool.query(
+      "DELETE FROM kapali_gunler WHERE berber_id=$1 AND tarih=$2",
+      [berberId, tarih]
+    );
+  }
 }
 
 async function getKapaliListByBerber(berberId, tarih) {
@@ -242,4 +287,6 @@ module.exports = {
   getKapaliSaatler,
   getKapaliListByBerber,
   setKapaliSaat,
+  getKapaliGunler,
+  setKapaliGun,
 };

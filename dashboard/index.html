@@ -196,6 +196,7 @@
   .badge.bekliyor { background: #fef9c3; color: #713f12; }
   .badge.onaylı   { background: #d1fae5; color: #065f46; }
   .badge.iptal    { background: #fee2e2; color: #991b1b; }
+  .badge.gelmedi  { background: #ffedd5; color: #9a3412; }
   .islem-btn {
     border: none; background: none; cursor: pointer; font-size: 18px;
     padding: 4px 6px; border-radius: 6px;
@@ -346,6 +347,19 @@
         <tbody id="ciroGovde"></tbody>
       </table>
     </div>
+
+    <!-- Ciro grafiği (haftalık / aylık) -->
+    <div class="kart" style="margin-top:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <div class="ciro-baslik" style="margin:0;">📈 Ciro Grafiği</div>
+        <div style="display:flex;gap:6px;">
+          <button id="grafikHaftaBtn" class="durum-btn aktif" onclick="grafikModuDegistir('hafta')">Son 7 Gün</button>
+          <button id="grafikAyBtn" class="durum-btn" onclick="grafikModuDegistir('ay')">Son 6 Ay</button>
+        </div>
+      </div>
+      <div id="ciroGrafik" style="display:flex;align-items:flex-end;gap:6px;height:180px;padding-top:18px;overflow-x:auto;"></div>
+      <div id="ciroGrafikToplam" style="text-align:right;font-size:13px;color:var(--soluk);margin-top:8px;"></div>
+    </div>
   </div>
 
   <!-- Takvim -->
@@ -385,6 +399,7 @@
       <button class="durum-btn" data-durum="bekliyor">Bek.</button>
       <button class="durum-btn" data-durum="onaylı">Onaylı</button>
       <button class="durum-btn" data-durum="iptal">İptal</button>
+      <button class="durum-btn" data-durum="gelmedi">Gelmedi</button>
     </div>
     <span id="berberFiltreWrap">
       <select id="berberFiltre"><option value="hepsi">Tüm Berberler</option></select>
@@ -433,11 +448,13 @@
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
       <button id="modalOnayla" onclick="modalDurumDegistir('onaylı')" class="modal-btn modal-btn-yesil" style="flex:1;">✅ Onayla</button>
       <button id="modalIptal"  onclick="modalDurumDegistir('iptal')"  class="modal-btn modal-btn-kirmizi" style="flex:1;">❌ İptal Et</button>
+      <button id="modalGelmedi" onclick="modalDurumDegistir('gelmedi')" class="modal-btn modal-btn-gri" style="flex:1;background:#ffedd5;color:#9a3412;">🚫 Gelmedi</button>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
       <button onclick="modalFiyatAc()" class="modal-btn modal-btn-gri" style="flex:1;">✏️ Ücret</button>
       <button onclick="modalTasiAc()" class="modal-btn modal-btn-gri" style="flex:1;">📅 Taşı</button>
       <button onclick="modalNotAc()" class="modal-btn modal-btn-gri" style="flex:1;">📝 Not</button>
+      <button onclick="modalGecmisAc()" class="modal-btn modal-btn-gri" style="flex:1;">👤 Geçmiş</button>
     </div>
 
     <!-- Ücret düzenleme -->
@@ -468,6 +485,12 @@
       <textarea id="notInput" rows="3" placeholder="Örn: Saçı boyalı, kısa kes..."
         style="width:100%;padding:10px;border:1px solid var(--cizgi);border-radius:8px;font-size:14px;outline:none;resize:none;font-family:inherit;"></textarea>
       <button onclick="notKaydet()" class="modal-btn modal-btn-yesil" style="width:100%;margin-top:8px;">Kaydet</button>
+    </div>
+
+    <!-- Müşteri geçmişi -->
+    <div id="gecmisBolum" style="display:none;border-top:1px solid var(--cizgi);padding-top:12px;margin-top:8px;">
+      <div id="gecmisOzet" style="font-size:13px;margin-bottom:8px;"></div>
+      <div id="gecmisListe" style="max-height:220px;overflow-y:auto;font-size:13px;"></div>
     </div>
   </div>
 </div>
@@ -517,6 +540,8 @@
 <div id="contextMenu">
   <div id="ctxKapat" onclick="saatToggle(true)">🔒 Bu Saati Kapat</div>
   <div id="ctxAc"    onclick="saatToggle(false)">🔓 Saati Aç</div>
+  <div id="ctxGunKapat" onclick="gunToggle(true)" style="border-top:1px solid var(--cizgi);color:#9a3412;">🚫 Tüm Günü Kapat</div>
+  <div id="ctxGunAc"    onclick="gunToggle(false)" style="border-top:1px solid var(--cizgi);color:#065f46;">✅ Günü Aç</div>
 </div>
 
 <!-- ========== MOBILE BOTTOM SHEET ========== -->
@@ -526,6 +551,8 @@
     <div class="sheet-handle"></div>
     <button id="sheetKapatBtn" class="sheet-btn sheet-btn-kirmizi" onclick="saatToggle(true);mobileSheetKapat()">🔒 Bu Saati Kapat</button>
     <button id="sheetAcBtn"    class="sheet-btn sheet-btn-yesil"   onclick="saatToggle(false);mobileSheetKapat()">🔓 Saati Aç</button>
+    <button id="sheetGunKapatBtn" class="sheet-btn sheet-btn-kirmizi" onclick="gunToggle(true);mobileSheetKapat()">🚫 Tüm Günü Kapat</button>
+    <button id="sheetGunAcBtn"    class="sheet-btn sheet-btn-yesil"   onclick="gunToggle(false);mobileSheetKapat()">✅ Günü Aç</button>
     <button class="sheet-btn sheet-btn-gri" onclick="mobileSheetKapat()">Vazgeç</button>
   </div>
 </div>
@@ -534,7 +561,7 @@
 // ============================================================
 // State
 // ============================================================
-let randevular = [], kapaliSaatler = {};
+let randevular = [], kapaliSaatler = {}, kapaliGunler = {};
 let BERBERLER = [], SAATLER = [], HIZMETLER = [];
 let auth = null;
 
@@ -546,6 +573,7 @@ function slotEkle(saat, dk) {
 let seciliTarih = todayStr();
 let takvimAy = new Date();
 let filtreDurum = "hepsi", filtreBerber = "hepsi", arama = "";
+let grafikModu = "hafta";
 let siralama = { kol: "tarih", yon: "desc" };
 let oncekiDurumlar = {}, flashIdler = new Set();
 let modalRandevuId = null;
@@ -676,12 +704,14 @@ async function configCek() {
 
 async function veriCek() {
   try {
-    const [rRes, kRes] = await Promise.all([
+    const [rRes, kRes, gRes] = await Promise.all([
       authFetch("/api/randevular"),
       authFetch("/api/kapali-saatler"),
+      authFetch("/api/kapali-gunler"),
     ]);
     const yeni = await rRes.json();
     kapaliSaatler = await kRes.json();
+    kapaliGunler = await gRes.json();
     tespitFlash(yeni);
     randevular = yeni;
     berberSecenekleriDoldur();
@@ -711,6 +741,20 @@ async function saatToggle(kapali) {
     await authFetch("/api/kapali-saat", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ berberId: ctxBerberId, tarih: ctxTarih, saat: ctxSaat, kapali }),
+    });
+    await veriCek();
+  } catch { alert("Sunucu hatası."); }
+}
+
+async function gunToggle(kapali) {
+  document.getElementById("contextMenu").style.display = "none";
+  const berberAd = (BERBERLER.find(b => b.id === ctxBerberId) || {}).ad || "berber";
+  const gunStr = new Date(ctxTarih + "T00:00:00").toLocaleDateString("tr-TR", { day:"numeric", month:"long" });
+  if (kapali && !confirm(`${berberAd} için ${gunStr} günü tamamen kapatılsın mı?\n\nMevcut randevular silinmez, sadece yeni randevu alınamaz.`)) return;
+  try {
+    await authFetch("/api/kapali-gun", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ berberId: ctxBerberId, tarih: ctxTarih, kapali }),
     });
     await veriCek();
   } catch { alert("Sunucu hatası."); }
@@ -811,8 +855,9 @@ function tarihFormat(t) {
 }
 
 function durumYazi(d) {
-  if (d === "onaylı") return "✅ Onaylı";
-  if (d === "iptal")  return "❌ İptal";
+  if (d === "onaylı")  return "✅ Onaylı";
+  if (d === "iptal")   return "❌ İptal";
+  if (d === "gelmedi") return "🚫 Gelmedi";
   return "⏳ Bekliyor";
 }
 
@@ -868,6 +913,7 @@ const DURUM_RENK = {
   bekliyor: { bg:"#fef9c3", fg:"#713f12" },
   "onaylı": { bg:"#d1fae5", fg:"#065f46" },
   iptal:    { bg:"#fee2e2", fg:"#991b1b" },
+  gelmedi:  { bg:"#ffedd5", fg:"#9a3412" },
 };
 
 function cizelgeRender() {
@@ -968,13 +1014,21 @@ function cizelgeRender() {
 // ============================================================
 // Context menu (desktop)
 // ============================================================
+function gunKapaliMi(berberId, tarih) {
+  return !!(kapaliGunler[berberId] && kapaliGunler[berberId].includes(tarih));
+}
+
 function contextMenuGoster(x, y, kapali) {
   const menu = document.getElementById("contextMenu");
   menu.style.left = Math.min(x + 2, window.innerWidth - 180) + "px";
-  menu.style.top  = Math.min(y + 2, window.innerHeight - 80) + "px";
+  menu.style.top  = Math.min(y + 2, window.innerHeight - 120) + "px";
   menu.style.display = "block";
-  document.getElementById("ctxKapat").style.display = kapali ? "none" : "block";
-  document.getElementById("ctxAc").style.display    = kapali ? "block" : "none";
+  const gunKapali = gunKapaliMi(ctxBerberId, ctxTarih);
+  // Gün kapalıyken tek tek saat aç/kapat anlamsız — sadece "Günü Aç" göster
+  document.getElementById("ctxKapat").style.display    = (kapali || gunKapali) ? "none" : "block";
+  document.getElementById("ctxAc").style.display       = (!kapali || gunKapali) ? "none" : "block";
+  document.getElementById("ctxGunKapat").style.display = gunKapali ? "none" : "block";
+  document.getElementById("ctxGunAc").style.display    = gunKapali ? "block" : "none";
 }
 
 document.addEventListener("click", (e) => {
@@ -985,9 +1039,12 @@ document.addEventListener("click", (e) => {
 // Mobile bottom sheet
 // ============================================================
 function mobileSheetGoster(kapali) {
-  document.getElementById("sheetKapatBtn").style.display = kapali ? "none" : "block";
-  document.getElementById("sheetAcBtn").style.display    = kapali ? "block" : "none";
-  document.getElementById("mobileSheet").style.display   = "block";
+  const gunKapali = gunKapaliMi(ctxBerberId, ctxTarih);
+  document.getElementById("sheetKapatBtn").style.display    = (kapali || gunKapali) ? "none" : "block";
+  document.getElementById("sheetAcBtn").style.display       = (!kapali || gunKapali) ? "none" : "block";
+  document.getElementById("sheetGunKapatBtn").style.display = gunKapali ? "none" : "block";
+  document.getElementById("sheetGunAcBtn").style.display    = gunKapali ? "block" : "none";
+  document.getElementById("mobileSheet").style.display      = "block";
 }
 
 function mobileSheetKapat() {
@@ -1011,12 +1068,13 @@ function hucreMenu(id) {
   document.getElementById("modalBaslik").textContent = r.ad;
   document.getElementById("modalBilgi").innerHTML =
     `💈 ${kacis(r.berber)}<br>✂️ ${kacis(r.hizmet)}<br>📅 ${tarih} ⏰ ${r.saat}<br>💰 ${fiyatHtml}<br>📌 ${durumYazi(r.durum)}${notSatiri}`;
-  document.getElementById("modalOnayla").disabled = r.durum === "onaylı";
-  document.getElementById("modalIptal").disabled  = r.durum === "iptal";
+  document.getElementById("modalOnayla").disabled  = r.durum === "onaylı";
+  document.getElementById("modalIptal").disabled   = r.durum === "iptal";
+  document.getElementById("modalGelmedi").disabled = r.durum === "gelmedi";
   document.getElementById("standartFiyat").textContent = r.fiyat;
   document.getElementById("fiyatInput").value = r.gercekFiyat !== undefined ? r.gercekFiyat : r.fiyat;
   document.getElementById("notInput").value = r.aciklama || "";
-  ["fiyatBolum", "tasiBolum", "notBolum"].forEach(id => {
+  ["fiyatBolum", "tasiBolum", "notBolum", "gecmisBolum"].forEach(id => {
     document.getElementById(id).style.display = "none";
   });
   document.getElementById("randevuModal").style.display = "flex";
@@ -1135,7 +1193,7 @@ async function modalDurumDegistir(durum) {
 }
 
 function panelAcKapat(id) {
-  const paneller = ["fiyatBolum", "tasiBolum", "notBolum"];
+  const paneller = ["fiyatBolum", "tasiBolum", "notBolum", "gecmisBolum"];
   paneller.forEach(p => {
     document.getElementById(p).style.display = (p === id && document.getElementById(p).style.display === "none") ? "block" : "none";
   });
@@ -1145,6 +1203,37 @@ function modalNotAc()   { panelAcKapat("notBolum"); }
 function modalTasiAc()  {
   panelAcKapat("tasiBolum");
   if (document.getElementById("tasiBolum").style.display !== "none") tasiTarihDoldur();
+}
+function modalGecmisAc() {
+  panelAcKapat("gecmisBolum");
+  if (document.getElementById("gecmisBolum").style.display !== "none") musteriGecmisiDoldur();
+}
+
+function musteriGecmisiDoldur() {
+  const r = randevular.find(x => x.id === modalRandevuId);
+  if (!r) return;
+  // Aynı müşteri: telefon varsa telefona, yoksa ada göre eşleştir
+  const ayniMusteri = randevular.filter(x =>
+    r.telefon ? x.telefon === r.telefon : (x.ad || "").toLowerCase() === (r.ad || "").toLowerCase()
+  );
+  const gelen   = ayniMusteri.filter(x => x.durum === "onaylı");
+  const gelmedi = ayniMusteri.filter(x => x.durum === "gelmedi");
+  const iptal   = ayniMusteri.filter(x => x.durum === "iptal");
+  const toplamCiro = gelen.reduce((s, x) => s + (x.gercekFiyat ?? x.fiyat ?? 0), 0);
+
+  document.getElementById("gecmisOzet").innerHTML =
+    `<strong>${kacis(r.ad)}</strong> — toplam <strong>${ayniMusteri.length}</strong> kayıt<br>` +
+    `✅ ${gelen.length} geldi · 🚫 ${gelmedi.length} gelmedi · ❌ ${iptal.length} iptal<br>` +
+    `💰 Toplam bırakılan: <strong style="color:#059669;">${toplamCiro.toLocaleString("tr-TR")}₺</strong>`;
+
+  const sirali = ayniMusteri.slice().sort((a, b) => (b.tarih + b.saat).localeCompare(a.tarih + a.saat));
+  document.getElementById("gecmisListe").innerHTML = sirali.map(x => {
+    const t = new Date(x.tarih + "T00:00:00").toLocaleDateString("tr-TR", { day:"numeric", month:"short", year:"2-digit" });
+    const fiyat = x.gercekFiyat ?? x.fiyat ?? 0;
+    return `<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #f1f1f1;">` +
+      `<span>${t} ${x.saat} · ${kacis(x.hizmet)}</span>` +
+      `<span style="white-space:nowrap;">${durumYazi(x.durum)} ${fiyat}₺</span></div>`;
+  }).join("") || `<div style="color:var(--soluk);">Kayıt yok.</div>`;
 }
 
 function tasiTarihDoldur() {
@@ -1276,6 +1365,61 @@ function ciroRender() {
     <td style="padding:9px 12px;font-size:14px;text-align:right;">${toplamSayi}</td>
     <td style="padding:9px 12px;font-size:14px;text-align:right;color:#075E54;">${toplamCiro.toLocaleString("tr-TR")}₺</td>`;
   govde.appendChild(tot);
+
+  ciroGrafikRender();
+}
+
+// ============================================================
+// Ciro grafiği (haftalık / aylık bar chart)
+// ============================================================
+function grafikModuDegistir(mod) {
+  grafikModu = mod;
+  document.getElementById("grafikHaftaBtn").classList.toggle("aktif", mod === "hafta");
+  document.getElementById("grafikAyBtn").classList.toggle("aktif", mod === "ay");
+  ciroGrafikRender();
+}
+
+function ciroGrafikRender() {
+  const kutu = document.getElementById("ciroGrafik");
+  if (!kutu) return;
+  const onayli = randevular.filter((r) => r.durum === "onaylı");
+
+  // Kovalar: hafta = son 7 gün, ay = son 6 ay
+  const kovalar = [];
+  const bugun = new Date();
+  if (grafikModu === "hafta") {
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(bugun); d.setDate(bugun.getDate() - i);
+      const anahtar = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+      kovalar.push({ anahtar, etiket: d.toLocaleDateString("tr-TR", { weekday:"short", day:"numeric" }), eslesir: (r) => r.tarih === anahtar });
+    }
+  } else {
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(bugun.getFullYear(), bugun.getMonth() - i, 1);
+      const onek = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+      kovalar.push({ anahtar: onek, etiket: d.toLocaleDateString("tr-TR", { month:"short", year:"2-digit" }), eslesir: (r) => (r.tarih || "").startsWith(onek) });
+    }
+  }
+
+  const degerler = kovalar.map((k) =>
+    onayli.filter(k.eslesir).reduce((s, r) => s + (r.gercekFiyat ?? r.fiyat ?? 0), 0)
+  );
+  const maks = Math.max(1, ...degerler);
+  const toplam = degerler.reduce((s, v) => s + v, 0);
+
+  kutu.innerHTML = kovalar.map((k, i) => {
+    const v = degerler[i];
+    const yuzde = Math.round((v / maks) * 100);
+    const etiketDeger = v >= 1000 ? (v/1000).toFixed(1).replace(".0","") + "k" : v;
+    return `<div style="flex:1;min-width:38px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:4px;">
+      <div style="font-size:10px;font-weight:700;color:#065f46;white-space:nowrap;">${v ? etiketDeger + "₺" : ""}</div>
+      <div title="${v.toLocaleString("tr-TR")}₺" style="width:100%;background:linear-gradient(#34d399,#059669);border-radius:5px 5px 0 0;height:${Math.max(yuzde,2)}%;min-height:2px;transition:height .3s;"></div>
+      <div style="font-size:10px;color:var(--soluk);white-space:nowrap;">${k.etiket}</div>
+    </div>`;
+  }).join("");
+
+  document.getElementById("ciroGrafikToplam").textContent =
+    (grafikModu === "hafta" ? "Son 7 gün" : "Son 6 ay") + " toplam: " + toplam.toLocaleString("tr-TR") + "₺";
 }
 
 // ============================================================
