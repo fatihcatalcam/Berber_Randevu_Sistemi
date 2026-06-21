@@ -82,6 +82,34 @@ app.get("/api/randevular", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// 5b) Elle (manuel) randevu ekle — direkt onaylı olarak kaydedilir
+// ---------------------------------------------------------------------------
+app.post("/api/randevular", async (req, res) => {
+  const { ad, telefon, berberId, hizmetId, tarih, saat, fiyat } = req.body;
+  if (!ad || !berberId || !hizmetId || !tarih || !saat)
+    return res.status(400).json({ hata: "Eksik parametre." });
+
+  const berber = BERBERLER.find((b) => b.id === berberId);
+  const hizmet = HIZMETLER.find((h) => h.id === hizmetId);
+  if (!berber || !hizmet) return res.status(400).json({ hata: "Geçersiz berber veya hizmet." });
+
+  const dolu = await db.getBusySlots(berberId, tarih);
+  if (dolu.includes(saat)) return res.status(409).json({ hata: "Seçilen saat dolu." });
+
+  const kayit = await db.add({
+    ad, telefon: telefon || "",
+    berberId, berber: berber.ad,
+    hizmetId, hizmet: hizmet.ad,
+    tarih, saat,
+    fiyat: typeof fiyat === "number" ? fiyat : berber.fiyat[hizmetId],
+  });
+
+  const onaylandi = await db.updateStatus(kayit.id, "onaylı");
+  sheets.syncRandevu(onaylandi).catch(() => {});
+  res.status(201).json(onaylandi);
+});
+
+// ---------------------------------------------------------------------------
 // 6) Randevu durumu güncelle + müşteriye bildir
 // ---------------------------------------------------------------------------
 app.post("/api/randevular/:id/durum", async (req, res) => {

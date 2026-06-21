@@ -363,15 +363,16 @@
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
       <h3 id="cizelgeBaslik" style="font-size:14px;font-weight:700;flex:1;min-width:0;"></h3>
       <small style="color:var(--soluk);font-size:11px;">
-        <span id="cizelgeIpucu">Dolu: tıkla · Boş: sağ tıkla</span>
-        <span id="cizelgeIpucuMobil" style="display:none;">Dolu: tıkla · Boş: uzun bas</span>
+        <span id="cizelgeIpucu">Dolu: tıkla · Boş: sağ tık veya çift tık</span>
+        <span id="cizelgeIpucuMobil" style="display:none;">Dolu: tıkla · Boş: çift dokunuş</span>
       </small>
     </div>
     <!-- Gün navigasyonu -->
-    <div style="display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:10px;">
+    <div style="display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:10px;flex-wrap:wrap;">
       <button id="gunOnceki" class="durum-btn" style="min-width:44px;min-height:44px;padding:0;font-size:18px;">‹</button>
       <button id="bugunBtn" class="durum-btn" style="padding:8px 16px;">Bugün</button>
       <button id="gunSonraki" class="durum-btn" style="min-width:44px;min-height:44px;padding:0;font-size:18px;">›</button>
+      <button id="elleRandevuBtn" class="durum-btn" style="padding:8px 14px;font-size:13px;background:#1d4ed8;color:#fff;border-color:#1d4ed8;" onclick="elleRandevuGoster()">+ Randevu Ekle</button>
     </div>
     <div class="cizelge-kont"><div id="cizelge"></div></div>
   </div>
@@ -471,6 +472,47 @@
   </div>
 </div>
 
+<!-- ========== ELLE RANDEVU MODAL ========== -->
+<div id="elleRandevuModal" class="modal-overlay" style="display:none;">
+  <div class="modal-kart">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3 style="font-size:16px;font-weight:700;">Elle Randevu Ekle</h3>
+      <button onclick="elleRandevuKapat()" style="border:none;background:none;font-size:28px;cursor:pointer;color:var(--soluk);min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;">×</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div>
+        <label style="font-size:12px;font-weight:700;color:var(--soluk);display:block;margin-bottom:4px;">Berber</label>
+        <select id="elleBerber" onchange="elleSaatDoldur();elleFiyatGuncelle()" style="width:100%;padding:10px;border:1px solid var(--cizgi);border-radius:8px;font-size:14px;outline:none;min-height:44px;"></select>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;color:var(--soluk);display:block;margin-bottom:4px;">Ad Soyad *</label>
+        <input id="elleAd" type="text" placeholder="Müşteri adı" style="width:100%;padding:10px;border:1px solid var(--cizgi);border-radius:8px;font-size:14px;outline:none;min-height:44px;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;color:var(--soluk);display:block;margin-bottom:4px;">Telefon (opsiyonel)</label>
+        <input id="elleTelefon" type="tel" placeholder="905XXXXXXXXX" style="width:100%;padding:10px;border:1px solid var(--cizgi);border-radius:8px;font-size:14px;outline:none;min-height:44px;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;color:var(--soluk);display:block;margin-bottom:4px;">Hizmet</label>
+        <select id="elleHizmet" onchange="elleFiyatGuncelle()" style="width:100%;padding:10px;border:1px solid var(--cizgi);border-radius:8px;font-size:14px;outline:none;min-height:44px;"></select>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;color:var(--soluk);display:block;margin-bottom:4px;">Tarih</label>
+        <select id="elleTarih" onchange="elleSaatDoldur()" style="width:100%;padding:10px;border:1px solid var(--cizgi);border-radius:8px;font-size:14px;outline:none;min-height:44px;"></select>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;color:var(--soluk);display:block;margin-bottom:4px;">Saat</label>
+        <select id="elleSaat" style="width:100%;padding:10px;border:1px solid var(--cizgi);border-radius:8px;font-size:14px;outline:none;min-height:44px;"></select>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:700;color:var(--soluk);display:block;margin-bottom:4px;">Fiyat (₺)</label>
+        <input id="elleFiyat" type="number" inputmode="numeric" min="0" placeholder="₺" style="width:100%;padding:10px;border:1px solid var(--cizgi);border-radius:8px;font-size:14px;outline:none;min-height:44px;box-sizing:border-box;">
+      </div>
+      <button onclick="elleRandevuKaydet()" class="modal-btn modal-btn-yesil" style="margin-top:4px;">Kaydet (Onaylı olarak ekle)</button>
+    </div>
+  </div>
+</div>
+
 <!-- ========== CONTEXT MENU (desktop) ========== -->
 <div id="contextMenu">
   <div id="ctxKapat" onclick="saatToggle(true)">🔒 Bu Saati Kapat</div>
@@ -493,7 +535,7 @@
 // State
 // ============================================================
 let randevular = [], kapaliSaatler = {};
-let BERBERLER = [], SAATLER = [];
+let BERBERLER = [], SAATLER = [], HIZMETLER = [];
 let auth = null;
 
 function slotEkle(saat, dk) {
@@ -620,7 +662,7 @@ async function pinGiris() {
 async function configCek() {
   try {
     const c = await (await fetch("/api/config")).json();
-    BERBERLER = c.berberler; SAATLER = c.saatler;
+    BERBERLER = c.berberler; SAATLER = c.saatler; HIZMETLER = c.hizmetler;
   } catch {}
 }
 
@@ -886,23 +928,32 @@ function cizelgeRender() {
   });
 
   document.querySelectorAll(".cizelge-bos, .cizelge-kapali").forEach((td) => {
-    // Desktop: sağ tıkla
+    const kapaliMi = td.classList.contains("cizelge-kapali");
+
+    // Desktop: sağ tık
     td.addEventListener("contextmenu", (e) => {
       e.preventDefault();
-      const kapaliMi = td.classList.contains("cizelge-kapali");
       ctxBerberId = td.dataset.berber; ctxSaat = td.dataset.saat; ctxTarih = seciliTarih;
       contextMenuGoster(e.clientX, e.clientY, kapaliMi);
     });
-    // Mobil: uzun bas → bottom sheet
-    let longTimer = null;
-    td.addEventListener("touchstart", (e) => {
-      longTimer = setTimeout(() => {
+
+    // Desktop: çift tık
+    td.addEventListener("dblclick", (e) => {
+      ctxBerberId = td.dataset.berber; ctxSaat = td.dataset.saat; ctxTarih = seciliTarih;
+      contextMenuGoster(e.clientX, e.clientY, kapaliMi);
+    });
+
+    // Mobil: çift dokunuş
+    let sonDokunma = 0;
+    td.addEventListener("touchend", (e) => {
+      const simdi = Date.now();
+      if (simdi - sonDokunma < 350) {
+        e.preventDefault();
         ctxBerberId = td.dataset.berber; ctxSaat = td.dataset.saat; ctxTarih = seciliTarih;
-        mobileSheetGoster(td.classList.contains("cizelge-kapali"));
-      }, 600);
-    }, { passive: true });
-    td.addEventListener("touchend",  () => clearTimeout(longTimer));
-    td.addEventListener("touchmove", () => clearTimeout(longTimer));
+        mobileSheetGoster(kapaliMi);
+      }
+      sonDokunma = simdi;
+    });
   });
 }
 
@@ -964,6 +1015,110 @@ function hucreMenu(id) {
 }
 
 function modalKapat() { document.getElementById("randevuModal").style.display = "none"; }
+
+// ============================================================
+// Elle randevu modal
+// ============================================================
+function elleRandevuGoster() {
+  // Berber listesi: berber girişiyse sadece kendi, admin ise hepsi
+  const elleBerber = document.getElementById("elleBerber");
+  elleBerber.innerHTML = "";
+  const gorulenler = auth.role === "admin" || auth.role === "berber" && auth.berberId
+    ? (auth.role === "admin" ? BERBERLER : BERBERLER.filter(b => b.id === auth.berberId))
+    : BERBERLER;
+  gorulenler.forEach(b => {
+    const o = document.createElement("option");
+    o.value = b.id; o.textContent = b.ad;
+    if (b.id === auth.berberId) o.selected = true;
+    elleBerber.appendChild(o);
+  });
+
+  // Hizmet listesi
+  const elleHizmet = document.getElementById("elleHizmet");
+  elleHizmet.innerHTML = HIZMETLER.map(h => `<option value="${h.id}">${h.ad}</option>`).join("");
+
+  // Tarih listesi — 14 gün, Pazar hariç
+  const elleTarih = document.getElementById("elleTarih");
+  elleTarih.innerHTML = "";
+  const bugun = new Date();
+  let eklenen = 0;
+  for (let i = 0; eklenen < 14; i++) {
+    const d = new Date(bugun); d.setDate(bugun.getDate() + i);
+    if (d.getDay() === 0) continue;
+    const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    const etiket = d.toLocaleDateString("tr-TR", { weekday:"short", day:"numeric", month:"short" });
+    const o = document.createElement("option");
+    o.value = val; o.textContent = etiket;
+    if (val === seciliTarih) o.selected = true;
+    elleTarih.appendChild(o);
+    eklenen++;
+  }
+
+  elleSaatDoldur();
+  elleFiyatGuncelle();
+  document.getElementById("elleAd").value = "";
+  document.getElementById("elleTelefon").value = "";
+  document.getElementById("elleRandevuModal").style.display = "flex";
+}
+
+function elleRandevuKapat() {
+  document.getElementById("elleRandevuModal").style.display = "none";
+}
+
+function elleSaatDoldur() {
+  const berberId = document.getElementById("elleBerber").value;
+  const tarih   = document.getElementById("elleTarih").value;
+  if (!berberId || !tarih) return;
+
+  const doluRandevular = randevular
+    .filter(x => x.tarih === tarih && x.berberId === berberId && x.durum !== "iptal")
+    .flatMap(x => {
+      const n = x.kisiSayisi > 1 ? x.kisiSayisi : 1;
+      return Array.from({ length: n }, (_, i) => i === 0 ? x.saat : slotEkle(x.saat, i * 30));
+    });
+  const kapalilar = kapaliSaatler[berberId]?.[tarih] || [];
+  const tumDolu = new Set([...doluRandevular, ...kapalilar]);
+  const boslar = SAATLER.filter(s => !tumDolu.has(s));
+
+  const elleSaat = document.getElementById("elleSaat");
+  elleSaat.innerHTML = boslar.length
+    ? boslar.map(s => `<option value="${s}">${s}</option>`).join("")
+    : `<option disabled>Boş saat yok</option>`;
+}
+
+function elleFiyatGuncelle() {
+  const berberId  = document.getElementById("elleBerber").value;
+  const hizmetId  = document.getElementById("elleHizmet").value;
+  const berber    = BERBERLER.find(b => b.id === berberId);
+  if (berber && berber.fiyat && berber.fiyat[hizmetId] !== undefined) {
+    document.getElementById("elleFiyat").value = berber.fiyat[hizmetId];
+  }
+}
+
+async function elleRandevuKaydet() {
+  const ad       = document.getElementById("elleAd").value.trim();
+  const telefon  = document.getElementById("elleTelefon").value.trim();
+  const berberId = document.getElementById("elleBerber").value;
+  const hizmetId = document.getElementById("elleHizmet").value;
+  const tarih    = document.getElementById("elleTarih").value;
+  const saat     = document.getElementById("elleSaat").value;
+  const fiyat    = parseInt(document.getElementById("elleFiyat").value, 10);
+
+  if (!ad) { alert("Ad soyad zorunlu."); return; }
+  if (!saat || saat === "") { alert("Boş saat yok, başka gün veya berber seçin."); return; }
+
+  try {
+    const res = await fetch("/api/randevular", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ad, telefon, berberId, hizmetId, tarih, saat, fiyat: isNaN(fiyat) ? undefined : fiyat }),
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.hata || "Hata oluştu."); return; }
+    elleRandevuKapat();
+    await veriCek();
+  } catch { alert("Sunucuya bağlanılamadı."); }
+}
 
 async function modalDurumDegistir(durum) {
   if (!modalRandevuId) return;
