@@ -33,18 +33,18 @@
              max(16px, env(safe-area-inset-bottom, 16px));
   }
   .login-kart {
-    background: #fff; border-radius: 20px; padding: 32px 24px;
+    background: #fff; border-radius: 20px; padding: 18px 20px;
     max-width: 480px; width: 100%; text-align: center;
     box-shadow: 0 20px 60px rgba(0,0,0,.3);
   }
   .login-kart h2 { font-size: 20px; font-weight: 800; margin-bottom: 4px; color: var(--metin); }
-  .login-kart .alt { font-size: 13px; color: var(--soluk); margin-bottom: 24px; }
-  #berberKartGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+  .login-kart .alt { font-size: 13px; color: var(--soluk); margin-bottom: 14px; }
+  #berberKartGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 10px; }
   .berber-kart-btn {
-    display: flex; flex-direction: column; align-items: center; gap: 6px;
-    padding: 16px 10px; border: 2px solid var(--cizgi); border-radius: 12px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 10px 8px; border: 2px solid var(--cizgi); border-radius: 12px;
     background: #f9fafb; cursor: pointer; font-size: 13px; font-weight: 700;
-    color: var(--metin); min-height: 80px; justify-content: center;
+    color: var(--metin); min-height: 58px; justify-content: center;
   }
   .berber-kart-btn:active { border-color: var(--yesil2); background: #ecfdf5; }
   #pinAlani { text-align: left; }
@@ -58,7 +58,7 @@
   #pinHata { color: #dc2626; font-size: 13px; margin-bottom: 8px; min-height: 18px; text-align: center; }
   .login-btn-row { display: flex; gap: 8px; }
   .login-btn-row button { min-height: 48px; font-size: 15px; }
-  .admin-divider { display: flex; align-items: center; gap: 10px; margin: 12px 0; color: var(--soluk); font-size: 12px; }
+  .admin-divider { display: flex; align-items: center; gap: 10px; margin: 8px 0; color: var(--soluk); font-size: 12px; }
   .admin-divider::before, .admin-divider::after { content: ""; flex: 1; border-top: 1px solid var(--cizgi); }
 
   /* --- Modal (mobilde alttan yukarı) --- */
@@ -282,7 +282,7 @@
 <!-- ========== LOGIN ========== -->
 <div id="loginEkrani" class="login-overlay">
   <div class="login-kart">
-    <img src="logo.jpg" alt="Resul Tabu Saç Atölyesi" style="width:240px;max-width:85%;margin:0 auto 14px;display:block;" />
+    <img src="logo.jpg" alt="Resul Tabu Saç Atölyesi" style="width:150px;max-width:55%;margin:0 auto 4px;display:block;" />
     <p class="alt">Devam etmek için giriş yapın</p>
 
     <div id="berberSecimAlani">
@@ -626,7 +626,7 @@ function berberKartlariniYukle() {
   BERBERLER.forEach((b) => {
     const btn = document.createElement("button");
     btn.className = "berber-kart-btn";
-    btn.innerHTML = `<span style="font-size:28px;">💈</span><span>${kacis(b.ad)}</span>`;
+    btn.innerHTML = `<span style="font-size:22px;">💈</span><span>${kacis(b.ad)}</span>`;
     btn.onclick = () => berberSec(b.id, b.ad);
     grid.appendChild(btn);
   });
