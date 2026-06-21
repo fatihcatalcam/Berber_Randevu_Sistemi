@@ -6,7 +6,7 @@ const path = require("path");
 const db = require("./db");
 const { handleMessage } = require("./bot");
 const { sendText } = require("./whatsapp");
-const { BERBERLER, HIZMETLER, SAATLER } = require("./config");
+const { BERBERLER, HIZMETLER, SAATLER, ADMIN_PIN } = require("./config");
 const sheets = require("./sheets");
 
 const app = express();
@@ -14,7 +14,6 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-const ADMIN_PIN = process.env.ADMIN_PIN || "admin123";
 
 // ---------------------------------------------------------------------------
 // 1) Webhook doğrulama
@@ -72,7 +71,9 @@ app.post("/api/auth", (req, res) => {
 // 4) Berber / hizmet / saat listesi (dashboard için)
 // ---------------------------------------------------------------------------
 app.get("/api/config", (req, res) => {
-  res.json({ berberler: BERBERLER, hizmetler: HIZMETLER, saatler: SAATLER });
+  // PIN alanını client'a gönderme
+  const berberler = BERBERLER.map(({ pin, ...rest }) => rest);
+  res.json({ berberler, hizmetler: HIZMETLER, saatler: SAATLER });
 });
 
 // ---------------------------------------------------------------------------

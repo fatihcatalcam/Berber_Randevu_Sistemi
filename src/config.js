@@ -1,37 +1,23 @@
 // ---------------------------------------------------------------------------
-// TEK DOĞRULUK KAYNAĞI — berber eklemek veya fiyat değiştirmek için burası
-// PIN = dashboard giriş şifresi (her berber kendi PINini değiştirebilir)
+// TEK DOĞRULUK KAYNAĞI
+// Berber eklemek: BERBERLER dizisine yeni nesne ekle.
+// PIN değiştirmek: ilgili berberin pin alanını güncelle.
+// ADMIN_PIN: Railway'de ADMIN_PIN env değişkeni olarak ayarla.
 // ---------------------------------------------------------------------------
 
+const ADMIN_PIN = process.env.ADMIN_PIN || "0000"; // Railway'de env var ile değiştir!
+
+const RESUL_FIYAT = { sac: 900, sakal: 300, kombin: 1200, cocuk: 900 };
+const EKIP_FIYAT  = { sac: 650, sakal: 250, kombin: 900,  cocuk: 650 };
+
 const BERBERLER = [
-  {
-    id: "resul",
-    ad: "Resul Tabu",
-    uzmanlik: "Saç & Sakal Tasarımı",
-    pin: "1234",
-    fiyat: { sac: 900, sakal: 300, kombin: 1200, cocuk: 900 },
-  },
-  {
-    id: "ahmet",
-    ad: "Ahmet Usta",
-    uzmanlik: "Klasik Tıraş & Saç",
-    pin: "1111",
-    fiyat: { sac: 650, sakal: 250, kombin: 900, cocuk: 650 },
-  },
-  {
-    id: "mehmet",
-    ad: "Mehmet Bey",
-    uzmanlik: "Modern Kesim & Sakal",
-    pin: "2222",
-    fiyat: { sac: 650, sakal: 250, kombin: 900, cocuk: 650 },
-  },
-  {
-    id: "kemal",
-    ad: "Kemal Usta",
-    uzmanlik: "Fade & Tasarım",
-    pin: "3333",
-    fiyat: { sac: 650, sakal: 250, kombin: 900, cocuk: 650 },
-  },
+  { id: "resul",     ad: "Resul Tabu",     uzmanlik: "Saç & Sakal Tasarımı", pin: "1111", fiyat: RESUL_FIYAT },
+  { id: "eren",      ad: "Eren Tokalak",   uzmanlik: "Saç & Sakal Tasarımı", pin: "2222", fiyat: EKIP_FIYAT  },
+  { id: "kaan",      ad: "Kaan Ekinci",    uzmanlik: "Saç & Sakal Tasarımı", pin: "3333", fiyat: EKIP_FIYAT  },
+  { id: "burak",     ad: "Burak Şahin",    uzmanlik: "Saç & Sakal Tasarımı", pin: "4444", fiyat: EKIP_FIYAT  },
+  { id: "emre",      ad: "Emre Akçam",     uzmanlik: "Saç & Sakal Tasarımı", pin: "5555", fiyat: EKIP_FIYAT  },
+  { id: "huseyin",   ad: "Hüseyin Dincer", uzmanlik: "Saç & Sakal Tasarımı", pin: "6666", fiyat: EKIP_FIYAT  },
+  { id: "mehmetali", ad: "Mehmet Ali",     uzmanlik: "Saç & Sakal Tasarımı", pin: "7777", fiyat: EKIP_FIYAT  },
 ];
 
 const HIZMETLER = [
@@ -57,17 +43,13 @@ function gelecekTarihler(kacGun = 7) {
   for (let i = 0; i < kacGun; i++) {
     const d = new Date(bugun);
     d.setDate(bugun.getDate() + i);
-    const etiket = d.toLocaleDateString("tr-TR", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-    });
+    const etiket = d.toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
     const yil = d.getFullYear();
-    const ay = String(d.getMonth() + 1).padStart(2, "0");
+    const ay  = String(d.getMonth() + 1).padStart(2, "0");
     const gun = String(d.getDate()).padStart(2, "0");
     sonuc.push({ etiket, deger: `${yil}-${ay}-${gun}` });
   }
   return sonuc;
 }
 
-module.exports = { BERBERLER, HIZMETLER, SAATLER, gelecekTarihler };
+module.exports = { BERBERLER, HIZMETLER, SAATLER, gelecekTarihler, ADMIN_PIN };
