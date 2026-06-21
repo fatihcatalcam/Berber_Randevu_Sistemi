@@ -95,6 +95,13 @@ function bugunStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// Saat string'ine dakika ekler
+function slotEkle(saat, dk) {
+  const [h, m] = saat.split(":").map(Number);
+  const t = h * 60 + m + dk;
+  return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
+}
+
 // Bir randevunun ızgaradaki konumu (0 tabanlı)
 function konum(randevu) {
   const satir = SAATLER.indexOf(randevu.saat); // 0..17
@@ -151,7 +158,8 @@ async function gunSekmesiGaranti(tarih) {
 
 // --- Genel API --------------------------------------------------------------
 
-// Tek bir randevuyu ilgili güne/hücreye yaz (değer + renk)
+// Tek bir randevuyu ilgili güne/hücreye yaz (değer + renk).
+// Çoklu kişi randevusu için ardışık satırlara da yazar.
 async function syncRandevu(randevu) {
   if (!aktif) return;
   try {
@@ -159,36 +167,33 @@ async function syncRandevu(randevu) {
     if (!k) return;
     const sheetId = await gunSekmesiGaranti(randevu.tarih);
     const renk = DURUM_RENK[randevu.durum] || DURUM_RENK.bekliyor;
+    const n = (randevu.kisiSayisi > 1 && randevu.durum !== "iptal") ? randevu.kisiSayisi : 1;
 
-    await sheetsApi.spreadsheets.batchUpdate({
-      spreadsheetId: AKTIF_ID,
-      requestBody: {
-        requests: [
-          {
-            updateCells: {
-              range: {
-                sheetId,
-                startRowIndex: k.rowIndex,
-                endRowIndex: k.rowIndex + 1,
-                startColumnIndex: k.colIndex,
-                endColumnIndex: k.colIndex + 1,
-              },
-              rows: [
-                {
-                  values: [
-                    {
-                      userEnteredValue: { stringValue: hucreEtiket(randevu) },
-                      userEnteredFormat: { backgroundColor: renk },
-                    },
-                  ],
-                },
-              ],
-              fields: "userEnteredValue,userEnteredFormat.backgroundColor",
-            },
+    const requests = [];
+    for (let i = 0; i < n; i++) {
+      const slotSaat = i === 0 ? randevu.saat : slotEkle(randevu.saat, i * 30);
+      const satirIdx = SAATLER.indexOf(slotSaat);
+      if (satirIdx === -1) continue;
+      const rowIdx = satirIdx + 1;
+      const etiket = i === 0
+        ? hucreEtiket(randevu)
+        : `↕ ${i + 1}/${n} — ${randevu.ad}`;
+      requests.push({
+        updateCells: {
+          range: {
+            sheetId,
+            startRowIndex: rowIdx, endRowIndex: rowIdx + 1,
+            startColumnIndex: k.colIndex, endColumnIndex: k.colIndex + 1,
           },
-        ],
-      },
-    });
+          rows: [{ values: [{ userEnteredValue: { stringValue: etiket }, userEnteredFormat: { backgroundColor: renk } }] }],
+          fields: "userEnteredValue,userEnteredFormat.backgroundColor",
+        },
+      });
+    }
+
+    if (requests.length) {
+      await sheetsApi.spreadsheets.batchUpdate({ spreadsheetId: AKTIF_ID, requestBody: { requests } });
+    }
   } catch (e) {
     console.error("syncRandevu hatası:", e.message);
   }
@@ -199,30 +204,33 @@ async function updateRandevuDurum(randevu) {
   return syncRandevu(randevu);
 }
 
-// Randevu taşındığında eski hücreyi temizle.
-async function clearRandevuCell(berberId, tarih, saat) {
+// Randevu taşındığında eski hücre(ler)i temizle.
+async function clearRandevuCell(berberId, tarih, saat, kisiSayisi = 1) {
   if (!aktif) return;
   try {
-    const satir = SAATLER.indexOf(saat);
     const sutun = BERBERLER.findIndex((b) => b.id === berberId);
-    if (satir === -1 || sutun === -1) return;
+    if (sutun === -1) return;
     const sheetId = await gunSekmesiGaranti(tarih);
-    await sheetsApi.spreadsheets.batchUpdate({
-      spreadsheetId: AKTIF_ID,
-      requestBody: {
-        requests: [{
-          updateCells: {
-            range: {
-              sheetId,
-              startRowIndex: satir + 1, endRowIndex: satir + 2,
-              startColumnIndex: sutun + 1, endColumnIndex: sutun + 2,
-            },
-            rows: [{ values: [{ userEnteredValue: { stringValue: "" }, userEnteredFormat: { backgroundColor: BEYAZ } }] }],
-            fields: "userEnteredValue,userEnteredFormat.backgroundColor",
+    const requests = [];
+    for (let i = 0; i < kisiSayisi; i++) {
+      const slotSaat = i === 0 ? saat : slotEkle(saat, i * 30);
+      const satir = SAATLER.indexOf(slotSaat);
+      if (satir === -1) continue;
+      requests.push({
+        updateCells: {
+          range: {
+            sheetId,
+            startRowIndex: satir + 1, endRowIndex: satir + 2,
+            startColumnIndex: sutun + 1, endColumnIndex: sutun + 2,
           },
-        }],
-      },
-    });
+          rows: [{ values: [{ userEnteredValue: { stringValue: "" }, userEnteredFormat: { backgroundColor: BEYAZ } }] }],
+          fields: "userEnteredValue,userEnteredFormat.backgroundColor",
+        },
+      });
+    }
+    if (requests.length) {
+      await sheetsApi.spreadsheets.batchUpdate({ spreadsheetId: AKTIF_ID, requestBody: { requests } });
+    }
   } catch (e) {
     console.error("clearRandevuCell hatası:", e.message);
   }

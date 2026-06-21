@@ -7,6 +7,13 @@ function bul(arr, id) {
   return arr.find((x) => x.id === id);
 }
 
+// Saat string'ine dakika ekler: "10:00" + 60 → "11:00"
+function slotEkle(saat, dk) {
+  const [h, m] = saat.split(":").map(Number);
+  const t = h * 60 + m + dk;
+  return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
+}
+
 // ---------------------------------------------------------------------------
 // Oturum yönetimi (bellek içi)
 // ---------------------------------------------------------------------------
@@ -243,10 +250,21 @@ async function adimTarih(telefon, metin, s) {
   s.veri.tarih = tarih;
 
   const dolu = await db.getBusySlots(s.veri.berberId, tarih);
-  const bos  = SAATLER.filter((saat) => !dolu.includes(saat));
+  const kisiSayisi = s.veri.kisiSayisi || 1;
+  const bos = SAATLER.filter((saat) => {
+    const idx = SAATLER.indexOf(saat);
+    for (let i = 0; i < kisiSayisi; i++) {
+      if (idx + i >= SAATLER.length) return false;
+      if (dolu.includes(SAATLER[idx + i])) return false;
+    }
+    return true;
+  });
 
   if (bos.length === 0) {
-    await sendText(telefon, "😔 Bu gün için boş saat kalmamış. Lütfen başka bir gün seçin.");
+    const mesaj = kisiSayisi > 1
+      ? `😔 Bu gün için ${kisiSayisi} kişilik ardışık boş saat kalmamış. Lütfen başka bir gün seçin.`
+      : "😔 Bu gün için boş saat kalmamış. Lütfen başka bir gün seçin.";
+    await sendText(telefon, mesaj);
     return tarihListesiGonder(telefon, s);
   }
 
@@ -304,6 +322,10 @@ async function adimSaat(telefon, metin, s) {
     ? kisiler.map((k, i) => `  ${i + 1}. kişi: ${k.hizmet} (${k.fiyat}₺)`).join("\n")
     : kisiler[0].hizmet;
 
+  const saatStr = kisiSayisi > 1
+    ? `${saat} – ${slotEkle(saat, kisiSayisi * 30)} (${kisiSayisi} slot, her biri 30 dk)`
+    : saat;
+
   const ozet =
     "*Randevu Özeti*\n\n" +
     `👤 Ad: ${s.veri.ad}\n` +
@@ -311,7 +333,7 @@ async function adimSaat(telefon, metin, s) {
     (kisiSayisi > 1
       ? `👥 Kişi sayısı: ${kisiSayisi}\n✂️ Hizmetler:\n${hizmetSatiri}\n`
       : `✂️ Hizmet: ${hizmetSatiri}\n`) +
-    `📅 Tarih: ${tarih}\n⏰ Saat: ${saat}\n💰 Toplam: ${s.veri.fiyat}₺\n\nOnaylıyor musunuz?`;
+    `📅 Tarih: ${tarih}\n⏰ Saat: ${saatStr}\n💰 Toplam: ${s.veri.fiyat}₺\n\nOnaylıyor musunuz?`;
 
   await sendButtons(telefon, ozet, [
     { id: "onayla",   title: "✅ Onayla" },
@@ -348,12 +370,18 @@ async function adimOnay(telefon, metin, s) {
       weekday: "long", day: "numeric", month: "long",
     });
 
+    const kayitKisiSayisi = kisiSayisi > 1 ? kisiSayisi : null;
+    const saatStr = kayitKisiSayisi
+      ? `${kayit.saat} – ${slotEkle(kayit.saat, kayitKisiSayisi * 30)}`
+      : kayit.saat;
+
     // Berbere bildirim
     const berberObj = bul(BERBERLER, kayit.berberId);
     if (berberObj && berberObj.tel) {
       sendText(
         berberObj.tel,
-        `🔔 *Yeni Randevu!*\n\n👤 ${kayit.ad}\n✂️ ${kayit.hizmet}\n📅 ${tarih} ⏰ ${kayit.saat}\n💰 ${kayit.fiyat}₺`
+        `🔔 *Yeni Randevu!*\n\n👤 ${kayit.ad}\n✂️ ${kayit.hizmet}\n` +
+        `📅 ${tarih} ⏰ ${saatStr}\n💰 ${kayit.fiyat}₺`
       ).catch(() => {});
     }
 
@@ -362,7 +390,7 @@ async function adimOnay(telefon, metin, s) {
       "🎉 *Randevunuz alındı!*\n\n" +
         `🔖 Randevu No: *${kayit.id.slice(-6)}*\n` +
         `💈 ${kayit.berber}\n✂️ ${kayit.hizmet}\n` +
-        `📅 ${tarih} ⏰ ${kayit.saat}\n💰 Toplam: ${kayit.fiyat}₺\n\n` +
+        `📅 ${tarih} ⏰ ${saatStr}\n💰 Toplam: ${kayit.fiyat}₺\n\n` +
         "Randevunuz berber onayına gönderildi. Onaylandığında size haber vereceğiz. Teşekkürler! 🙏"
     );
     resetSession(telefon);

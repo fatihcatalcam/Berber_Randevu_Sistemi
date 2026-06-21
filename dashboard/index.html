@@ -495,6 +495,12 @@
 let randevular = [], kapaliSaatler = {};
 let BERBERLER = [], SAATLER = [];
 let auth = null;
+
+function slotEkle(saat, dk) {
+  const p = saat.split(":").map(Number);
+  const t = p[0] * 60 + p[1] + dk;
+  return String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0");
+}
 let seciliTarih = todayStr();
 let takvimAy = new Date();
 let filtreDurum = "hepsi", filtreBerber = "hepsi", arama = "";
@@ -823,8 +829,14 @@ function cizelgeRender() {
   const gunRand = randevular.filter((r) => r.tarih === seciliTarih);
   const harita = {};
   gunRand.forEach((r) => {
-    const key = r.saat + "|" + r.berberId;
-    if (!harita[key] || harita[key].durum === "iptal") harita[key] = r;
+    const n = (r.durum !== "iptal" && r.kisiSayisi > 1) ? r.kisiSayisi : 1;
+    for (let i = 0; i < n; i++) {
+      const slotSaat = i === 0 ? r.saat : slotEkle(r.saat, i * 30);
+      const key = slotSaat + "|" + r.berberId;
+      if (!harita[key] || harita[key].durum === "iptal") {
+        harita[key] = i === 0 ? r : Object.assign({}, r, { _devam: true, _slotIdx: i });
+      }
+    }
   });
 
   const gorulenBerberler = gorRunumBerberler();
@@ -845,13 +857,19 @@ function cizelgeRender() {
 
       if (r) {
         const renk = DURUM_RENK[r.durum] || DURUM_RENK.bekliyor;
-        let etiket = r.ad;
-        if (r.durum === "iptal") etiket += ` — İPTAL (${r.iptalEden === "musteri" ? "müşteri" : "berber"})`;
-        else if (r.kisiSayisi > 1) etiket += ` (${r.kisiSayisi} kişi)`;
-        const fiyatGoster = r.gercekFiyat !== undefined ? `${r.gercekFiyat}₺ ✏️` : `${r.fiyat}₺`;
-        html += `<td class="cizelge-hucre" data-id="${r.id}" style="padding:7px 10px;border:1px solid var(--cizgi);background:${renk.bg};color:${renk.fg};font-size:12px;cursor:pointer;user-select:none;min-width:80px;">` +
-          `<div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;">${kacis(etiket)}</div>` +
-          `<div style="font-size:11px;opacity:.75;white-space:nowrap;">${kacis(r.hizmet)} · ${fiyatGoster}</div></td>`;
+        if (r._devam) {
+          html += `<td class="cizelge-hucre" data-id="${r.id}" style="padding:7px 10px;border:1px solid var(--cizgi);background:${renk.bg};color:${renk.fg};font-size:11px;cursor:pointer;user-select:none;min-width:80px;opacity:0.72;text-align:center;">` +
+            `<div style="letter-spacing:.02em;">↕ ${r._slotIdx + 1}/${r.kisiSayisi}</div>` +
+            `<div style="font-size:10px;opacity:.8;">${kacis(r.ad)}</div></td>`;
+        } else {
+          let etiket = r.ad;
+          if (r.durum === "iptal") etiket += ` — İPTAL (${r.iptalEden === "musteri" ? "müşteri" : "berber"})`;
+          else if (r.kisiSayisi > 1) etiket += ` (${r.kisiSayisi} kişi)`;
+          const fiyatGoster = r.gercekFiyat !== undefined ? `${r.gercekFiyat}₺ ✏️` : `${r.fiyat}₺`;
+          html += `<td class="cizelge-hucre" data-id="${r.id}" style="padding:7px 10px;border:1px solid var(--cizgi);background:${renk.bg};color:${renk.fg};font-size:12px;cursor:pointer;user-select:none;min-width:80px;">` +
+            `<div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;">${kacis(etiket)}</div>` +
+            `<div style="font-size:11px;opacity:.75;white-space:nowrap;">${kacis(r.hizmet)} · ${fiyatGoster}</div></td>`;
+        }
       } else if (kapali) {
         html += `<td class="cizelge-kapali" data-berber="${b.id}" data-saat="${saat}" style="padding:7px 10px;border:1px solid var(--cizgi);background:#f3f4f6;color:#9ca3af;text-align:center;cursor:pointer;user-select:none;min-width:60px;">🔒</td>`;
       } else {

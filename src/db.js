@@ -1,5 +1,12 @@
 const { Pool } = require("pg");
 
+// Saat string'ine dakika ekler: "10:00" + 30 → "10:30"
+function slotEkle(saat, dk) {
+  const [h, m] = saat.split(":").map(Number);
+  const t = h * 60 + m + dk;
+  return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
+}
+
 // DATABASE_URL yoksa pool null kalır; init() erken çıkar, sorgular hata fırlatır.
 const pool = process.env.DATABASE_URL
   ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } })
@@ -104,7 +111,7 @@ async function add(randevu) {
 async function getBusySlots(berberId, tarih) {
   const [r1, r2] = await Promise.all([
     pool.query(
-      "SELECT saat FROM randevular WHERE berber_id=$1 AND tarih=$2 AND durum!='iptal'",
+      "SELECT saat, kisi_sayisi FROM randevular WHERE berber_id=$1 AND tarih=$2 AND durum!='iptal'",
       [berberId, tarih]
     ),
     pool.query(
@@ -112,7 +119,14 @@ async function getBusySlots(berberId, tarih) {
       [berberId, tarih]
     ),
   ]);
-  return [...new Set([...r1.rows.map((r) => r.saat), ...r2.rows.map((r) => r.saat)])];
+  const dolu = new Set(r2.rows.map((r) => r.saat));
+  for (const row of r1.rows) {
+    const n = row.kisi_sayisi || 1;
+    for (let i = 0; i < n; i++) {
+      dolu.add(slotEkle(row.saat, i * 30));
+    }
+  }
+  return [...dolu];
 }
 
 async function updateStatus(id, durum, iptalEden = null) {

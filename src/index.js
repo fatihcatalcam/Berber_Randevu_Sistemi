@@ -160,7 +160,7 @@ app.patch("/api/randevular/:id/tasi", async (req, res) => {
   const guncellenen = await db.updateTarihSaat(id, tarih, saat);
   if (!guncellenen) return res.status(404).json({ hata: "Güncelleme başarısız." });
 
-  sheets.clearRandevuCell(kayit.berberId, eskiTarih, eskiSaat).catch(() => {});
+  sheets.clearRandevuCell(kayit.berberId, eskiTarih, eskiSaat, kayit.kisiSayisi || 1).catch(() => {});
   sheets.syncRandevu(guncellenen).catch(() => {});
 
   const tarihStr = new Date(tarih + "T00:00:00").toLocaleDateString("tr-TR", {
