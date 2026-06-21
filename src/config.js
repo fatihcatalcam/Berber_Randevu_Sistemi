@@ -42,9 +42,10 @@ const SAATLER = (() => {
 function gelecekTarihler(kacGun = 7) {
   const sonuc = [];
   const bugun = new Date();
-  for (let i = 0; i < kacGun; i++) {
+  for (let i = 0; sonuc.length < kacGun; i++) {
     const d = new Date(bugun);
     d.setDate(bugun.getDate() + i);
+    if (d.getDay() === 0) continue; // Pazar — dükkan kapalı
     const etiket = d.toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
     const yil = d.getFullYear();
     const ay  = String(d.getMonth() + 1).padStart(2, "0");
