@@ -199,6 +199,35 @@ async function updateRandevuDurum(randevu) {
   return syncRandevu(randevu);
 }
 
+// Randevu taşındığında eski hücreyi temizle.
+async function clearRandevuCell(berberId, tarih, saat) {
+  if (!aktif) return;
+  try {
+    const satir = SAATLER.indexOf(saat);
+    const sutun = BERBERLER.findIndex((b) => b.id === berberId);
+    if (satir === -1 || sutun === -1) return;
+    const sheetId = await gunSekmesiGaranti(tarih);
+    await sheetsApi.spreadsheets.batchUpdate({
+      spreadsheetId: AKTIF_ID,
+      requestBody: {
+        requests: [{
+          updateCells: {
+            range: {
+              sheetId,
+              startRowIndex: satir + 1, endRowIndex: satir + 2,
+              startColumnIndex: sutun + 1, endColumnIndex: sutun + 2,
+            },
+            rows: [{ values: [{ userEnteredValue: { stringValue: "" }, userEnteredFormat: { backgroundColor: BEYAZ } }] }],
+            fields: "userEnteredValue,userEnteredFormat.backgroundColor",
+          },
+        }],
+      },
+    });
+  } catch (e) {
+    console.error("clearRandevuCell hatası:", e.message);
+  }
+}
+
 // Dashboard'dan saat kapatılınca/açılınca ilgili hücreyi güncelle.
 async function syncKapaliSaat(berberId, tarih, saat, kapali) {
   if (!aktif) return;
@@ -312,6 +341,7 @@ module.exports = {
   isEnabled,
   syncRandevu,
   updateRandevuDurum,
+  clearRandevuCell,
   syncKapaliSaat,
   arsivle,
   tumunuYenidenSenkronla,

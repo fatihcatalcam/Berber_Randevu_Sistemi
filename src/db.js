@@ -41,6 +41,8 @@ async function init() {
       PRIMARY KEY (berber_id, tarih, saat)
     )
   `);
+  // Mevcut tabloya aciklama sütunu ekle (yoksa)
+  await pool.query(`ALTER TABLE randevular ADD COLUMN IF NOT EXISTS aciklama TEXT`);
   console.log("✅ Veritabanı tabloları hazır.");
 }
 
@@ -64,6 +66,7 @@ function rowToRandevu(row) {
     iptalEden:   row.iptal_eden    ?? undefined,
     kisiSayisi:  row.kisi_sayisi   ?? undefined,
     kisiler:     row.kisiler       ?? undefined,
+    aciklama:    row.aciklama      ?? undefined,
     olusturulma: Number(row.olusturulma),
   };
 }
@@ -130,6 +133,30 @@ async function updateFiyat(id, gercekFiyat) {
   return res.rows.length ? rowToRandevu(res.rows[0]) : null;
 }
 
+async function updateAciklama(id, aciklama) {
+  const res = await pool.query(
+    "UPDATE randevular SET aciklama=$1 WHERE id=$2 RETURNING *",
+    [aciklama, id]
+  );
+  return res.rows.length ? rowToRandevu(res.rows[0]) : null;
+}
+
+async function updateTarihSaat(id, tarih, saat) {
+  const res = await pool.query(
+    "UPDATE randevular SET tarih=$1, saat=$2 WHERE id=$3 RETURNING *",
+    [tarih, saat, id]
+  );
+  return res.rows.length ? rowToRandevu(res.rows[0]) : null;
+}
+
+async function getTodayAppointments(tarih) {
+  const res = await pool.query(
+    "SELECT * FROM randevular WHERE tarih=$1 AND durum='onaylı' ORDER BY saat ASC",
+    [tarih]
+  );
+  return res.rows.map(rowToRandevu);
+}
+
 // ---------------------------------------------------------------------------
 // Kapalı saatler
 // ---------------------------------------------------------------------------
@@ -173,6 +200,9 @@ module.exports = {
   getBusySlots,
   updateStatus,
   updateFiyat,
+  updateAciklama,
+  updateTarihSaat,
+  getTodayAppointments,
   getKapaliSaatler,
   getKapaliListByBerber,
   setKapaliSaat,

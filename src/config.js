@@ -10,14 +10,16 @@ const ADMIN_PIN = process.env.ADMIN_PIN || "0000"; // Railway'de env var ile de�
 const RESUL_FIYAT = { sac: 900, sakal: 300, kombin: 1200, cocuk: 900 };
 const EKIP_FIYAT  = { sac: 650, sakal: 250, kombin: 900,  cocuk: 650 };
 
+// tel: WhatsApp numarası (uluslararası format, + olmadan, örn: "905551234567")
+// Boş bırakılırsa o berbere bildirim gönderilmez.
 const BERBERLER = [
-  { id: "resul",     ad: "Resul Tabu",     uzmanlik: "Saç & Sakal Tasarımı", pin: "1111", fiyat: RESUL_FIYAT },
-  { id: "eren",      ad: "Eren Tokalak",   uzmanlik: "Saç & Sakal Tasarımı", pin: "2222", fiyat: EKIP_FIYAT  },
-  { id: "kaan",      ad: "Kaan Ekinci",    uzmanlik: "Saç & Sakal Tasarımı", pin: "3333", fiyat: EKIP_FIYAT  },
-  { id: "burak",     ad: "Burak Şahin",    uzmanlik: "Saç & Sakal Tasarımı", pin: "4444", fiyat: EKIP_FIYAT  },
-  { id: "emre",      ad: "Emre Akçam",     uzmanlik: "Saç & Sakal Tasarımı", pin: "5555", fiyat: EKIP_FIYAT  },
-  { id: "huseyin",   ad: "Hüseyin Dincer", uzmanlik: "Saç & Sakal Tasarımı", pin: "6666", fiyat: EKIP_FIYAT  },
-  { id: "mehmetali", ad: "Mehmet Ali",     uzmanlik: "Saç & Sakal Tasarımı", pin: "7777", fiyat: EKIP_FIYAT  },
+  { id: "resul",     ad: "Resul Tabu",     uzmanlik: "Saç & Sakal Tasarımı", pin: "1111", tel: null, admin: true, fiyat: RESUL_FIYAT },
+  { id: "eren",      ad: "Eren Tokalak",   uzmanlik: "Saç & Sakal Tasarımı", pin: "2222", tel: null, fiyat: EKIP_FIYAT  },
+  { id: "kaan",      ad: "Kaan Ekinci",    uzmanlik: "Saç & Sakal Tasarımı", pin: "3333", tel: null, fiyat: EKIP_FIYAT  },
+  { id: "burak",     ad: "Burak Şahin",    uzmanlik: "Saç & Sakal Tasarımı", pin: "4444", tel: null, fiyat: EKIP_FIYAT  },
+  { id: "emre",      ad: "Emre Akçam",     uzmanlik: "Saç & Sakal Tasarımı", pin: "5555", tel: null, fiyat: EKIP_FIYAT  },
+  { id: "huseyin",   ad: "Hüseyin Dincer", uzmanlik: "Saç & Sakal Tasarımı", pin: "6666", tel: null, fiyat: EKIP_FIYAT  },
+  { id: "mehmetali", ad: "Mehmet Ali",     uzmanlik: "Saç & Sakal Tasarımı", pin: "7777", tel: null, fiyat: EKIP_FIYAT  },
 ];
 
 const HIZMETLER = [

@@ -63,7 +63,7 @@ app.post("/api/auth", (req, res) => {
   const berber = BERBERLER.find((b) => b.id === berberId);
   if (!berber)          return res.status(404).json({ ok: false, hata: "Berber bulunamadı." });
   if (berber.pin !== pin) return res.status(401).json({ ok: false, hata: "Yanlış PIN." });
-  return res.json({ ok: true, role: "berber", berberId, ad: berber.ad });
+  return res.json({ ok: true, role: berber.admin ? "admin" : "berber", berberId, ad: berber.ad });
 });
 
 // ---------------------------------------------------------------------------
@@ -136,7 +136,58 @@ app.patch("/api/randevular/:id/fiyat", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// 8) Kapalı saatler
+// 8) Randevu taşı (farklı tarih/saat)
+// ---------------------------------------------------------------------------
+app.patch("/api/randevular/:id/tasi", async (req, res) => {
+  const { id } = req.params;
+  const { tarih, saat } = req.body;
+  if (!tarih || !saat) return res.status(400).json({ hata: "Eksik parametre." });
+
+  const tumRandevular = await db.getAll();
+  const kayit = tumRandevular.find((r) => r.id === id);
+  if (!kayit) return res.status(404).json({ hata: "Randevu bulunamadı." });
+
+  const dolu = await db.getBusySlots(kayit.berberId, tarih);
+  // Aynı randevunun eski slotunu meşgul saymamak için çıkar
+  const doluFiltered = dolu.filter(
+    (s) => !(tarih === kayit.tarih && s === kayit.saat)
+  );
+  if (doluFiltered.includes(saat))
+    return res.status(409).json({ hata: "Seçilen saat dolu." });
+
+  const eskiTarih = kayit.tarih;
+  const eskiSaat  = kayit.saat;
+  const guncellenen = await db.updateTarihSaat(id, tarih, saat);
+  if (!guncellenen) return res.status(404).json({ hata: "Güncelleme başarısız." });
+
+  sheets.clearRandevuCell(kayit.berberId, eskiTarih, eskiSaat).catch(() => {});
+  sheets.syncRandevu(guncellenen).catch(() => {});
+
+  const tarihStr = new Date(tarih + "T00:00:00").toLocaleDateString("tr-TR", {
+    weekday: "long", day: "numeric", month: "long",
+  });
+  await sendText(
+    guncellenen.telefon,
+    `📅 *Randevunuz güncellendi!*\n\n💈 ${guncellenen.berber}\n✂️ ${guncellenen.hizmet}\n` +
+    `📅 ${tarihStr} ⏰ ${saat}\n\nGörüşürüz! 🙏`
+  );
+  res.json(guncellenen);
+});
+
+// ---------------------------------------------------------------------------
+// 9) Randevu açıklaması (berber notu)
+// ---------------------------------------------------------------------------
+app.patch("/api/randevular/:id/aciklama", async (req, res) => {
+  const { id } = req.params;
+  const { aciklama } = req.body;
+  if (typeof aciklama !== "string") return res.status(400).json({ hata: "Geçersiz açıklama." });
+  const kayit = await db.updateAciklama(id, aciklama.trim());
+  if (!kayit) return res.status(404).json({ hata: "Randevu bulunamadı." });
+  res.json(kayit);
+});
+
+// ---------------------------------------------------------------------------
+// 10) Kapalı saatler
 // ---------------------------------------------------------------------------
 app.get("/api/kapali-saatler", async (req, res) => {
   res.json(await db.getKapaliSaatler());
@@ -185,6 +236,38 @@ db.init().catch((err) => {
   console.error("❌ Veritabanı başlatma hatası:", err.message);
   if (process.env.NODE_ENV !== "test") process.exit(1);
 });
+
+// ---------------------------------------------------------------------------
+// Sabah hatırlatma (08:00 — o günkü onaylı randevulara WhatsApp mesajı)
+// ---------------------------------------------------------------------------
+function hatirlatmaMsKalan() {
+  const now  = new Date();
+  const hedef = new Date(now);
+  hedef.setHours(8, 0, 0, 0);
+  if (hedef <= now) hedef.setDate(hedef.getDate() + 1);
+  return hedef - now;
+}
+
+async function hatirlatmaGonder() {
+  const bugun = new Date();
+  const tarih = `${bugun.getFullYear()}-${String(bugun.getMonth()+1).padStart(2,"0")}-${String(bugun.getDate()).padStart(2,"0")}`;
+  try {
+    const liste = await db.getTodayAppointments(tarih);
+    const gunLabel = bugun.toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
+    for (const r of liste) {
+      await sendText(
+        r.telefon,
+        `⏰ *Randevu Hatırlatması!*\n\nBugün randevunuz var:\n\n💈 ${r.berber}\n✂️ ${r.hizmet}\n📅 ${gunLabel} ⏰ ${r.saat}\n\nSizi bekliyoruz! 🙏`
+      );
+    }
+    if (liste.length) console.log(`📬 ${liste.length} hatırlatma mesajı gönderildi.`);
+  } catch (e) {
+    console.error("Hatırlatma hatası:", e.message);
+  }
+  setTimeout(hatirlatmaGonder, hatirlatmaMsKalan()).unref();
+}
+
+setTimeout(hatirlatmaGonder, hatirlatmaMsKalan()).unref();
 
 // Google Sheets arşivleyici
 if (sheets.isEnabled()) {

@@ -348,6 +348,15 @@ async function adimOnay(telefon, metin, s) {
       weekday: "long", day: "numeric", month: "long",
     });
 
+    // Berbere bildirim
+    const berberObj = bul(BERBERLER, kayit.berberId);
+    if (berberObj && berberObj.tel) {
+      sendText(
+        berberObj.tel,
+        `🔔 *Yeni Randevu!*\n\n👤 ${kayit.ad}\n✂️ ${kayit.hizmet}\n📅 ${tarih} ⏰ ${kayit.saat}\n💰 ${kayit.fiyat}₺`
+      ).catch(() => {});
+    }
+
     await sendText(
       telefon,
       "🎉 *Randevunuz alındı!*\n\n" +
