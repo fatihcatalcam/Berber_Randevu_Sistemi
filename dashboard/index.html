@@ -1224,12 +1224,12 @@ document.getElementById("aySonraki").addEventListener("click", () => {
 });
 document.getElementById("gunOnceki").addEventListener("click", () => {
   const d = new Date(seciliTarih + "T00:00:00"); d.setDate(d.getDate() - 1);
-  seciliTarih = d.toISOString().slice(0, 10);
+  seciliTarih = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   takvimAy = new Date(d); takvimRender(); cizelgeRender(); render(); ciroRender();
 });
 document.getElementById("gunSonraki").addEventListener("click", () => {
   const d = new Date(seciliTarih + "T00:00:00"); d.setDate(d.getDate() + 1);
-  seciliTarih = d.toISOString().slice(0, 10);
+  seciliTarih = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   takvimAy = new Date(d); takvimRender(); cizelgeRender(); render(); ciroRender();
 });
 document.getElementById("bugunBtn").addEventListener("click", () => {
