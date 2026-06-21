@@ -250,10 +250,32 @@ async function adimTarih(telefon, metin, s) {
     return tarihListesiGonder(telefon, s);
   }
 
-  const rows = bos.slice(0, 10).map((saat) => ({ id: `saat_${saat}`, title: saat }));
+  s.veri.bosSlotlar = bos;
+  return saatListesiGonder(telefon, s, 0);
+}
+
+// WhatsApp liste max 10 satır — büyük saat aralığı için sayfalama (9 slot + "devam")
+async function saatListesiGonder(telefon, s, sayfa) {
+  const bos   = s.veri.bosSlotlar;
+  const baslangic = sayfa * 9;
+  const dilim = bos.slice(baslangic, baslangic + 9);
+  const sonSayfa  = baslangic + 9 >= bos.length;
+
+  const rows = dilim.map((saat) => ({ id: `saat_${saat}`, title: saat }));
+  if (!sonSayfa) {
+    rows.push({ id: `saat_sayfa_${sayfa + 1}`, title: "▶ Daha fazla saat..." });
+  }
+
+  const toplamBos = bos.length;
+  const gosterilen = Math.min(baslangic + 9, toplamBos);
+  const baslik = toplamBos > 9
+    ? `Boş saatler (${baslangic + 1}–${gosterilen} / ${toplamBos})`
+    : "Boş saatler";
+
   await sendList(telefon, "Uygun saatlerden birini seçin:", "Saat Seç", [
-    { title: "Boş saatler", rows },
+    { title: baslik, rows },
   ]);
+  s.veri.saatSayfa = sayfa;
   s.adim = "saat_bekle";
 }
 
@@ -262,6 +284,12 @@ async function adimTarih(telefon, metin, s) {
 // ---------------------------------------------------------------------------
 async function adimSaat(telefon, metin, s) {
   if (!metin.startsWith("saat_")) return bilinmeyen(telefon);
+
+  // Sayfa değişimi (▶ Daha fazla saat...)
+  if (metin.startsWith("saat_sayfa_")) {
+    const sayfa = parseInt(metin.replace("saat_sayfa_", ""), 10);
+    return saatListesiGonder(telefon, s, sayfa);
+  }
 
   const saat      = metin.replace("saat_", "");
   s.veri.saat     = saat;

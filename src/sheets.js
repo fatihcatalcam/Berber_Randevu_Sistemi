@@ -87,7 +87,8 @@ const DURUM_RENK = {
   "onaylı": hexToRgb("d1fae5"),
   iptal: hexToRgb("fee2e2"),
 };
-const BEYAZ = hexToRgb("ffffff");
+const BEYAZ      = hexToRgb("ffffff");
+const KAPALI_RENK = hexToRgb("d1d5db"); // gri — berber kapalı saat
 
 function bugunStr() {
   const d = new Date();
@@ -198,6 +199,46 @@ async function updateRandevuDurum(randevu) {
   return syncRandevu(randevu);
 }
 
+// Dashboard'dan saat kapatılınca/açılınca ilgili hücreyi güncelle.
+async function syncKapaliSaat(berberId, tarih, saat, kapali) {
+  if (!aktif) return;
+  try {
+    const satir = SAATLER.indexOf(saat);
+    const sutun = BERBERLER.findIndex((b) => b.id === berberId);
+    if (satir === -1 || sutun === -1) return;
+    const sheetId = await gunSekmesiGaranti(tarih);
+    await sheetsApi.spreadsheets.batchUpdate({
+      spreadsheetId: AKTIF_ID,
+      requestBody: {
+        requests: [
+          {
+            updateCells: {
+              range: {
+                sheetId,
+                startRowIndex: satir + 1, endRowIndex: satir + 2,
+                startColumnIndex: sutun + 1, endColumnIndex: sutun + 2,
+              },
+              rows: [
+                {
+                  values: [
+                    {
+                      userEnteredValue: { stringValue: kapali ? "⛔ KAPALI" : "" },
+                      userEnteredFormat: { backgroundColor: kapali ? KAPALI_RENK : BEYAZ },
+                    },
+                  ],
+                },
+              ],
+              fields: "userEnteredValue,userEnteredFormat.backgroundColor",
+            },
+          },
+        ],
+      },
+    });
+  } catch (e) {
+    console.error("syncKapaliSaat hatası:", e.message);
+  }
+}
+
 // Geçmiş günlerin sekmelerini arşive taşı (kopyala + aktiften sil)
 async function arsivle() {
   if (!aktif || !ARSIV_ID) return { tasinan: 0 };
@@ -271,6 +312,7 @@ module.exports = {
   isEnabled,
   syncRandevu,
   updateRandevuDurum,
+  syncKapaliSaat,
   arsivle,
   tumunuYenidenSenkronla,
   // test/iç kullanım için:

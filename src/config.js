@@ -29,7 +29,7 @@ const HIZMETLER = [
 
 const SAATLER = (() => {
   const list = [];
-  for (let dk = 9 * 60; dk < 18 * 60; dk += 30) {
+  for (let dk = 9 * 60; dk < 22 * 60; dk += 30) {
     const s = String(Math.floor(dk / 60)).padStart(2, "0");
     const m = String(dk % 60).padStart(2, "0");
     list.push(`${s}:${m}`);

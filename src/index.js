@@ -147,6 +147,7 @@ app.post("/api/kapali-saat", async (req, res) => {
   if (!berberId || !tarih || !saat)
     return res.status(400).json({ hata: "Eksik parametre." });
   await db.setKapaliSaat(berberId, tarih, saat, kapali !== false);
+  sheets.syncKapaliSaat(berberId, tarih, saat, kapali !== false).catch(() => {});
   res.json({ ok: true });
 });
 
