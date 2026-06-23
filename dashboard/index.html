@@ -537,6 +537,7 @@
 
 <!-- ========== CONTEXT MENU (desktop) ========== -->
 <div id="contextMenu">
+  <div id="ctxRandevuEkle" onclick="slotRandevuEkle()" style="color:#1d4ed8;font-weight:700;">➕ Randevu Ekle</div>
   <div id="ctxKapat" onclick="saatToggle(true)">🔒 Bu Saati Kapat</div>
   <div id="ctxAc"    onclick="saatToggle(false)">🔓 Saati Aç</div>
   <div id="ctxGunKapat" onclick="gunToggle(true)" style="border-top:1px solid var(--cizgi);color:#9a3412;">🚫 Tüm Günü Kapat</div>
@@ -548,6 +549,7 @@
   <div id="mobileSheetOverlay" onclick="mobileSheetKapat()"></div>
   <div id="mobileSheetPanel">
     <div class="sheet-handle"></div>
+    <button id="sheetRandevuEkleBtn" class="sheet-btn" style="background:#dbeafe;color:#1d4ed8;" onclick="mobileSheetKapat();slotRandevuEkle()">➕ Randevu Ekle</button>
     <button id="sheetKapatBtn" class="sheet-btn sheet-btn-kirmizi" onclick="saatToggle(true);mobileSheetKapat()">🔒 Bu Saati Kapat</button>
     <button id="sheetAcBtn"    class="sheet-btn sheet-btn-yesil"   onclick="saatToggle(false);mobileSheetKapat()">🔓 Saati Aç</button>
     <button id="sheetGunKapatBtn" class="sheet-btn sheet-btn-kirmizi" onclick="gunToggle(true);mobileSheetKapat()">🚫 Tüm Günü Kapat</button>
@@ -561,13 +563,21 @@
 // State
 // ============================================================
 let randevular = [], kapaliSaatler = {}, kapaliGunler = {};
-let BERBERLER = [], SAATLER = [], HIZMETLER = [];
+let BERBERLER = [], SAATLER = [], SAATLER45 = [], HIZMETLER = [];
 let auth = null;
 
 function slotEkle(saat, dk) {
   const p = saat.split(":").map(Number);
   const t = p[0] * 60 + p[1] + dk;
   return String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0");
+}
+
+function berberSlotDk(berberId) {
+  const b = BERBERLER.find((x) => x.id === berberId);
+  return b && b.slotDk ? b.slotDk : 30;
+}
+function berberSaatleri(berberId) {
+  return berberSlotDk(berberId) === 45 ? SAATLER45 : SAATLER;
 }
 let seciliTarih = todayStr();
 let takvimAy = new Date();
@@ -689,6 +699,7 @@ async function pinGiris() {
 // Korumalı uçlara token başlığı ekler; 401'de oturumu kapatır
 async function authFetch(url, opts = {}) {
   opts.headers = { ...(opts.headers || {}), Authorization: "Bearer " + (auth?.token || "") };
+  opts.cache = "no-store"; // mobil tarayıcı eski veriyi cache'lemesin
   const res = await fetch(url, opts);
   if (res.status === 401) { cikis(); throw new Error("Oturum süresi doldu."); }
   return res;
@@ -697,7 +708,7 @@ async function authFetch(url, opts = {}) {
 async function configCek() {
   try {
     const c = await (await fetch("/api/config")).json();
-    BERBERLER = c.berberler; SAATLER = c.saatler; HIZMETLER = c.hizmetler;
+    BERBERLER = c.berberler; SAATLER = c.saatler; SAATLER45 = c.saatler45 || []; HIZMETLER = c.hizmetler;
   } catch {}
 }
 
@@ -785,13 +796,17 @@ function audioUnlock() {
 document.addEventListener("click", audioUnlock, { once: false });
 document.addEventListener("touchstart", audioUnlock, { once: false });
 
-function bildirimCal() {
+// tip: "yeni" (yükselen zil) | "iptal" (alçalan iki ton)
+function bildirimCal(tip = "yeni") {
   try {
     audioUnlock();
     if (!audioCtx) return;
     const now = audioCtx.currentTime;
+    const desen = tip === "iptal"
+      ? [[523, 0, 0.3], [392, 0.18, 0.4]]            // düşen ton — iptal
+      : [[880, 0, 0.28], [1174, 0.14, 0.28], [880, 0.32, 0.24]]; // zil — yeni
 
-    [[880, 0, 0.28], [1174, 0.14, 0.28], [880, 0.32, 0.24]].forEach(([freq, delay, dur]) => {
+    desen.forEach(([freq, delay, dur]) => {
       const osc  = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.connect(gain); gain.connect(audioCtx.destination);
@@ -806,19 +821,24 @@ function bildirimCal() {
   } catch (_) {}
 
   if (Notification.permission === "granted") {
-    new Notification("💈 Yeni Randevu!", {
-      body: "Yeni bir randevu talebi geldi.",
-      tag: "yeni-randevu",
-    });
+    if (tip === "iptal") {
+      new Notification("🔴 Randevu İptal Edildi", { body: "Bir müşteri randevusunu iptal etti.", tag: "iptal" });
+    } else {
+      new Notification("💈 Yeni Randevu!", { body: "Yeni bir randevu talebi geldi.", tag: "yeni-randevu" });
+    }
   }
 }
 
 function tespitFlash(yeni) {
   flashIdler = new Set();
-  let yeniGeldi = false;
+  let yeniGeldi = false, iptalGeldi = false;
   yeni.forEach((r) => {
     if (oncekiDurumlar[r.id] !== undefined) {
-      if (oncekiDurumlar[r.id] !== r.durum) flashIdler.add(r.id);
+      if (oncekiDurumlar[r.id] !== r.durum) {
+        flashIdler.add(r.id);
+        // Müşteri iptali → iptal bildirimi
+        if (r.durum === "iptal" && r.iptalEden === "musteri") iptalGeldi = true;
+      }
     } else if (!ilkYukleme && r.durum === "bekliyor") {
       // Daha önce görülmemiş bekliyor randevu → bildirim
       yeniGeldi = true;
@@ -827,7 +847,8 @@ function tespitFlash(yeni) {
     oncekiDurumlar[r.id] = r.durum;
   });
   ilkYukleme = false;
-  if (yeniGeldi) bildirimCal();
+  if (yeniGeldi) bildirimCal("yeni");
+  else if (iptalGeldi) bildirimCal("iptal");
 }
 
 function berberSecenekleriDoldur() {
@@ -924,9 +945,10 @@ function cizelgeRender() {
   const gunRand = randevular.filter((r) => r.tarih === seciliTarih);
   const harita = {};
   gunRand.forEach((r) => {
+    const adim = berberSlotDk(r.berberId);
     const n = (r.durum !== "iptal" && r.kisiSayisi > 1) ? r.kisiSayisi : 1;
     for (let i = 0; i < n; i++) {
-      const slotSaat = i === 0 ? r.saat : slotEkle(r.saat, i * 30);
+      const slotSaat = i === 0 ? r.saat : slotEkle(r.saat, i * adim);
       const key = slotSaat + "|" + r.berberId;
       if (!harita[key] || harita[key].durum === "iptal") {
         harita[key] = i === 0 ? r : Object.assign({}, r, { _devam: true, _slotIdx: i });
@@ -934,18 +956,43 @@ function cizelgeRender() {
     }
   });
 
+  // Sütunlar: Saat(30dk) | 30dk berberler | Saat(45dk) | 45dk berberler
   const gorulenBerberler = gorRunumBerberler();
+  const b30 = gorulenBerberler.filter((b) => berberSlotDk(b.id) === 30);
+  const b45 = gorulenBerberler.filter((b) => berberSlotDk(b.id) === 45);
+  const kolonlar = [];
+  if (b30.length) {
+    kolonlar.push({ tip: "saat", saatler: SAATLER, baslik: "Saat (30dk)" });
+    b30.forEach((b) => kolonlar.push({ tip: "berber", berber: b, saatler: SAATLER }));
+  }
+  if (b45.length) {
+    kolonlar.push({ tip: "saat", saatler: SAATLER45, baslik: "Saat (45dk)" });
+    b45.forEach((b) => kolonlar.push({ tip: "berber", berber: b, saatler: SAATLER45 }));
+  }
+  const maxSatir = Math.max(b30.length ? SAATLER.length : 0, b45.length ? SAATLER45.length : 0);
+
+  const saatHucreStil = "padding:7px 10px;border:1px solid var(--cizgi);font-weight:700;font-size:12px;white-space:nowrap;background:#f9fafb;";
 
   let html = '<table style="width:100%;"><thead><tr>';
-  html += '<th class="cizelge-saat-th" style="padding:7px 10px;border:1px solid var(--cizgi);font-size:12px;font-weight:700;white-space:nowrap;">Saat</th>';
-  gorulenBerberler.forEach((b) => {
-    html += `<th style="padding:7px 10px;border:1px solid var(--cizgi);font-size:12px;font-weight:700;white-space:nowrap;">${kacis(b.ad)}</th>`;
+  kolonlar.forEach((k, ki) => {
+    const cls = (ki === 0 && k.tip === "saat") ? 'class="cizelge-saat-th"' : "";
+    const metin = k.tip === "saat" ? k.baslik : kacis(k.berber.ad);
+    html += `<th ${cls} style="padding:7px 10px;border:1px solid var(--cizgi);font-size:12px;font-weight:700;white-space:nowrap;${k.tip==="saat"?"background:#f3f4f6;":""}">${metin}</th>`;
   });
   html += "</tr></thead><tbody>";
 
-  SAATLER.forEach((saat) => {
-    html += `<tr><td class="cizelge-saat-td" style="padding:7px 10px;border:1px solid var(--cizgi);font-weight:700;font-size:12px;white-space:nowrap;">${saat}</td>`;
-    gorulenBerberler.forEach((b) => {
+  for (let ri = 0; ri < maxSatir; ri++) {
+    html += "<tr>";
+    kolonlar.forEach((k, ki) => {
+      if (k.tip === "saat") {
+        const s = k.saatler[ri] || "";
+        const cls = (ki === 0) ? "cizelge-saat-td" : "";
+        html += `<td class="${cls}" style="${saatHucreStil}">${s}</td>`;
+        return;
+      }
+      const b = k.berber;
+      const saat = k.saatler[ri];
+      if (!saat) { html += `<td style="border:1px solid var(--cizgi);background:#fafafa;"></td>`; return; }
       const key = saat + "|" + b.id;
       const r = harita[key];
       const kapali = !!(kapaliSaatler[b.id] && kapaliSaatler[b.id][seciliTarih] && kapaliSaatler[b.id][seciliTarih].includes(saat));
@@ -972,7 +1019,7 @@ function cizelgeRender() {
       }
     });
     html += "</tr>";
-  });
+  }
   html += "</tbody></table>";
   document.getElementById("cizelge").innerHTML = html;
 
@@ -1023,6 +1070,8 @@ function contextMenuGoster(x, y, kapali) {
   menu.style.top  = Math.min(y + 2, window.innerHeight - 120) + "px";
   menu.style.display = "block";
   const gunKapali = gunKapaliMi(ctxBerberId, ctxTarih);
+  // Randevu ekleme yalnızca boş (kapalı olmayan) slotta
+  document.getElementById("ctxRandevuEkle").style.display = (kapali || gunKapali) ? "none" : "block";
   // Gün kapalıyken tek tek saat aç/kapat anlamsız — sadece "Günü Aç" göster
   document.getElementById("ctxKapat").style.display    = (kapali || gunKapali) ? "none" : "block";
   document.getElementById("ctxAc").style.display       = (!kapali || gunKapali) ? "none" : "block";
@@ -1039,11 +1088,28 @@ document.addEventListener("click", (e) => {
 // ============================================================
 function mobileSheetGoster(kapali) {
   const gunKapali = gunKapaliMi(ctxBerberId, ctxTarih);
+  document.getElementById("sheetRandevuEkleBtn").style.display = (kapali || gunKapali) ? "none" : "block";
   document.getElementById("sheetKapatBtn").style.display    = (kapali || gunKapali) ? "none" : "block";
   document.getElementById("sheetAcBtn").style.display       = (!kapali || gunKapali) ? "none" : "block";
   document.getElementById("sheetGunKapatBtn").style.display = gunKapali ? "none" : "block";
   document.getElementById("sheetGunAcBtn").style.display    = gunKapali ? "block" : "none";
   document.getElementById("mobileSheet").style.display      = "block";
+}
+
+// Çizelgede boş slota tıklayınca o saat/berber için randevu ekleme modalını aç
+function slotRandevuEkle() {
+  document.getElementById("contextMenu").style.display = "none";
+  const berberId = ctxBerberId, saat = ctxSaat;
+  elleRandevuGoster();
+  // Modalı bu slota göre önceden doldur
+  const bSel = document.getElementById("elleBerber");
+  if ([...bSel.options].some((o) => o.value === berberId)) bSel.value = berberId;
+  const tSel = document.getElementById("elleTarih");
+  if ([...tSel.options].some((o) => o.value === seciliTarih)) tSel.value = seciliTarih;
+  elleFiyatGuncelle();
+  elleSaatDoldur();
+  const sSel = document.getElementById("elleSaat");
+  if ([...sSel.options].some((o) => o.value === saat)) sSel.value = saat;
 }
 
 function mobileSheetKapat() {
@@ -1135,15 +1201,16 @@ function elleSaatDoldur() {
   const tarih   = document.getElementById("elleTarih").value;
   if (!berberId || !tarih) return;
 
+  const adim = berberSlotDk(berberId);
   const doluRandevular = randevular
     .filter(x => x.tarih === tarih && x.berberId === berberId && x.durum !== "iptal")
     .flatMap(x => {
       const n = x.kisiSayisi > 1 ? x.kisiSayisi : 1;
-      return Array.from({ length: n }, (_, i) => i === 0 ? x.saat : slotEkle(x.saat, i * 30));
+      return Array.from({ length: n }, (_, i) => i === 0 ? x.saat : slotEkle(x.saat, i * adim));
     });
   const kapalilar = kapaliSaatler[berberId]?.[tarih] || [];
   const tumDolu = new Set([...doluRandevular, ...kapalilar]);
-  const boslar = SAATLER.filter(s => !tumDolu.has(s));
+  const boslar = berberSaatleri(berberId).filter(s => !tumDolu.has(s));
 
   const elleSaat = document.getElementById("elleSaat");
   elleSaat.innerHTML = boslar.length
@@ -1258,12 +1325,16 @@ function tasiSaatDoldur() {
   const r = randevular.find(x => x.id === modalRandevuId);
   if (!r) return;
   const secTarih = document.getElementById("tasiTarih").value;
+  const adim = berberSlotDk(r.berberId);
   const doluRandevular = randevular.filter(
     x => x.tarih === secTarih && x.berberId === r.berberId && x.durum !== "iptal" && x.id !== r.id
-  ).map(x => x.saat);
+  ).flatMap(x => {
+    const n = x.kisiSayisi > 1 ? x.kisiSayisi : 1;
+    return Array.from({ length: n }, (_, i) => i === 0 ? x.saat : slotEkle(x.saat, i * adim));
+  });
   const kapalilar = (kapaliSaatler[r.berberId]?.[secTarih] || []);
   const tumDolu = new Set([...doluRandevular, ...kapalilar]);
-  const boslar = SAATLER.filter(s => !tumDolu.has(s));
+  const boslar = berberSaatleri(r.berberId).filter(s => !tumDolu.has(s));
   const tasiSaat = document.getElementById("tasiSaat");
   tasiSaat.innerHTML = boslar.length
     ? boslar.map(s => `<option value="${s}"${s === r.saat ? " selected" : ""}>${s}</option>`).join("")

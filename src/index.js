@@ -7,12 +7,18 @@ const crypto = require("crypto");
 const db = require("./db");
 const { handleMessage } = require("./bot");
 const { sendText } = require("./whatsapp");
-const { BERBERLER, HIZMETLER, SAATLER, ADMIN_PIN } = require("./config");
+const { BERBERLER, HIZMETLER, SAATLER, SAATLER_45, ADMIN_PIN } = require("./config");
 const sheets = require("./sheets");
 
 const app = express();
 // Webhook imza doğrulaması için ham gövdeyi sakla
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }));
+
+// API yanıtları önbelleğe alınmasın (mobil tarayıcı eski/boş veriyi cache'lemesin)
+app.use("/api", (req, res, next) => {
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+  next();
+});
 
 const PORT         = process.env.PORT || 3000;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
@@ -148,7 +154,7 @@ app.post("/api/auth", (req, res) => {
 // ---------------------------------------------------------------------------
 app.get("/api/config", (req, res) => {
   const berberler = BERBERLER.map(({ pin, ...rest }) => rest);
-  res.json({ berberler, hizmetler: HIZMETLER, saatler: SAATLER });
+  res.json({ berberler, hizmetler: HIZMETLER, saatler: SAATLER, saatler45: SAATLER_45 });
 });
 
 // ---------------------------------------------------------------------------
@@ -338,10 +344,15 @@ app.post("/api/sheets/resync", requireAuth, ah(async (req, res) => {
 // ---------------------------------------------------------------------------
 // 10) Dashboard
 // ---------------------------------------------------------------------------
-app.use("/dashboard", express.static(path.join(__dirname, "..", "dashboard")));
-app.get("/dashboard", (req, res) =>
-  res.sendFile(path.join(__dirname, "..", "dashboard", "index.html"))
-);
+app.use("/dashboard", express.static(path.join(__dirname, "..", "dashboard"), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith(".html")) res.set("Cache-Control", "no-cache");
+  },
+}));
+app.get("/dashboard", (req, res) => {
+  res.set("Cache-Control", "no-cache");
+  res.sendFile(path.join(__dirname, "..", "dashboard", "index.html"));
+});
 app.get("/", (req, res) => res.redirect("/dashboard"));
 
 // ---------------------------------------------------------------------------
