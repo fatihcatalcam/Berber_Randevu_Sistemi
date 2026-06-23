@@ -1531,8 +1531,9 @@ function render() {
   renderMobil(liste, isAdmin);
 
   const ts = new Date().toLocaleTimeString("tr-TR", { hour:"2-digit", minute:"2-digit" });
+  const kim = auth ? (auth.role === "admin" ? "admin" : auth.ad) : "?";
   document.getElementById("footer").textContent =
-    `${liste.length} kayıt / ${gorRunumRandevular().length} toplam • Son güncelleme: ${ts}`;
+    `${liste.length} görünür / ${gorRunumRandevular().length} kişiye ait / ${randevular.length} sunucu • ${kim} • ${ts}`;
 }
 
 function renderDesktop(liste, isAdmin) {
