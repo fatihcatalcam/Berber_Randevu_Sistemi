@@ -712,26 +712,41 @@ async function configCek() {
   } catch {}
 }
 
-async function veriCek() {
+// Opsiyonel uçlar — hata/eksik olursa varsayılan döner (liste yine de yüklenir)
+async function guvenliJson(url, varsayilan) {
   try {
-    const [rRes, kRes, gRes] = await Promise.all([
-      authFetch("/api/randevular"),
-      authFetch("/api/kapali-saatler"),
-      authFetch("/api/kapali-gunler"),
-    ]);
-    const yeni = await rRes.json();
-    kapaliSaatler = await kRes.json();
-    kapaliGunler = await gRes.json();
-    tespitFlash(yeni);
-    randevular = yeni;
-    berberSecenekleriDoldur();
-    takvimRender();
-    cizelgeRender();
-    render();
-    ciroRender();
-  } catch {
-    document.getElementById("footer").textContent = "⚠️ Sunucuya bağlanılamadı.";
+    const res = await authFetch(url);
+    if (!res.ok) return varsayilan;
+    return await res.json();
+  } catch { return varsayilan; }
+}
+
+async function veriCek() {
+  // 1) Randevular kritik — ayrı çek; hata olursa GÖRÜNÜR bildir, eski veriyi koru
+  let yeni;
+  try {
+    const rRes = await authFetch("/api/randevular");
+    if (!rRes.ok) throw new Error("HTTP " + rRes.status);
+    yeni = await rRes.json();
+    if (!Array.isArray(yeni)) throw new Error("Beklenmeyen yanıt");
+  } catch (e) {
+    if (e && e.message === "Oturum süresi doldu.") return; // authFetch zaten çıkış yaptı
+    document.getElementById("footer").textContent =
+      "⚠️ Veriler alınamadı (" + ((e && e.message) || e) + "). Sayfayı yenileyin.";
+    return;
   }
+
+  // 2) Kapalı saat/gün opsiyonel — biri hata verse bile liste yüklenir
+  kapaliSaatler = await guvenliJson("/api/kapali-saatler", {});
+  kapaliGunler  = await guvenliJson("/api/kapali-gunler", {});
+
+  tespitFlash(yeni);
+  randevular = yeni;
+  berberSecenekleriDoldur();
+  takvimRender();
+  cizelgeRender();
+  render();
+  ciroRender();
 }
 
 async function durumDegistir(id, durum) {
