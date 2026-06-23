@@ -1,5 +1,5 @@
 const { Pool } = require("pg");
-const { SAATLER } = require("./config");
+const { SAATLER, berberSlotDk, berberSaatleri } = require("./config");
 
 // Saat string'ine dakika ekler: "10:00" + 30 → "10:30"
 function slotEkle(saat, dk) {
@@ -58,6 +58,8 @@ async function init() {
   `);
   // Mevcut tabloya aciklama sütunu ekle (yoksa)
   await pool.query(`ALTER TABLE randevular ADD COLUMN IF NOT EXISTS aciklama TEXT`);
+  // Hatırlatma gönderildi mi? (randevudan 1 saat önce)
+  await pool.query(`ALTER TABLE randevular ADD COLUMN IF NOT EXISTS hatirlatildi BOOLEAN DEFAULT false`);
   // Aynı berber/tarih/saat için iptal olmayan iki randevu engellenir (çift rezervasyon koruması)
   try {
     await pool.query(`
@@ -153,12 +155,13 @@ async function getBusySlots(berberId, tarih) {
     ),
   ]);
   // Gün tamamen kapalıysa tüm slotlar dolu sayılır
-  if (r3.rows.length) return [...SAATLER];
+  if (r3.rows.length) return [...berberSaatleri(berberId)];
+  const step = berberSlotDk(berberId);
   const dolu = new Set(r2.rows.map((r) => r.saat));
   for (const row of r1.rows) {
     const n = row.kisi_sayisi || 1;
     for (let i = 0; i < n; i++) {
-      dolu.add(slotEkle(row.saat, i * 30));
+      dolu.add(slotEkle(row.saat, i * step));
     }
   }
   return [...dolu];
@@ -192,7 +195,7 @@ async function updateAciklama(id, aciklama) {
 
 async function updateTarihSaat(id, tarih, saat) {
   const res = await pool.query(
-    "UPDATE randevular SET tarih=$1, saat=$2 WHERE id=$3 RETURNING *",
+    "UPDATE randevular SET tarih=$1, saat=$2, hatirlatildi=false WHERE id=$3 RETURNING *",
     [tarih, saat, id]
   );
   return res.rows.length ? rowToRandevu(res.rows[0]) : null;
@@ -204,6 +207,19 @@ async function getTodayAppointments(tarih) {
     [tarih]
   );
   return res.rows.map(rowToRandevu);
+}
+
+// O gün için henüz hatırlatılmamış onaylı randevular
+async function getHatirlatilacaklar(tarih) {
+  const res = await pool.query(
+    "SELECT * FROM randevular WHERE tarih=$1 AND durum='onaylı' AND (hatirlatildi IS NULL OR hatirlatildi=false) ORDER BY saat ASC",
+    [tarih]
+  );
+  return res.rows.map(rowToRandevu);
+}
+
+async function markHatirlatildi(id) {
+  await pool.query("UPDATE randevular SET hatirlatildi=true WHERE id=$1", [id]);
 }
 
 // ---------------------------------------------------------------------------
@@ -221,8 +237,8 @@ async function getKapaliSaatler() {
     if (!data[berberId][tarih].includes(saat)) data[berberId][tarih].push(saat);
   };
   for (const row of res.rows) ekle(row.berber_id, row.tarih, row.saat);
-  // Kapalı günleri tüm saatlere genişlet (panelde her hücre kilitli görünür)
-  for (const row of gun.rows) for (const s of SAATLER) ekle(row.berber_id, row.tarih, s);
+  // Kapalı günleri o berberin tüm saatlerine genişlet (panelde her hücre kilitli görünür)
+  for (const row of gun.rows) for (const s of berberSaatleri(row.berber_id)) ekle(row.berber_id, row.tarih, s);
   return data;
 }
 
@@ -284,6 +300,8 @@ module.exports = {
   updateAciklama,
   updateTarihSaat,
   getTodayAppointments,
+  getHatirlatilacaklar,
+  markHatirlatildi,
   getKapaliSaatler,
   getKapaliListByBerber,
   setKapaliSaat,

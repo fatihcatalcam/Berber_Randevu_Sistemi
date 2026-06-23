@@ -14,11 +14,26 @@ const { google } = require("googleapis");
 const fs = require("fs");
 const path = require("path");
 
-const { BERBERLER, SAATLER } = require("./config");
+const { BERBERLER, SAATLER, SAATLER_45, berberSlotDk, berberSaatleri } = require("./config");
+
+// Çizelge yerleşimi: A=Saat(30dk) | 30dk berberler | Saat(45dk) | 45dk berberler
+const BERBER_30 = BERBERLER.filter((b) => (b.slotDk || 30) === 30);
+const BERBER_45 = BERBERLER.filter((b) => (b.slotDk || 30) === 45);
+const SAAT45_KOL = 1 + BERBER_30.length; // "Saat (45dk)" sütununun 0 tabanlı indeksi
+
+// Bir berberin 0 tabanlı sütun indeksi
+function berberKolon(berberId) {
+  const i30 = BERBER_30.findIndex((b) => b.id === berberId);
+  if (i30 !== -1) return 1 + i30;
+  const i45 = BERBER_45.findIndex((b) => b.id === berberId);
+  if (i45 !== -1) return SAAT45_KOL + 1 + i45;
+  return -1;
+}
 
 const SCOPES = ["https://www.googleapis.com/auth/spreadsheets"];
-const AKTIF_ID = process.env.GOOGLE_SHEET_ID;
-const ARSIV_ID = process.env.GOOGLE_ARCHIVE_SHEET_ID;
+const AKTIF_ID   = process.env.GOOGLE_SHEET_ID;
+const ARSIV_ID   = process.env.GOOGLE_ARCHIVE_SHEET_ID;
+const MUSTERI_ID = process.env.GOOGLE_MUSTERI_SHEET_ID; // müşteri veritabanı (ayrı dosya)
 
 let sheetsApi = null;
 let aktif = false;
@@ -105,11 +120,11 @@ function slotEkle(saat, dk) {
 
 // Bir randevunun ızgaradaki konumu (0 tabanlı)
 function konum(randevu) {
-  const satir = SAATLER.indexOf(randevu.saat); // 0..17
-  const sutun = BERBERLER.findIndex((b) => b.id === randevu.berberId); // 0..n-1
+  const satir = berberSaatleri(randevu.berberId).indexOf(randevu.saat);
+  const sutun = berberKolon(randevu.berberId);
   if (satir === -1 || sutun === -1) return null;
-  // +1: başlık satırı / saat sütunu için ofset
-  return { rowIndex: satir + 1, colIndex: sutun + 1 };
+  // +1: başlık satırı ofseti
+  return { rowIndex: satir + 1, colIndex: sutun };
 }
 
 function hucreEtiket(randevu) {
@@ -145,9 +160,16 @@ async function gunSekmesiGaranti(tarih) {
   });
   const sheetId = ekle.data.replies[0].addSheet.properties.sheetId;
 
-  // İskelet: başlık satırı (Saat + berber adları) + saat sütunu
-  const baslik = ["Saat", ...BERBERLER.map((b) => b.ad)];
-  const satirlar = [baslik, ...SAATLER.map((saat) => [saat])];
+  // İskelet: Saat(30dk) | 30dk berberler | Saat(45dk) | 45dk berberler
+  const baslik = ["Saat (30dk)", ...BERBER_30.map((b) => b.ad), "Saat (45dk)", ...BERBER_45.map((b) => b.ad)];
+  const maxSatir = Math.max(SAATLER.length, SAATLER_45.length);
+  const satirlar = [baslik];
+  for (let r = 0; r < maxSatir; r++) {
+    const row = new Array(baslik.length).fill("");
+    row[0] = SAATLER[r] || "";
+    row[SAAT45_KOL] = SAATLER_45[r] || "";
+    satirlar.push(row);
+  }
   await sheetsApi.spreadsheets.values.update({
     spreadsheetId: AKTIF_ID,
     range: `'${tab}'!A1`,
@@ -170,11 +192,13 @@ async function syncRandevu(randevu) {
     const sheetId = await gunSekmesiGaranti(randevu.tarih);
     const renk = DURUM_RENK[randevu.durum] || DURUM_RENK.bekliyor;
     const n = (randevu.kisiSayisi > 1 && randevu.durum !== "iptal") ? randevu.kisiSayisi : 1;
+    const step = berberSlotDk(randevu.berberId);
+    const saatler = berberSaatleri(randevu.berberId);
 
     const requests = [];
     for (let i = 0; i < n; i++) {
-      const slotSaat = i === 0 ? randevu.saat : slotEkle(randevu.saat, i * 30);
-      const satirIdx = SAATLER.indexOf(slotSaat);
+      const slotSaat = i === 0 ? randevu.saat : slotEkle(randevu.saat, i * step);
+      const satirIdx = saatler.indexOf(slotSaat);
       if (satirIdx === -1) continue;
       const rowIdx = satirIdx + 1;
       const etiket = i === 0
@@ -210,20 +234,22 @@ async function updateRandevuDurum(randevu) {
 async function clearRandevuCell(berberId, tarih, saat, kisiSayisi = 1) {
   if (!aktif) return;
   try {
-    const sutun = BERBERLER.findIndex((b) => b.id === berberId);
+    const sutun = berberKolon(berberId);
     if (sutun === -1) return;
+    const step = berberSlotDk(berberId);
+    const saatler = berberSaatleri(berberId);
     const sheetId = await gunSekmesiGaranti(tarih);
     const requests = [];
     for (let i = 0; i < kisiSayisi; i++) {
-      const slotSaat = i === 0 ? saat : slotEkle(saat, i * 30);
-      const satir = SAATLER.indexOf(slotSaat);
+      const slotSaat = i === 0 ? saat : slotEkle(saat, i * step);
+      const satir = saatler.indexOf(slotSaat);
       if (satir === -1) continue;
       requests.push({
         updateCells: {
           range: {
             sheetId,
             startRowIndex: satir + 1, endRowIndex: satir + 2,
-            startColumnIndex: sutun + 1, endColumnIndex: sutun + 2,
+            startColumnIndex: sutun, endColumnIndex: sutun + 1,
           },
           rows: [{ values: [{ userEnteredValue: { stringValue: "" }, userEnteredFormat: { backgroundColor: BEYAZ } }] }],
           fields: "userEnteredValue,userEnteredFormat.backgroundColor",
@@ -242,8 +268,8 @@ async function clearRandevuCell(berberId, tarih, saat, kisiSayisi = 1) {
 async function syncKapaliSaat(berberId, tarih, saat, kapali) {
   if (!aktif) return;
   try {
-    const satir = SAATLER.indexOf(saat);
-    const sutun = BERBERLER.findIndex((b) => b.id === berberId);
+    const satir = berberSaatleri(berberId).indexOf(saat);
+    const sutun = berberKolon(berberId);
     if (satir === -1 || sutun === -1) return;
     const sheetId = await gunSekmesiGaranti(tarih);
     await sheetsApi.spreadsheets.batchUpdate({
@@ -255,7 +281,7 @@ async function syncKapaliSaat(berberId, tarih, saat, kapali) {
               range: {
                 sheetId,
                 startRowIndex: satir + 1, endRowIndex: satir + 2,
-                startColumnIndex: sutun + 1, endColumnIndex: sutun + 2,
+                startColumnIndex: sutun, endColumnIndex: sutun + 1,
               },
               rows: [
                 {
@@ -275,6 +301,44 @@ async function syncKapaliSaat(berberId, tarih, saat, kapali) {
     });
   } catch (e) {
     console.error("syncKapaliSaat hatası:", e.message);
+  }
+}
+
+// --- Müşteri veritabanı (ayrı Sheets dosyası) -------------------------------
+let musteriBaslikHazir = false;
+
+// Her randevuda müşteri bilgisini ayrı dosyaya ekler: Ad, Telefon, Berber, Tarih/Saat
+async function musteriKaydet(randevu) {
+  if (!sheetsApi || !MUSTERI_ID) return;
+  try {
+    // İlk kullanımda başlık satırını garanti et
+    if (!musteriBaslikHazir) {
+      const mevcut = await sheetsApi.spreadsheets.values.get({
+        spreadsheetId: MUSTERI_ID, range: "A1:F1",
+      });
+      if (!mevcut.data.values || mevcut.data.values.length === 0) {
+        await sheetsApi.spreadsheets.values.update({
+          spreadsheetId: MUSTERI_ID, range: "A1", valueInputOption: "RAW",
+          requestBody: { values: [["Ad Soyad", "Telefon", "Berber", "Tarih", "Saat", "Kayıt Zamanı"]] },
+        });
+      }
+      musteriBaslikHazir = true;
+    }
+    const kayitZamani = new Date().toLocaleString("tr-TR");
+    await sheetsApi.spreadsheets.values.append({
+      spreadsheetId: MUSTERI_ID,
+      range: "A1",
+      valueInputOption: "RAW",
+      insertDataOption: "INSERT_ROWS",
+      requestBody: {
+        values: [[
+          randevu.ad || "", randevu.telefon || "", randevu.berber || "",
+          randevu.tarih || "", randevu.saat || "", kayitZamani,
+        ]],
+      },
+    });
+  } catch (e) {
+    console.error("musteriKaydet hatası:", e.message);
   }
 }
 
@@ -353,6 +417,7 @@ module.exports = {
   updateRandevuDurum,
   clearRandevuCell,
   syncKapaliSaat,
+  musteriKaydet,
   arsivle,
   tumunuYenidenSenkronla,
   // test/iç kullanım için:

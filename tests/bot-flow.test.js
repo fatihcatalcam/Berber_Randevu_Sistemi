@@ -18,7 +18,7 @@ Module._load = function (req) {
     };
   }
   if (req.endsWith("sheets")) {
-    return { syncRandevu: async () => {}, isEnabled: () => false };
+    return { syncRandevu: async () => {}, musteriKaydet: async () => {}, isEnabled: () => false };
   }
   if (req.endsWith("/db") || req === "./db") {
     return {
@@ -85,10 +85,10 @@ test("cok kisilik randevu ardisik slot icin kisiSayisi kaydeder", async () => {
   await handleMessage(TEL, "hizmet_sac");   // 1. kişi
   await handleMessage(TEL, "hizmet_sac");   // 2. kişi
   await handleMessage(TEL, `tarih_${tarih}`);
-  await handleMessage(TEL, "saat_11:00");
+  await handleMessage(TEL, "saat_10:30");   // eren 45dk ızgarasında geçerli dilim
   await handleMessage(TEL, "onayla");
 
   assert.strictEqual(store.length, 1);
   assert.strictEqual(store[0].kisiSayisi, 2);
-  assert.strictEqual(store[0].saat, "11:00");
+  assert.strictEqual(store[0].saat, "10:30");
 });

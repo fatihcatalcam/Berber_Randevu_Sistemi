@@ -1,5 +1,5 @@
 const db = require("./db");
-const { BERBERLER, HIZMETLER, SAATLER, gelecekTarihler } = require("./config");
+const { BERBERLER, HIZMETLER, berberSaatleri, berberSlotDk, gelecekTarihler } = require("./config");
 const { sendText, sendButtons, sendList } = require("./whatsapp");
 const sheets = require("./sheets");
 
@@ -53,10 +53,13 @@ async function handleMessage(telefon, metin) {
     s = resetSession(telefon);
     await sendButtons(
       telefon,
-      "Merhaba! Berber Randevu Sistemi'ne hoş geldiniz.\n\nNe yapmak istersiniz?",
+      "Merhaba! *Resul Tabu Saç Atölyesi* randevu sistemine hoş geldiniz. 💈\n\n" +
+        "Ustalarımızı ve fiyat tarifemizi görmek için işletme profilimizdeki *kataloğu* inceleyebilirsiniz.\n\n" +
+        "Ne yapmak istersiniz?",
       [
         { id: "yeni_randevu",    title: "📅 Randevu Al" },
         { id: "randevu_sorgula", title: "🔍 Randevum" },
+        { id: "randevu_iptal",   title: "❌ Randevu İptal" },
       ]
     );
     s.adim = "menu";
@@ -86,6 +89,11 @@ async function adimMenu(telefon, metin, s) {
     await sendText(telefon, "Lütfen *ad ve soyadınızı* yazın:");
     s.adim = "ad_bekle";
     return;
+  }
+
+  if (metin === "randevu_iptal") {
+    s.adim = "iptal_sec_bekle";
+    return iptalListesiGonder(telefon);
   }
 
   if (metin === "randevu_sorgula") {
@@ -161,6 +169,12 @@ async function adimKisiSayisi(telefon, metin, s) {
   s.veri.kisiSayisi = sayi;
   s.veri.kisiler    = [];
 
+  return berberListesiGonder(telefon, s);
+}
+
+// Berber seçim listesi (ilk seçimde ve "başka berber" navigasyonunda kullanılır)
+async function berberListesiGonder(telefon, s) {
+  const sayi = s.veri.kisiSayisi || 1;
   const rows = BERBERLER.map((b) => ({
     id:          `berber_${b.id}`,
     title:       b.ad,
@@ -173,6 +187,8 @@ async function adimKisiSayisi(telefon, metin, s) {
     "Berber Seç",
     [{ title: "Berberler", rows }]
   );
+  // Berber değişince önceki seçilen hizmetleri sıfırla
+  s.veri.kisiler = [];
   s.adim = "berber_bekle";
 }
 
@@ -261,42 +277,51 @@ async function adimTarih(telefon, metin, s) {
 
   const dolu = await db.getBusySlots(s.veri.berberId, tarih);
   const kisiSayisi = s.veri.kisiSayisi || 1;
-  const bos = SAATLER.filter((saat) => {
-    const idx = SAATLER.indexOf(saat);
+  const saatler = berberSaatleri(s.veri.berberId);
+  const bos = saatler.filter((saat) => {
+    const idx = saatler.indexOf(saat);
     for (let i = 0; i < kisiSayisi; i++) {
-      if (idx + i >= SAATLER.length) return false;
-      if (dolu.includes(SAATLER[idx + i])) return false;
+      if (idx + i >= saatler.length) return false;
+      if (dolu.includes(saatler[idx + i])) return false;
     }
     return true;
   });
 
   if (bos.length === 0) {
     const mesaj = kisiSayisi > 1
-      ? `😔 Bu gün için ${kisiSayisi} kişilik ardışık boş saat kalmamış. Lütfen başka bir gün seçin.`
-      : "😔 Bu gün için boş saat kalmamış. Lütfen başka bir gün seçin.";
-    await sendText(telefon, mesaj);
-    return tarihListesiGonder(telefon, s);
+      ? `😔 Bu gün için ${kisiSayisi} kişilik ardışık boş saat kalmamış.`
+      : "😔 Bu gün için boş saat kalmamış.";
+    await sendButtons(telefon, mesaj + "\n\nNe yapmak istersiniz?", [
+      { id: "nav_gun",    title: "📅 Başka Gün" },
+      { id: "nav_berber", title: "💈 Başka Berber" },
+    ]);
+    s.adim = "saat_bekle";
+    return;
   }
 
   s.veri.bosSlotlar = bos;
   return saatListesiGonder(telefon, s, 0);
 }
 
-// WhatsApp liste max 10 satır — büyük saat aralığı için sayfalama (9 slot + "devam")
+// WhatsApp liste max 10 satır — sayfa başına 7 slot + "devam" + 2 navigasyon satırı
 async function saatListesiGonder(telefon, s, sayfa) {
   const bos   = s.veri.bosSlotlar;
-  const baslangic = sayfa * 9;
-  const dilim = bos.slice(baslangic, baslangic + 9);
-  const sonSayfa  = baslangic + 9 >= bos.length;
+  const SAYFA_BOY = 7;
+  const baslangic = sayfa * SAYFA_BOY;
+  const dilim = bos.slice(baslangic, baslangic + SAYFA_BOY);
+  const sonSayfa  = baslangic + SAYFA_BOY >= bos.length;
 
   const rows = dilim.map((saat) => ({ id: `saat_${saat}`, title: saat }));
   if (!sonSayfa) {
     rows.push({ id: `saat_sayfa_${sayfa + 1}`, title: "▶ Daha fazla saat..." });
   }
+  // Navigasyon: en baştan başlamadan gün/berber değiştir
+  rows.push({ id: "nav_gun",    title: "📅 Başka gün" });
+  rows.push({ id: "nav_berber", title: "💈 Başka berber" });
 
   const toplamBos = bos.length;
-  const gosterilen = Math.min(baslangic + 9, toplamBos);
-  const baslik = toplamBos > 9
+  const gosterilen = Math.min(baslangic + SAYFA_BOY, toplamBos);
+  const baslik = toplamBos > SAYFA_BOY
     ? `Boş saatler (${baslangic + 1}–${gosterilen} / ${toplamBos})`
     : "Boş saatler";
 
@@ -311,6 +336,10 @@ async function saatListesiGonder(telefon, s, sayfa) {
 // Adım: saat_bekle
 // ---------------------------------------------------------------------------
 async function adimSaat(telefon, metin, s) {
+  // Navigasyon: en baştan başlamadan gün/berber değiştir
+  if (metin === "nav_gun")    return tarihListesiGonder(telefon, s);
+  if (metin === "nav_berber") return berberListesiGonder(telefon, s);
+
   if (!metin.startsWith("saat_")) return bilinmeyen(telefon);
 
   // Sayfa değişimi (▶ Daha fazla saat...)
@@ -323,6 +352,7 @@ async function adimSaat(telefon, metin, s) {
   s.veri.saat     = saat;
   const kisiler   = s.veri.kisiler;
   const kisiSayisi = s.veri.kisiSayisi || 1;
+  const slotDk     = berberSlotDk(s.veri.berberId);
 
   const tarih = new Date(s.veri.tarih + "T00:00:00").toLocaleDateString("tr-TR", {
     weekday: "long", day: "numeric", month: "long",
@@ -333,7 +363,7 @@ async function adimSaat(telefon, metin, s) {
     : kisiler[0].hizmet;
 
   const saatStr = kisiSayisi > 1
-    ? `${saat} – ${slotEkle(saat, kisiSayisi * 30)} (${kisiSayisi} slot, her biri 30 dk)`
+    ? `${saat} – ${slotEkle(saat, kisiSayisi * slotDk)} (${kisiSayisi} dilim, her biri ${slotDk} dk)`
     : saat;
 
   const ozet =
@@ -362,10 +392,11 @@ async function adimOnay(telefon, metin, s) {
 
     // Onay anında slotları yeniden kontrol et (çift rezervasyon koruması)
     const dolu = await db.getBusySlots(s.veri.berberId, s.veri.tarih);
-    const baslangicIdx = SAATLER.indexOf(s.veri.saat);
+    const saatler = berberSaatleri(s.veri.berberId);
+    const baslangicIdx = saatler.indexOf(s.veri.saat);
     let cakisma = baslangicIdx === -1;
     for (let i = 0; i < kisiSayisi && !cakisma; i++) {
-      const slot = SAATLER[baslangicIdx + i];
+      const slot = saatler[baslangicIdx + i];
       if (!slot || dolu.includes(slot)) cakisma = true;
     }
     if (cakisma) {
@@ -397,14 +428,16 @@ async function adimOnay(telefon, metin, s) {
     }
 
     sheets.syncRandevu(kayit).catch(() => {});
+    sheets.musteriKaydet(kayit).catch(() => {});
 
     const tarih = new Date(kayit.tarih + "T00:00:00").toLocaleDateString("tr-TR", {
       weekday: "long", day: "numeric", month: "long",
     });
 
+    const slotDk = berberSlotDk(kayit.berberId);
     const kayitKisiSayisi = kisiSayisi > 1 ? kisiSayisi : null;
     const saatStr = kayitKisiSayisi
-      ? `${kayit.saat} – ${slotEkle(kayit.saat, kayitKisiSayisi * 30)}`
+      ? `${kayit.saat} – ${slotEkle(kayit.saat, kayitKisiSayisi * slotDk)}`
       : kayit.saat;
 
     // Berbere bildirim
@@ -443,32 +476,34 @@ async function adimOnay(telefon, metin, s) {
 // ---------------------------------------------------------------------------
 // Adım: iptal_sec_bekle
 // ---------------------------------------------------------------------------
+// İptal edilebilecek aktif randevuları listeler (hem menüden hem "Randevum"dan kullanılır)
+async function iptalListesiGonder(telefon) {
+  const aktifler = (await db.getAll())
+    .filter((r) => r.telefon === telefon && r.durum !== "iptal")
+    .slice(0, 10);
+
+  if (aktifler.length === 0) {
+    await sendText(telefon, "İptal edilecek aktif randevunuz bulunmuyor. Yeni randevu için *merhaba* yazabilirsiniz.");
+    resetSession(telefon);
+    return;
+  }
+
+  const rows = aktifler.map((r) => {
+    const tarih = new Date(r.tarih + "T00:00:00").toLocaleDateString("tr-TR", {
+      day: "numeric", month: "long",
+    });
+    return { id: `iptal_sec_${r.id}`, title: `${tarih} ${r.saat}`, description: `${r.berber} — ${r.hizmet}` };
+  });
+
+  await sendList(telefon, "Hangi randevuyu iptal etmek istiyorsunuz?", "Randevu Seç", [
+    { title: "Aktif Randevular", rows },
+  ]);
+}
+
 async function adimIptalSec(telefon, metin, s) {
   if (metin === "ana_menu") { resetSession(telefon); return bilinmeyen(telefon); }
 
-  if (metin === "iptal_istiyorum") {
-    const aktifler = (await db.getAll())
-      .filter((r) => r.telefon === telefon && r.durum !== "iptal")
-      .slice(0, 10);
-
-    if (aktifler.length === 0) {
-      await sendText(telefon, "İptal edilecek aktif randevunuz bulunmuyor.");
-      resetSession(telefon);
-      return;
-    }
-
-    const rows = aktifler.map((r) => {
-      const tarih = new Date(r.tarih + "T00:00:00").toLocaleDateString("tr-TR", {
-        day: "numeric", month: "long",
-      });
-      return { id: `iptal_sec_${r.id}`, title: `${tarih} ${r.saat}`, description: `${r.berber} — ${r.hizmet}` };
-    });
-
-    await sendList(telefon, "Hangi randevuyu iptal etmek istiyorsunuz?", "Randevu Seç", [
-      { title: "Aktif Randevular", rows },
-    ]);
-    return;
-  }
+  if (metin === "iptal_istiyorum") return iptalListesiGonder(telefon);
 
   if (metin.startsWith("iptal_sec_")) {
     const randevuId = metin.replace("iptal_sec_", "");

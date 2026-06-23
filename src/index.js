@@ -183,6 +183,7 @@ app.post("/api/randevular", requireAuth, ah(async (req, res) => {
       durum: "onaylı", // elle eklenen randevu direkt onaylı
     });
     sheets.syncRandevu(kayit).catch(() => {});
+    sheets.musteriKaydet(kayit).catch(() => {});
     res.status(201).json(kayit);
   } catch (e) {
     if (e.code === "SLOT_DOLU") return res.status(409).json({ hata: "Seçilen saat dolu." });
@@ -374,36 +375,39 @@ db.init().catch((err) => {
 });
 
 // ---------------------------------------------------------------------------
-// Sabah hatırlatma (08:00 — o günkü onaylı randevulara WhatsApp mesajı)
+// Hatırlatma: randevudan ~1 saat önce müşteriye WhatsApp mesajı
+// Her 5 dakikada kontrol eder; kalan süre <= 60 dk olunca bir kez gönderir.
 // ---------------------------------------------------------------------------
-function hatirlatmaMsKalan() {
-  const now  = new Date();
-  const hedef = new Date(now);
-  hedef.setHours(8, 0, 0, 0);
-  if (hedef <= now) hedef.setDate(hedef.getDate() + 1);
-  return hedef - now;
+function saatToDk(saat) {
+  const [h, m] = saat.split(":").map(Number);
+  return h * 60 + m;
 }
 
-async function hatirlatmaGonder() {
-  const bugun = new Date();
-  const tarih = `${bugun.getFullYear()}-${String(bugun.getMonth()+1).padStart(2,"0")}-${String(bugun.getDate()).padStart(2,"0")}`;
+async function hatirlatmaKontrol() {
   try {
-    const liste = await db.getTodayAppointments(tarih);
-    const gunLabel = bugun.toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
+    const now   = new Date();
+    const tarih = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+    const simdiDk = now.getHours() * 60 + now.getMinutes();
+    const liste = await db.getHatirlatilacaklar(tarih);
+    const gunLabel = now.toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
+
     for (const r of liste) {
-      await sendText(
-        r.telefon,
-        `⏰ *Randevu Hatırlatması!*\n\nBugün randevunuz var:\n\n💈 ${r.berber}\n✂️ ${r.hizmet}\n📅 ${gunLabel} ⏰ ${r.saat}\n\nSizi bekliyoruz! 🙏`
-      );
+      const kalan = saatToDk(r.saat) - simdiDk;
+      if (kalan > 0 && kalan <= 60) {
+        await sendText(
+          r.telefon,
+          `⏰ *Randevu Hatırlatması!*\n\nYaklaşık 1 saat sonra randevunuz var:\n\n💈 ${r.berber}\n✂️ ${r.hizmet}\n📅 ${gunLabel} ⏰ ${r.saat}\n\nSizi bekliyoruz! 🙏`
+        );
+        await db.markHatirlatildi(r.id);
+      }
     }
-    if (liste.length) console.log(`📬 ${liste.length} hatırlatma mesajı gönderildi.`);
   } catch (e) {
     console.error("Hatırlatma hatası:", e.message);
   }
-  setTimeout(hatirlatmaGonder, hatirlatmaMsKalan()).unref();
 }
 
-setTimeout(hatirlatmaGonder, hatirlatmaMsKalan()).unref();
+setInterval(hatirlatmaKontrol, 5 * 60 * 1000).unref();
+setTimeout(hatirlatmaKontrol, 15000).unref();
 
 // Google Sheets arşivleyici
 if (sheets.isEnabled()) {
