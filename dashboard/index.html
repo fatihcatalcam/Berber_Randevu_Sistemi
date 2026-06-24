@@ -620,7 +620,12 @@ function loginGizle() {
   const isAdmin = auth.role === "admin";
   document.getElementById("berberFiltreWrap").style.display = isAdmin ? "" : "none";
   document.querySelectorAll(".berber-col").forEach(el => el.style.display = isAdmin ? "" : "none");
-  if (Notification.permission === "default") Notification.requestPermission();
+  // iOS Safari'de Notification API olmayabilir — yoksa atla (yoksa baslat() çalışmaz!)
+  try {
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  } catch (_) {}
   baslat();
 }
 
@@ -740,13 +745,19 @@ async function veriCek() {
   kapaliSaatler = await guvenliJson("/api/kapali-saatler", {});
   kapaliGunler  = await guvenliJson("/api/kapali-gunler", {});
 
-  tespitFlash(yeni);
-  randevular = yeni;
-  berberSecenekleriDoldur();
-  takvimRender();
-  cizelgeRender();
-  render();
-  ciroRender();
+  // 3) Çizim — hata olursa GÖRÜNÜR yap (asla "Yükleniyor"da takılı kalmasın)
+  try {
+    tespitFlash(yeni);
+    randevular = yeni;
+    berberSecenekleriDoldur();
+    takvimRender();
+    cizelgeRender();
+    render();
+    ciroRender();
+  } catch (e) {
+    document.getElementById("footer").textContent =
+      "⚠️ Görüntüleme hatası: " + ((e && e.message) || e);
+  }
 }
 
 async function durumDegistir(id, durum) {
@@ -835,13 +846,15 @@ function bildirimCal(tip = "yeni") {
     });
   } catch (_) {}
 
-  if (Notification.permission === "granted") {
-    if (tip === "iptal") {
-      new Notification("🔴 Randevu İptal Edildi", { body: "Bir müşteri randevusunu iptal etti.", tag: "iptal" });
-    } else {
-      new Notification("💈 Yeni Randevu!", { body: "Yeni bir randevu talebi geldi.", tag: "yeni-randevu" });
+  try {
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      if (tip === "iptal") {
+        new Notification("🔴 Randevu İptal Edildi", { body: "Bir müşteri randevusunu iptal etti.", tag: "iptal" });
+      } else {
+        new Notification("💈 Yeni Randevu!", { body: "Yeni bir randevu talebi geldi.", tag: "yeni-randevu" });
+      }
     }
-  }
+  } catch (_) {}
 }
 
 function tespitFlash(yeni) {
