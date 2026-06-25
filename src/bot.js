@@ -14,6 +14,12 @@ function slotEkle(saat, dk) {
   return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
 }
 
+// Bugünün tarihi "YYYY-MM-DD" (geçmiş randevuları gizlemek için)
+function bugunStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 // ---------------------------------------------------------------------------
 // Oturum yönetimi (bellek içi)
 // ---------------------------------------------------------------------------
@@ -97,10 +103,14 @@ async function adimMenu(telefon, metin, s) {
   }
 
   if (metin === "randevu_sorgula") {
-    const kayitlar = (await db.getAll()).filter((r) => r.telefon === telefon).slice(0, 5);
+    const bugun = bugunStr();
+    const kayitlar = (await db.getAll())
+      .filter((r) => r.telefon === telefon && r.tarih >= bugun)
+      .sort((a, b) => (a.tarih + a.saat).localeCompare(b.tarih + b.saat))
+      .slice(0, 5);
 
     if (kayitlar.length === 0) {
-      await sendText(telefon, "Kayıtlı randevunuz bulunamadı. Yeni randevu için *merhaba* yazabilirsiniz.");
+      await sendText(telefon, "Yaklaşan randevunuz bulunamadı. Yeni randevu için *merhaba* yazabilirsiniz.");
       resetSession(telefon);
       return;
     }
@@ -478,12 +488,14 @@ async function adimOnay(telefon, metin, s) {
 // ---------------------------------------------------------------------------
 // İptal edilebilecek aktif randevuları listeler (hem menüden hem "Randevum"dan kullanılır)
 async function iptalListesiGonder(telefon) {
+  const bugun = bugunStr();
   const aktifler = (await db.getAll())
-    .filter((r) => r.telefon === telefon && r.durum !== "iptal")
+    .filter((r) => r.telefon === telefon && r.durum !== "iptal" && r.tarih >= bugun)
+    .sort((a, b) => (a.tarih + a.saat).localeCompare(b.tarih + b.saat))
     .slice(0, 10);
 
   if (aktifler.length === 0) {
-    await sendText(telefon, "İptal edilecek aktif randevunuz bulunmuyor. Yeni randevu için *merhaba* yazabilirsiniz.");
+    await sendText(telefon, "İptal edilecek yaklaşan randevunuz bulunmuyor. Yeni randevu için *merhaba* yazabilirsiniz.");
     resetSession(telefon);
     return;
   }
