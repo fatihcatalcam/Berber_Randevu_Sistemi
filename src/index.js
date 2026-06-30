@@ -1,5 +1,9 @@
 require("dotenv").config();
 
+// Sunucu saat dilimini Türkiye'ye sabitle (Render UTC çalışır; hatırlatma ve
+// tarih hesapları yerel saate göre olsun). Env ile override edilebilir.
+process.env.TZ = process.env.TZ || "Europe/Istanbul";
+
 const express = require("express");
 const path = require("path");
 const crypto = require("crypto");
