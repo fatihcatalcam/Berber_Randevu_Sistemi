@@ -18,9 +18,10 @@ async function send(payload) {
     const res = await axios.post(baseUrl(), payload, { headers: headers() });
     return res.data;
   } catch (err) {
-    const detay = err.response ? JSON.stringify(err.response.data) : err.message;
-    console.error("WhatsApp gönderim hatası:", detay);
-    return null;
+    const veri = err.response && err.response.data;
+    console.error("WhatsApp gönderim hatası:", veri ? JSON.stringify(veri) : err.message);
+    // Hata kodunu çağırana bildir (ör. 131047 = 24 saat penceresi kapalı)
+    return { hata: true, kod: (veri && veri.error && veri.error.code) || null };
   }
 }
 
@@ -71,4 +72,22 @@ async function sendList(to, bodyText, buttonLabel, sections) {
   });
 }
 
-module.exports = { sendText, sendButtons, sendList };
+// 4) Şablon (template) mesajı — 24 saat müşteri penceresi kapalıyken tek yol.
+//    Meta panelinde onaylanmış şablon adı ve {{1}},{{2}}... gövde parametreleri.
+async function sendTemplate(to, name, params = [], lang = "tr") {
+  if (!to) return null;
+  return send({
+    messaging_product: "whatsapp",
+    to,
+    type: "template",
+    template: {
+      name,
+      language: { code: lang },
+      components: params.length
+        ? [{ type: "body", parameters: params.map((p) => ({ type: "text", text: String(p) })) }]
+        : [],
+    },
+  });
+}
+
+module.exports = { sendText, sendButtons, sendList, sendTemplate };

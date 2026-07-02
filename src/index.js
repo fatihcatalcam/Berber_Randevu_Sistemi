@@ -10,11 +10,13 @@ const crypto = require("crypto");
 
 const db = require("./db");
 const { handleMessage } = require("./bot");
-const { sendText } = require("./whatsapp");
+const { sendText, sendTemplate } = require("./whatsapp");
 const { BERBERLER, HIZMETLER, SAATLER, SAATLER_45, ADMIN_PIN } = require("./config");
 const sheets = require("./sheets");
 
 const app = express();
+// Render ters proxy arkasında gerçek istemci IP'si (req.ip) için
+app.set("trust proxy", 1);
 // Webhook imza doğrulaması için ham gövdeyi sakla
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf; } }));
 
@@ -27,6 +29,8 @@ app.use("/api", (req, res, next) => {
 const PORT         = process.env.PORT || 3000;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const APP_SECRET   = process.env.APP_SECRET; // Meta App Secret (webhook imzası)
+// Meta'da onaylanmış hatırlatma şablonunun adı (24 saat penceresi kapalıyken kullanılır)
+const TEMPLATE_HATIRLATMA = process.env.TEMPLATE_HATIRLATMA;
 
 // ---------------------------------------------------------------------------
 // Oturum token'ları (bellek içi) — sunucu yeniden başlayınca sıfırlanır
@@ -40,11 +44,36 @@ function tokenUret(bilgi) {
   return token;
 }
 
-// Süresi dolan token'ları periyodik temizle
+// ---------------------------------------------------------------------------
+// Giriş denemesi sınırı — PIN kaba kuvvet denemesini engeller
+// ---------------------------------------------------------------------------
+const girisDenemeleri = new Map(); // ip -> { sayac, son }
+const GIRIS_MAX_DENEME = 5;
+const GIRIS_KILIT_MS   = 15 * 60 * 1000; // 15 dk
+
+function girisEngelli(ip) {
+  const k = girisDenemeleri.get(ip);
+  if (!k) return false;
+  if (Date.now() - k.son > GIRIS_KILIT_MS) { girisDenemeleri.delete(ip); return false; }
+  return k.sayac >= GIRIS_MAX_DENEME;
+}
+
+function girisHatasiKaydet(ip) {
+  const k = girisDenemeleri.get(ip) || { sayac: 0, son: 0 };
+  if (Date.now() - k.son > GIRIS_KILIT_MS) k.sayac = 0; // eski seri sıfırlanır
+  k.sayac++;
+  k.son = Date.now();
+  girisDenemeleri.set(ip, k);
+}
+
+// Süresi dolan token'ları ve eski giriş denemelerini periyodik temizle
 setInterval(() => {
   const simdi = Date.now();
   for (const [t, v] of tokens) {
     if (simdi - v.olusturulma > TOKEN_OMUR_MS) tokens.delete(t);
+  }
+  for (const [ip, k] of girisDenemeleri) {
+    if (simdi - k.son > GIRIS_KILIT_MS) girisDenemeleri.delete(ip);
   }
 }, 60 * 60 * 1000).unref();
 
@@ -137,17 +166,27 @@ app.post("/webhook", async (req, res) => {
 // 3) Dashboard login
 // ---------------------------------------------------------------------------
 app.post("/api/auth", (req, res) => {
+  const ip = req.ip;
+  if (girisEngelli(ip)) {
+    return res.status(429).json({ ok: false, hata: "Çok fazla yanlış deneme. 15 dakika sonra tekrar deneyin." });
+  }
   const { berberId, pin, admin } = req.body;
   if (admin) {
     if (pin === ADMIN_PIN) {
+      girisDenemeleri.delete(ip);
       const token = tokenUret({ role: "admin", berberId: null, ad: "Admin" });
       return res.json({ ok: true, role: "admin", token });
     }
+    girisHatasiKaydet(ip);
     return res.status(401).json({ ok: false, hata: "Yanlış PIN." });
   }
   const berber = BERBERLER.find((b) => b.id === berberId);
   if (!berber)          return res.status(404).json({ ok: false, hata: "Berber bulunamadı." });
-  if (berber.pin !== pin) return res.status(401).json({ ok: false, hata: "Yanlış PIN." });
+  if (berber.pin !== pin) {
+    girisHatasiKaydet(ip);
+    return res.status(401).json({ ok: false, hata: "Yanlış PIN." });
+  }
+  girisDenemeleri.delete(ip);
   const role  = berber.admin ? "admin" : "berber";
   const token = tokenUret({ role, berberId, ad: berber.ad });
   return res.json({ ok: true, role, berberId, ad: berber.ad, token });
@@ -409,11 +448,21 @@ async function hatirlatmaKontrol() {
     for (const r of liste) {
       const kalan = saatToDk(r.saat) - simdiDk;
       if (kalan > 0 && kalan <= 60) {
-        await sendText(
+        let sonuc = await sendText(
           r.telefon,
           `⏰ *Randevu Hatırlatması!*\n\nYaklaşık 1 saat sonra randevunuz var:\n\n💈 ${r.berber}\n✂️ ${r.hizmet}\n📅 ${gunLabel} ⏰ ${r.saat}\n\nSizi bekliyoruz! 🙏`
         );
-        await db.markHatirlatildi(r.id);
+        // 131047: müşterinin 24 saat penceresi kapalı — onaylı şablonla gönder
+        if (sonuc && sonuc.hata && sonuc.kod === 131047) {
+          if (TEMPLATE_HATIRLATMA) {
+            sonuc = await sendTemplate(r.telefon, TEMPLATE_HATIRLATMA, [r.berber, r.hizmet, gunLabel, r.saat]);
+          } else {
+            console.warn(`⚠️ ${r.telefon}: 24 saat penceresi kapalı ve TEMPLATE_HATIRLATMA tanımsız — hatırlatma gönderilemedi.`);
+            sonuc = null; // tekrar denemenin anlamı yok
+          }
+        }
+        // Başarısız gönderim işaretlenmez — 5 dk sonra tekrar denenir
+        if (!sonuc || !sonuc.hata) await db.markHatirlatildi(r.id);
       }
     }
   } catch (e) {
