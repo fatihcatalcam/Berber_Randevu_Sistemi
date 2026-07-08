@@ -399,6 +399,15 @@ app.get("/dashboard", (req, res) => {
 app.get("/", (req, res) => res.redirect("/dashboard"));
 
 // ---------------------------------------------------------------------------
+// Gizlilik Politikası — Meta uygulamayı Live'a almak için geçerli bir
+// Privacy Policy URL zorunlu kılar. Herkese açık, giriş gerektirmez.
+// ---------------------------------------------------------------------------
+app.get("/gizlilik", (req, res) => {
+  res.set("Content-Type", "text/html; charset=utf-8");
+  res.send(GIZLILIK_HTML);
+});
+
+// ---------------------------------------------------------------------------
 // Genel hata yakalayıcı — async route hataları buraya düşer (sunucu çökmez)
 // ---------------------------------------------------------------------------
 app.use((err, req, res, next) => {
@@ -482,5 +491,75 @@ if (sheets.isEnabled()) {
   setTimeout(arsivCalistir, 10000).unref();
   setInterval(arsivCalistir, 24 * 60 * 60 * 1000).unref();
 }
+
+// ---------------------------------------------------------------------------
+// Gizlilik Politikası sayfası (statik HTML)
+// ---------------------------------------------------------------------------
+const GIZLILIK_HTML = `<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gizlilik Politikası — Resul Tabu Saç Atölyesi</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#f4f4f5; color:#1f2937; font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  .kutu { max-width:760px; margin:0 auto; padding:32px 22px 64px; }
+  h1 { font-size:26px; margin:0 0 4px; }
+  h2 { font-size:19px; margin:32px 0 8px; color:#111827; }
+  .tarih { color:#6b7280; font-size:14px; margin-bottom:24px; }
+  p, li { color:#374151; }
+  ul { padding-left:20px; }
+  a { color:#2563eb; }
+  .alt { margin-top:40px; padding-top:20px; border-top:1px solid #e5e7eb; color:#6b7280; font-size:14px; }
+</style>
+</head>
+<body>
+<div class="kutu">
+  <h1>Gizlilik Politikası</h1>
+  <div class="tarih">Resul Tabu Saç Atölyesi — Son güncelleme: 8 Temmuz 2026</div>
+
+  <p>Bu gizlilik politikası, Resul Tabu Saç Atölyesi'nin WhatsApp üzerinden sunduğu
+  online randevu hizmetinde kişisel verilerinizi nasıl işlediğimizi açıklar.
+  Hizmeti kullanarak bu politikayı kabul etmiş sayılırsınız.</p>
+
+  <h2>Hangi bilgileri topluyoruz?</h2>
+  <ul>
+    <li><strong>Ad ve soyad:</strong> Randevunuzu size tanımlamak için.</li>
+    <li><strong>WhatsApp telefon numarası:</strong> Randevu onayı ve hatırlatma mesajlarını göndermek için.</li>
+    <li><strong>Randevu bilgileri:</strong> Seçtiğiniz berber, hizmet, tarih ve saat.</li>
+  </ul>
+  <p>Ödeme bilgisi, kimlik numarası veya konum gibi hassas veriler toplanmaz.</p>
+
+  <h2>Bilgilerinizi neden kullanıyoruz?</h2>
+  <ul>
+    <li>Randevunuzu oluşturmak, onaylamak ve gerektiğinde iptal etmek.</li>
+    <li>Randevunuzdan yaklaşık 1 saat önce size hatırlatma göndermek.</li>
+    <li>İşletmenin randevu takvimini yönetmesini sağlamak.</li>
+  </ul>
+
+  <h2>Bilgileriniz nerede saklanıyor?</h2>
+  <p>Randevu kayıtları güvenli bir veritabanında ve işletmenin randevu takibi için
+  kullandığı Google E-Tablolar dosyasında tutulur. Mesajlaşma WhatsApp (Meta)
+  altyapısı üzerinden gerçekleşir ve WhatsApp'ın kendi gizlilik politikasına tabidir.</p>
+
+  <h2>Bilgileriniz üçüncü kişilerle paylaşılıyor mu?</h2>
+  <p>Kişisel bilgileriniz pazarlama amacıyla satılmaz veya üçüncü taraflarla
+  paylaşılmaz. Veriler yalnızca hizmetin çalışması için gereken altyapı
+  sağlayıcılarında (barındırma, veritabanı, Google, Meta/WhatsApp) işlenir.</p>
+
+  <h2>Verilerinizin silinmesi</h2>
+  <p>Kayıtlı bilgilerinizin silinmesini isterseniz, WhatsApp hattımızdan bize
+  yazmanız yeterlidir; talebiniz üzerine randevu ve iletişim kayıtlarınız silinir.</p>
+
+  <h2>İletişim</h2>
+  <p>Gizlilikle ilgili her türlü soru için işletmemizin WhatsApp randevu hattından
+  bize ulaşabilirsiniz.</p>
+
+  <div class="alt">Bu sayfa Resul Tabu Saç Atölyesi randevu sistemi tarafından sağlanmaktadır.</div>
+</div>
+</body>
+</html>`;
 
 module.exports = { app, server };
