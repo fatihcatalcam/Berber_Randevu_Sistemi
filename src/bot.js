@@ -20,6 +20,23 @@ function bugunStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// "10:30" → 630 (gece yarısından beri geçen dakika)
+function saatToDk(saat) {
+  const [h, m] = saat.split(":").map(Number);
+  return h * 60 + m;
+}
+
+// Randevu en erken bu kadar dakika sonrasına alınabilir (çok son ana engel).
+const MIN_ONCE_DK = 15;
+
+// Slot geçmişte mi (veya alınamayacak kadar yakın mı)? Sadece bugünü ilgilendirir;
+// gelecek günlerin tüm saatleri geçerlidir.
+function slotGectiMi(tarih, saat) {
+  if (tarih !== bugunStr()) return false;
+  const now = new Date();
+  return saatToDk(saat) <= now.getHours() * 60 + now.getMinutes() + MIN_ONCE_DK;
+}
+
 // ---------------------------------------------------------------------------
 // Oturum yönetimi (bellek içi)
 // ---------------------------------------------------------------------------
@@ -266,10 +283,17 @@ async function adimKisiHizmet(telefon, metin, s) {
 // Tarih listesi
 // ---------------------------------------------------------------------------
 async function tarihListesiGonder(telefon, s) {
-  const rows = gelecekTarihler(7).map((t) => ({
-    id:    `tarih_${t.deger}`,
-    title: t.etiket.length > 24 ? t.etiket.slice(0, 24) : t.etiket,
-  }));
+  // Bugünün son slotu da geçtiyse bugünü listeleme (seçilse boş çıkardı).
+  // 8 gün üretip eleme sonrası 7'ye indiriyoruz ki liste hep dolu kalsın.
+  const saatler = berberSaatleri(s.veri.berberId);
+  const sonSaat = saatler[saatler.length - 1];
+  const rows = gelecekTarihler(8)
+    .filter((t) => !slotGectiMi(t.deger, sonSaat))
+    .slice(0, 7)
+    .map((t) => ({
+      id:    `tarih_${t.deger}`,
+      title: t.etiket.length > 24 ? t.etiket.slice(0, 24) : t.etiket,
+    }));
   await sendList(telefon, "Hangi gün için randevu almak istersiniz?", "Tarih Seç", [
     { title: "Önümüzdeki 7 gün", rows },
   ]);
@@ -289,6 +313,7 @@ async function adimTarih(telefon, metin, s) {
   const kisiSayisi = s.veri.kisiSayisi || 1;
   const saatler = berberSaatleri(s.veri.berberId);
   const bos = saatler.filter((saat) => {
+    if (slotGectiMi(tarih, saat)) return false; // bugünün geçmiş saatleri seçilemez
     const idx = saatler.indexOf(saat);
     for (let i = 0; i < kisiSayisi; i++) {
       if (idx + i >= saatler.length) return false;
@@ -399,6 +424,12 @@ async function adimOnay(telefon, metin, s) {
   if (metin === "onayla") {
     const kisiler    = s.veri.kisiler;
     const kisiSayisi = s.veri.kisiSayisi || 1;
+
+    // Onay anında saat geçmiş olabilir (müşteri listeyi bekletmiş olabilir)
+    if (slotGectiMi(s.veri.tarih, s.veri.saat)) {
+      await sendText(telefon, "😔 Bu saat artık geçti. Lütfen uygun bir saat seçin.");
+      return adimTarih(telefon, `tarih_${s.veri.tarih}`, s);
+    }
 
     // Onay anında slotları yeniden kontrol et (çift rezervasyon koruması)
     const dolu = await db.getBusySlots(s.veri.berberId, s.veri.tarih);
