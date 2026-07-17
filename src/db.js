@@ -10,8 +10,27 @@ function slotEkle(saat, dk) {
 
 // DATABASE_URL yoksa pool null kalır; init() erken çıkar, sorgular hata fırlatır.
 const pool = process.env.DATABASE_URL
-  ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } })
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+      // Neon boştaki bağlantıyı kendisi düşürür; ondan önce biz kapatalım ki
+      // havuzda ölü bağlantı kalmasın.
+      idleTimeoutMillis: 10000,
+      connectionTimeoutMillis: 10000,
+      keepAlive: true,
+      max: 10,
+    })
   : null;
+
+// KRİTİK: Havuzdaki BOŞTAKİ bir istemci hata alırsa (ör. Neon bağlantıyı
+// düşürdüğünde "read ECONNABORTED") pg bunu pool üzerinde 'error' olayı olarak
+// yayar. Dinleyici yoksa Node süreci öldürür ve sunucu çöker.
+// Bu hatalar normaldir; havuz bağlantıyı atıp yenisini açar — loglayıp geçiyoruz.
+if (pool) {
+  pool.on("error", (err) => {
+    console.error("⚠️  Boştaki veritabanı bağlantısı düştü (havuz kendini toparlar):", err.message);
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Tablo oluşturma — uygulama açılışında çağrılır
