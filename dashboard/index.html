@@ -579,6 +579,42 @@ function berberSlotDk(berberId) {
 function berberSaatleri(berberId) {
   return berberSlotDk(berberId) === 45 ? SAATLER45 : SAATLER;
 }
+function _saatToDk(s) { const p = s.split(":").map(Number); return p[0] * 60 + p[1]; }
+function _dkToSaat(t) { return String(Math.floor(t / 60)).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0"); }
+
+// Berberin belirli tarihteki başlangıç saati (Eren gün bazlı değişir) — sunucuyla aynı
+function berberBaslangicSaati(berberId, tarih) {
+  const b = BERBERLER.find((x) => x.id === berberId);
+  const c = b && b.calisma;
+  if (!c) return "09:00";
+  if (typeof c.baslangic === "string") return c.baslangic;
+  const gun = tarih ? new Date(tarih + "T00:00:00").getDay() : 1;
+  return c.baslangic[gun] || c.baslangic[1] || "09:00";
+}
+
+// Berberin o günkü TÜM slotları (başlangıç→bitiş), her biri yemek mi değil mi işaretli.
+// Panel bunu gösterir: yemek slotları kilitli çizilir; öncesi/sonrası zaten yok.
+function berberGunSlotlari(berberId, tarih) {
+  const b = BERBERLER.find((x) => x.id === berberId);
+  const step = berberSlotDk(berberId);
+  const c = b && b.calisma;
+  if (!c) return berberSaatleri(berberId).map((s) => ({ saat: s, yemek: false }));
+  const bas = _saatToDk(berberBaslangicSaati(berberId, tarih));
+  const bit = _saatToDk(c.bitis);
+  const yBas = c.yemek ? _saatToDk(c.yemek) : null;
+  const yBit = yBas != null ? yBas + (c.yemekDk || 45) : null;
+  const out = [];
+  for (let t = bas; t + step <= bit; t += step) {
+    const yemek = yBas != null && t < yBit && t + step > yBas;
+    out.push({ saat: _dkToSaat(t), yemek });
+  }
+  return out;
+}
+
+// Randevu alınabilir (yemek dışı) çalışma slotları — sunucudaki berberCalismaSaatleri ile aynı
+function berberCalismaSaatleri(berberId, tarih) {
+  return berberGunSlotlari(berberId, tarih).filter((x) => !x.yemek).map((x) => x.saat);
+}
 let seciliTarih = todayStr();
 let takvimAy = new Date();
 let filtreDurum = "hepsi", filtreBerber = "hepsi", arama = "";
@@ -984,20 +1020,25 @@ function cizelgeRender() {
     }
   });
 
-  // Sütunlar: Saat(30dk) | 30dk berberler | Saat(45dk) | 45dk berberler
+  // Her berberin o günkü kendi slotları (başlangıç→bitiş, yemek işaretli).
+  // Aynı slot dizisine sahip komşu berberler tek saat sütununu paylaşır.
   const gorulenBerberler = gorRunumBerberler();
-  const b30 = gorulenBerberler.filter((b) => berberSlotDk(b.id) === 30);
-  const b45 = gorulenBerberler.filter((b) => berberSlotDk(b.id) === 45);
+  const slotMap = {};
+  gorulenBerberler.forEach((b) => { slotMap[b.id] = berberGunSlotlari(b.id, seciliTarih); });
+  const imza = (b) => slotMap[b.id].map((x) => x.saat).join(",");
   const kolonlar = [];
-  if (b30.length) {
-    kolonlar.push({ tip: "saat", saatler: SAATLER, baslik: "Saat (30dk)" });
-    b30.forEach((b) => kolonlar.push({ tip: "berber", berber: b, saatler: SAATLER }));
+  let gi = 0;
+  while (gi < gorulenBerberler.length) {
+    const key = imza(gorulenBerberler[gi]);
+    const grup = [gorulenBerberler[gi]];
+    let gj = gi + 1;
+    while (gj < gorulenBerberler.length && imza(gorulenBerberler[gj]) === key) { grup.push(gorulenBerberler[gj]); gj++; }
+    const slotlar = slotMap[grup[0].id];
+    kolonlar.push({ tip: "saat", saatler: slotlar.map((x) => x.saat), baslik: "Saat" });
+    grup.forEach((b) => kolonlar.push({ tip: "berber", berber: b, slotlar }));
+    gi = gj;
   }
-  if (b45.length) {
-    kolonlar.push({ tip: "saat", saatler: SAATLER45, baslik: "Saat (45dk)" });
-    b45.forEach((b) => kolonlar.push({ tip: "berber", berber: b, saatler: SAATLER45 }));
-  }
-  const maxSatir = Math.max(b30.length ? SAATLER.length : 0, b45.length ? SAATLER45.length : 0);
+  const maxSatir = Math.max(0, ...gorulenBerberler.map((b) => slotMap[b.id].length));
 
   const saatHucreStil = "padding:7px 10px;border:1px solid var(--cizgi);font-weight:700;font-size:12px;white-space:nowrap;background:#f9fafb;";
 
@@ -1019,8 +1060,9 @@ function cizelgeRender() {
         return;
       }
       const b = k.berber;
-      const saat = k.saatler[ri];
-      if (!saat) { html += `<td style="border:1px solid var(--cizgi);background:#fafafa;"></td>`; return; }
+      const slot = k.slotlar[ri];
+      if (!slot) { html += `<td style="border:1px solid var(--cizgi);background:#fafafa;"></td>`; return; }
+      const saat = slot.saat;
       const key = saat + "|" + b.id;
       const r = harita[key];
       const kapali = !!(kapaliSaatler[b.id] && kapaliSaatler[b.id][seciliTarih] && kapaliSaatler[b.id][seciliTarih].includes(saat));
@@ -1040,6 +1082,8 @@ function cizelgeRender() {
             `<div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;">${kacis(etiket)}</div>` +
             `<div style="font-size:11px;opacity:.75;white-space:nowrap;">${kacis(r.hizmet)} · ${fiyatGoster}</div></td>`;
         }
+      } else if (slot.yemek) {
+        html += `<td title="Yemek arası" style="padding:7px 10px;border:1px solid var(--cizgi);background:#fef3c7;color:#92400e;text-align:center;font-size:11px;user-select:none;min-width:60px;">🍽️</td>`;
       } else if (kapali) {
         html += `<td class="cizelge-kapali" data-berber="${b.id}" data-saat="${saat}" style="padding:7px 10px;border:1px solid var(--cizgi);background:#f3f4f6;color:#9ca3af;text-align:center;cursor:pointer;user-select:none;min-width:60px;">🔒</td>`;
       } else {
@@ -1238,7 +1282,7 @@ function elleSaatDoldur() {
     });
   const kapalilar = kapaliSaatler[berberId]?.[tarih] || [];
   const tumDolu = new Set([...doluRandevular, ...kapalilar]);
-  const boslar = berberSaatleri(berberId).filter(s => !tumDolu.has(s));
+  const boslar = berberCalismaSaatleri(berberId, tarih).filter(s => !tumDolu.has(s));
 
   const elleSaat = document.getElementById("elleSaat");
   elleSaat.innerHTML = boslar.length
@@ -1362,7 +1406,7 @@ function tasiSaatDoldur() {
   });
   const kapalilar = (kapaliSaatler[r.berberId]?.[secTarih] || []);
   const tumDolu = new Set([...doluRandevular, ...kapalilar]);
-  const boslar = berberSaatleri(r.berberId).filter(s => !tumDolu.has(s));
+  const boslar = berberCalismaSaatleri(r.berberId, secTarih).filter(s => !tumDolu.has(s));
   const tasiSaat = document.getElementById("tasiSaat");
   tasiSaat.innerHTML = boslar.length
     ? boslar.map(s => `<option value="${s}"${s === r.saat ? " selected" : ""}>${s}</option>`).join("")
