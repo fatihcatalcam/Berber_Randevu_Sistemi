@@ -1,5 +1,5 @@
 const db = require("./db");
-const { BERBERLER, HIZMETLER, berberSaatleri, berberSlotDk, gelecekTarihler } = require("./config");
+const { BERBERLER, HIZMETLER, berberCalismaSaatleri, berberSlotDk, gelecekTarihler } = require("./config");
 const { sendText, sendButtons, sendList } = require("./whatsapp");
 const sheets = require("./sheets");
 
@@ -283,12 +283,12 @@ async function adimKisiHizmet(telefon, metin, s) {
 // Tarih listesi
 // ---------------------------------------------------------------------------
 async function tarihListesiGonder(telefon, s) {
-  // Bugünün son slotu da geçtiyse bugünü listeleme (seçilse boş çıkardı).
-  // 8 gün üretip eleme sonrası 7'ye indiriyoruz ki liste hep dolu kalsın.
-  const saatler = berberSaatleri(s.veri.berberId);
-  const sonSaat = saatler[saatler.length - 1];
+  // O berberin o tarihteki çalışma saatlerinden en az biri hâlâ seçilebilir mi?
+  // Değilse (ör. bugünün tüm slotları geçmiş) o günü listeye alma.
+  const gunSecilebilir = (tarih) =>
+    berberCalismaSaatleri(s.veri.berberId, tarih).some((saat) => !slotGectiMi(tarih, saat));
   const rows = gelecekTarihler(8)
-    .filter((t) => !slotGectiMi(t.deger, sonSaat))
+    .filter((t) => gunSecilebilir(t.deger))
     .slice(0, 7)
     .map((t) => ({
       id:    `tarih_${t.deger}`,
@@ -311,13 +311,16 @@ async function adimTarih(telefon, metin, s) {
 
   const dolu = await db.getBusySlots(s.veri.berberId, tarih);
   const kisiSayisi = s.veri.kisiSayisi || 1;
-  const saatler = berberSaatleri(s.veri.berberId);
+  const slotDk  = berberSlotDk(s.veri.berberId);
+  const saatler = berberCalismaSaatleri(s.veri.berberId, tarih);
+  const calisilan = new Set(saatler); // çalışma saati kümesi (yemek/mesai dışı hariç)
   const bos = saatler.filter((saat) => {
     if (slotGectiMi(tarih, saat)) return false; // bugünün geçmiş saatleri seçilemez
-    const idx = saatler.indexOf(saat);
+    // Çok kişilik: zaman olarak ardışık slotların hepsi çalışma içinde ve boş olmalı
     for (let i = 0; i < kisiSayisi; i++) {
-      if (idx + i >= saatler.length) return false;
-      if (dolu.includes(saatler[idx + i])) return false;
+      const slot = slotEkle(saat, i * slotDk);
+      if (!calisilan.has(slot)) return false; // yemek arası / mesai sonu — ardışık blok bölünemez
+      if (dolu.includes(slot))  return false;
     }
     return true;
   });
@@ -431,14 +434,14 @@ async function adimOnay(telefon, metin, s) {
       return adimTarih(telefon, `tarih_${s.veri.tarih}`, s);
     }
 
-    // Onay anında slotları yeniden kontrol et (çift rezervasyon koruması)
+    // Onay anında slotları yeniden kontrol et (çift rezervasyon + çalışma saati)
     const dolu = await db.getBusySlots(s.veri.berberId, s.veri.tarih);
-    const saatler = berberSaatleri(s.veri.berberId);
-    const baslangicIdx = saatler.indexOf(s.veri.saat);
-    let cakisma = baslangicIdx === -1;
+    const slotDk  = berberSlotDk(s.veri.berberId);
+    const calisilan = new Set(berberCalismaSaatleri(s.veri.berberId, s.veri.tarih));
+    let cakisma = !calisilan.has(s.veri.saat);
     for (let i = 0; i < kisiSayisi && !cakisma; i++) {
-      const slot = saatler[baslangicIdx + i];
-      if (!slot || dolu.includes(slot)) cakisma = true;
+      const slot = slotEkle(s.veri.saat, i * slotDk);
+      if (!calisilan.has(slot) || dolu.includes(slot)) cakisma = true;
     }
     if (cakisma) {
       await sendText(telefon, "😔 Maalesef bu saat az önce doldu. Lütfen başka bir saat seçin.");
@@ -475,7 +478,6 @@ async function adimOnay(telefon, metin, s) {
       weekday: "long", day: "numeric", month: "long",
     });
 
-    const slotDk = berberSlotDk(kayit.berberId);
     const kayitKisiSayisi = kisiSayisi > 1 ? kisiSayisi : null;
     const saatStr = kayitKisiSayisi
       ? `${kayit.saat} – ${slotEkle(kayit.saat, kayitKisiSayisi * slotDk)}`
