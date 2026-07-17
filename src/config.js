@@ -32,7 +32,7 @@ const BERBERLER = [
   { id: "eren",      ad: "Eren Tokalak",   uzmanlik: "Saç & Sakal Tasarımı", pin: "2828", tel: null, slotDk: 45, fiyat: EKIP_FIYAT,
     calisma: { baslangic: EREN_BASLANGIC, bitis: "21:00", yemek: "16:30", yemekDk: 45 }, net: { taban: 100, oran: 0.55 } },
   { id: "kaan",      ad: "Kaan Ekinci",    uzmanlik: "Saç & Sakal Tasarımı", pin: "3436", tel: null, slotDk: 45, fiyat: EKIP_FIYAT,
-    calisma: { baslangic: "10:45", bitis: "21:00", yemek: "16:30", yemekDk: 45 }, net: { taban: 100, oran: 0.60 } },
+    calisma: { baslangic: "10:45", bitis: "21:00", yemek: "14:45", yemekDk: 45 }, net: { taban: 100, oran: 0.60 } },
   { id: "burak",     ad: "Burak Şahin",    uzmanlik: "Saç & Sakal Tasarımı", pin: "1453", tel: null, slotDk: 45, fiyat: EKIP_FIYAT,
     calisma: { baslangic: "10:30", bitis: "20:15", yemek: "16:30", yemekDk: 45 }, net: { taban: 0, oran: 0.45 } },
   { id: "emre",      ad: "Emre Akçam",     uzmanlik: "Saç & Sakal Tasarımı", pin: "3434", tel: null, slotDk: 45, fiyat: EKIP_FIYAT,

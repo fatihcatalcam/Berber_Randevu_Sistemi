@@ -328,7 +328,7 @@
     <div class="kart bekliyor"> <div class="sayi" id="s-bekliyor">0</div> <div class="etiket">Bekliyor</div></div>
     <div class="kart iptal">    <div class="sayi" id="s-iptal">0</div>    <div class="etiket">İptal</div></div>
     <div class="kart bekleyen"> <div class="sayi" id="s-bekleyen">0</div> <div class="etiket">Onay Bek.</div></div>
-    <div class="kart ciro">     <div class="sayi" id="s-ciro">0₺</div>   <div class="etiket">Ciro</div></div>
+    <div class="kart ciro">     <div class="sayi" id="s-ciro">0₺</div>   <div class="etiket" id="s-ciro-etiket">Ciro</div></div>
   </div>
 
   <!-- Ciro tablosu (admin) -->
@@ -614,6 +614,14 @@ function berberGunSlotlari(berberId, tarih) {
 // Randevu alınabilir (yemek dışı) çalışma slotları — sunucudaki berberCalismaSaatleri ile aynı
 function berberCalismaSaatleri(berberId, tarih) {
   return berberGunSlotlari(berberId, tarih).filter((x) => !x.yemek).map((x) => x.saat);
+}
+
+// Berberin günlük net gelir hesabı: (ciro - taban) * oran — sunucudaki berberNet ile aynı
+function berberNet(berberId, ciro) {
+  const b = BERBERLER.find((x) => x.id === berberId);
+  const n = (b && b.net) || { taban: 0, oran: 1 };
+  const net = (ciro - n.taban) * n.oran;
+  return net > 0 ? Math.round(net) : 0;
 }
 let seciliTarih = todayStr();
 let takvimAy = new Date();
@@ -1467,9 +1475,13 @@ function istatistikGuncelle() {
   document.getElementById("s-bekliyor").textContent = gun.filter((r) => r.durum === "bekliyor").length;
   document.getElementById("s-iptal").textContent    = gun.filter((r) => r.durum === "iptal").length;
   document.getElementById("s-bekleyen").textContent = gun.filter((r) => r.durum === "bekliyor").length;
-  const ciro = gorRunum.filter((r) => r.durum === "onaylı")
+  const ciro = gun.filter((r) => r.durum === "onaylı")
     .reduce((s, r) => s + (r.gercekFiyat ?? r.fiyat ?? 0), 0);
-  document.getElementById("s-ciro").textContent = ciro.toLocaleString("tr-TR") + "₺";
+  // Admin (Resul) tam günlük ciroyu görür; diğer berberler sadece kendi günlük NET'ini
+  const berberGorunum = auth && auth.role !== "admin";
+  const gosterilen = berberGorunum ? berberNet(auth.berberId, ciro) : ciro;
+  document.getElementById("s-ciro").textContent = gosterilen.toLocaleString("tr-TR") + "₺";
+  document.getElementById("s-ciro-etiket").textContent = berberGorunum ? "Günlük Net" : "Ciro";
 }
 
 // ============================================================
