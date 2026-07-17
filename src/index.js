@@ -394,7 +394,9 @@ app.post("/api/gun-ac", requireAuth, ah(async (req, res) => {
 app.post("/api/sheets/resync", requireAuth, ah(async (req, res) => {
   if (!sheets.isEnabled())
     return res.status(503).json({ hata: "Google Sheets yapılandırılmamış." });
-  const sonuc = await sheets.tumunuYenidenSenkronla(await db.getAll());
+  const tumu = await db.getAll();
+  const sonuc = await sheets.tumunuYenidenSenkronla(tumu);
+  await sheets.aylikOzetYaz(tumu);
   res.json({ ok: true, ...sonuc });
 }));
 
@@ -504,6 +506,12 @@ if (sheets.isEnabled()) {
       .catch(() => {});
   setTimeout(arsivCalistir, 10000).unref();
   setInterval(arsivCalistir, 24 * 60 * 60 * 1000).unref();
+
+  // Aylık özet: başlangıçta bir kez + saatte bir güncelle
+  const aylikOzetCalistir = () =>
+    db.getAll().then((tumu) => sheets.aylikOzetYaz(tumu)).catch(() => {});
+  setTimeout(aylikOzetCalistir, 20000).unref();
+  setInterval(aylikOzetCalistir, 60 * 60 * 1000).unref();
 }
 
 // ---------------------------------------------------------------------------

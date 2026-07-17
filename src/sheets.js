@@ -342,6 +342,61 @@ async function musteriKaydet(randevu) {
   }
 }
 
+// --- Aylık özet (müşteri DB dosyasında "Aylık Özet" sekmesi) ----------------
+
+// Ay etiketi: "2026-07" → "Temmuz 2026"
+const AY_ADLARI = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
+function ayEtiket(ay) {
+  const [yil, a] = ay.split("-").map(Number);
+  return `${AY_ADLARI[a - 1] || a} ${yil}`;
+}
+
+// Saf hesap: onaylı randevulardan ay bazlı ciro, sayı ve berber kırılımı.
+// [{ ay:"2026-07", sayi, ciro, berber:{berberId:sayi} }] (aya göre artan)
+function aylikOzetHesapla(randevular) {
+  const aylar = {};
+  for (const r of randevular || []) {
+    if (r.durum !== "onaylı") continue; // sadece gerçekleşen (para kazanılan) randevular
+    const ay = (r.tarih || "").slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(ay)) continue;
+    if (!aylar[ay]) aylar[ay] = { ay, sayi: 0, ciro: 0, berber: {} };
+    const a = aylar[ay];
+    a.sayi++;
+    a.ciro += (r.gercekFiyat != null ? r.gercekFiyat : (r.fiyat || 0));
+    a.berber[r.berberId] = (a.berber[r.berberId] || 0) + 1;
+  }
+  return Object.values(aylar).sort((x, y) => x.ay.localeCompare(y.ay));
+}
+
+// Aylık özeti müşteri DB dosyasındaki "Aylık Özet" sekmesine yazar (tam yeniden yazım).
+async function aylikOzetYaz(randevular) {
+  if (!sheetsApi || !MUSTERI_ID) return;
+  try {
+    const ozet = aylikOzetHesapla(randevular);
+    const SEKME = "Aylık Özet";
+    const harita = await sekmeHaritasi(MUSTERI_ID);
+    if (harita[SEKME] === undefined) {
+      await sheetsApi.spreadsheets.batchUpdate({
+        spreadsheetId: MUSTERI_ID,
+        requestBody: { requests: [{ addSheet: { properties: { title: SEKME } } }] },
+      });
+    }
+    const baslik = ["Ay", "Randevu", "Ciro (₺)", ...BERBERLER.map((b) => b.ad)];
+    const satirlar = ozet.map((o) => [
+      ayEtiket(o.ay), o.sayi, o.ciro, ...BERBERLER.map((b) => o.berber[b.id] || 0),
+    ]);
+    await sheetsApi.spreadsheets.values.clear({ spreadsheetId: MUSTERI_ID, range: `${SEKME}!A1:Z1000` });
+    await sheetsApi.spreadsheets.values.update({
+      spreadsheetId: MUSTERI_ID,
+      range: `${SEKME}!A1`,
+      valueInputOption: "RAW",
+      requestBody: { values: [baslik, ...satirlar] },
+    });
+  } catch (e) {
+    console.error("aylikOzetYaz hatası:", e.message);
+  }
+}
+
 // Geçmiş günlerin sekmelerini arşive taşı (kopyala + aktiften sil)
 async function arsivle() {
   if (!aktif || !ARSIV_ID) return { tasinan: 0 };
@@ -420,6 +475,8 @@ module.exports = {
   musteriKaydet,
   arsivle,
   tumunuYenidenSenkronla,
+  aylikOzetYaz,
+  aylikOzetHesapla,
   // test/iç kullanım için:
   _tarihToTab: tarihToTab,
   _tabToTarih: tabToTarih,
