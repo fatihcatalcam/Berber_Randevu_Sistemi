@@ -287,7 +287,10 @@ async function tarihListesiGonder(telefon, s) {
   // Değilse (ör. bugünün tüm slotları geçmiş) o günü listeye alma.
   const gunSecilebilir = (tarih) =>
     berberCalismaSaatleri(s.veri.berberId, tarih).some((saat) => !slotGectiMi(tarih, saat));
-  const rows = gelecekTarihler(8)
+  const acik = typeof db.getAcikGunler === "function"
+    ? await db.getAcikGunler().catch(() => [])
+    : []; // özel açık günler (Pazar/bayram)
+  const rows = gelecekTarihler(8, acik)
     .filter((t) => gunSecilebilir(t.deger))
     .slice(0, 7)
     .map((t) => ({

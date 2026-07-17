@@ -75,6 +75,13 @@ async function init() {
       PRIMARY KEY (berber_id, tarih)
     )
   `);
+  // Özel olarak açılan günler (Pazar/bayram istisnası) — normalde kapalı bir gün
+  // buraya eklenince bot da o gün randevu alınmasına izin verir.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS acik_gunler (
+      tarih TEXT PRIMARY KEY
+    )
+  `);
   // Mevcut tabloya aciklama sütunu ekle (yoksa)
   await pool.query(`ALTER TABLE randevular ADD COLUMN IF NOT EXISTS aciklama TEXT`);
   // Hatırlatma gönderildi mi? (randevudan 1 saat önce)
@@ -286,6 +293,20 @@ async function setKapaliGun(berberId, tarih, kapali) {
   }
 }
 
+// Özel açılan günler
+async function getAcikGunler() {
+  const res = await pool.query("SELECT tarih FROM acik_gunler");
+  return res.rows.map((r) => r.tarih);
+}
+
+// Bir günü herkes için tamamen aç: tüm kapalı-gün ve kapalı-saat kayıtlarını
+// o tarih için sil ve günü "özel açık" olarak işaretle (Pazar/bayram istisnası).
+async function tumGunuAc(tarih) {
+  await pool.query("DELETE FROM kapali_gunler WHERE tarih=$1", [tarih]);
+  await pool.query("DELETE FROM kapali_saatler WHERE tarih=$1", [tarih]);
+  await pool.query("INSERT INTO acik_gunler (tarih) VALUES ($1) ON CONFLICT DO NOTHING", [tarih]);
+}
+
 async function getKapaliListByBerber(berberId, tarih) {
   const res = await pool.query(
     "SELECT saat FROM kapali_saatler WHERE berber_id=$1 AND tarih=$2",
@@ -326,4 +347,6 @@ module.exports = {
   setKapaliSaat,
   getKapaliGunler,
   setKapaliGun,
+  getAcikGunler,
+  tumGunuAc,
 };

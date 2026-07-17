@@ -121,18 +121,22 @@ function berberNet(berberId, ciro) {
   return net > 0 ? Math.round(net) : 0;
 }
 
-function gelecekTarihler(kacGun = 7) {
+// acikGunler: özel açılmış tarihler (Pazar/bayram istisnası). Pazar normalde
+// atlanır; ama bu listedeyse (admin "tüm günü aç" demişse) yine gösterilir.
+function gelecekTarihler(kacGun = 7, acikGunler = []) {
+  const acikSet = new Set(acikGunler);
   const sonuc = [];
   const bugun = new Date();
-  for (let i = 0; sonuc.length < kacGun; i++) {
+  for (let i = 0; sonuc.length < kacGun && i < 60; i++) {
     const d = new Date(bugun);
     d.setDate(bugun.getDate() + i);
-    if (d.getDay() === 0) continue; // Pazar — dükkan kapalı
-    const etiket = d.toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
     const yil = d.getFullYear();
     const ay  = String(d.getMonth() + 1).padStart(2, "0");
     const gun = String(d.getDate()).padStart(2, "0");
-    sonuc.push({ etiket, deger: `${yil}-${ay}-${gun}` });
+    const deger = `${yil}-${ay}-${gun}`;
+    if (d.getDay() === 0 && !acikSet.has(deger)) continue; // Pazar — özel açık değilse kapalı
+    const etiket = d.toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
+    sonuc.push({ etiket, deger });
   }
   return sonuc;
 }

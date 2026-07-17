@@ -24,6 +24,7 @@ Module._load = function (req) {
       getBusySlots: async () => [],   // hiçbir slot dolu değil — eleme sadece "geçmiş" yüzünden olmalı
       add: async (r) => ({ ...r, id: "1", durum: "bekliyor" }),
       getAll: async () => [],
+      getAcikGunler: async () => [],
     };
   }
   return orig.apply(this, arguments);

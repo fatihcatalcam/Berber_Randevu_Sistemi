@@ -374,6 +374,20 @@ app.post("/api/kapali-gun", requireAuth, ah(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// Özel açık günler (Pazar/bayram istisnası)
+app.get("/api/acik-gunler", requireAuth, ah(async (req, res) => {
+  res.json(await db.getAcikGunler());
+}));
+
+// Tüm günü herkes için aç — sadece admin
+app.post("/api/gun-ac", requireAuth, ah(async (req, res) => {
+  if (req.auth.role !== "admin") return res.status(403).json({ hata: "Bu işlem sadece admin içindir." });
+  const { tarih } = req.body;
+  if (!tarih) return res.status(400).json({ hata: "Tarih gerekli." });
+  await db.tumGunuAc(tarih);
+  res.json({ ok: true });
+}));
+
 // ---------------------------------------------------------------------------
 // 11) Google Sheets yeniden senkronla
 // ---------------------------------------------------------------------------

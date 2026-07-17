@@ -29,6 +29,7 @@ Module._load = function (req) {
         return kayit;
       },
       getAll: async () => store.slice(),
+      getAcikGunler: async () => [],
     };
   }
   return orig.apply(this, arguments);

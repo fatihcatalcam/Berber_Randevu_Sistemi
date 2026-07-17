@@ -361,8 +361,8 @@
     </div>
   </div>
 
-  <!-- Takvim -->
-  <div class="kart" style="padding:12px;margin-bottom:12px;">
+  <!-- Takvim (sadece admin gün değiştirebilir) -->
+  <div class="kart" id="takvimKart" style="padding:12px;margin-bottom:12px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
       <button id="ayOnceki" class="durum-btn" style="min-width:44px;min-height:44px;padding:0;font-size:20px;">‹</button>
       <strong id="ayBaslik" style="font-size:15px;"></strong>
@@ -381,10 +381,11 @@
       </small>
     </div>
     <!-- Gün navigasyonu -->
-    <div style="display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:10px;flex-wrap:wrap;">
+    <div id="gunNav" style="display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:10px;flex-wrap:wrap;">
       <button id="gunOnceki" class="durum-btn" style="min-width:44px;min-height:44px;padding:0;font-size:18px;">‹</button>
       <button id="bugunBtn" class="durum-btn" style="padding:8px 16px;">Bugün</button>
       <button id="gunSonraki" class="durum-btn" style="min-width:44px;min-height:44px;padding:0;font-size:18px;">›</button>
+      <button id="tumGunuAcBtn" class="durum-btn" style="padding:8px 14px;font-size:13px;background:#047857;color:#fff;border-color:#047857;" onclick="tumGunuAc()">🔓 Tüm Günü Aç</button>
       <button id="elleRandevuBtn" class="durum-btn" style="padding:8px 14px;font-size:13px;background:#1d4ed8;color:#fff;border-color:#1d4ed8;" onclick="elleRandevuGoster()">+ Randevu Ekle</button>
     </div>
     <div class="cizelge-kont"><div id="cizelge"></div></div>
@@ -664,6 +665,13 @@ function loginGizle() {
   const isAdmin = auth.role === "admin";
   document.getElementById("berberFiltreWrap").style.display = isAdmin ? "" : "none";
   document.querySelectorAll(".berber-col").forEach(el => el.style.display = isAdmin ? "" : "none");
+  // Gün değiştirme (takvim + gün navigasyonu + tüm günü aç) sadece admin'de
+  document.getElementById("takvimKart").style.display  = isAdmin ? "" : "none";
+  document.getElementById("gunOnceki").style.display   = isAdmin ? "" : "none";
+  document.getElementById("gunSonraki").style.display  = isAdmin ? "" : "none";
+  document.getElementById("bugunBtn").style.display    = isAdmin ? "" : "none";
+  document.getElementById("tumGunuAcBtn").style.display = isAdmin ? "" : "none";
+  if (!isAdmin) seciliTarih = todayStr(); // berber bugüne kilitli
   // iOS Safari'de Notification API olmayabilir — yoksa atla (yoksa baslat() çalışmaz!)
   try {
     if (typeof Notification !== "undefined" && Notification.permission === "default") {
@@ -837,6 +845,21 @@ async function gunToggle(kapali) {
       body: JSON.stringify({ berberId: ctxBerberId, tarih: ctxTarih, kapali }),
     });
     await veriCek();
+  } catch { alert("Sunucu hatası."); }
+}
+
+// Seçili günü herkes için tamamen aç (Pazar/bayram veya kapatılmış gün) — sadece admin
+async function tumGunuAc() {
+  const gunStr = new Date(seciliTarih + "T00:00:00").toLocaleDateString("tr-TR", { weekday:"long", day:"numeric", month:"long" });
+  if (!confirm(`${gunStr} günü TÜM berberler için açılsın mı?\n\nBu gündeki tüm "gün/saat kapalı" işaretleri kaldırılır ve (Pazar/bayram ise) randevuya açılır.`)) return;
+  try {
+    const res = await authFetch("/api/gun-ac", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tarih: seciliTarih }),
+    });
+    if (!res.ok) { alert("Açılamadı (yetki veya sunucu hatası)."); return; }
+    await veriCek();
+    alert(`${gunStr} günü açıldı.`);
   } catch { alert("Sunucu hatası."); }
 }
 
