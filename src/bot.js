@@ -216,9 +216,9 @@ async function berberListesiGonder(telefon, s) {
 
   await sendList(
     telefon,
-    `${sayi} kişi için randevu. 💈\n\nHangi berberle randevu almak istersiniz?`,
-    "Berber Seç",
-    [{ title: "Berberler", rows }]
+    `${sayi} kişi için randevu. 💈\n\nHangi ustamızla randevu almak istersiniz?`,
+    "Usta Seç",
+    [{ title: "Ustalarımız", rows }]
   );
   // Berber değişince önceki seçilen hizmetleri sıfırla
   s.veri.kisiler = [];
@@ -341,7 +341,7 @@ async function adimTarih(telefon, metin, s) {
       : "😔 Bu gün için boş saat kalmamış.";
     await sendButtons(telefon, mesaj + "\n\nNe yapmak istersiniz?", [
       { id: "nav_gun",    title: "📅 Başka Gün" },
-      { id: "nav_berber", title: "💈 Başka Berber" },
+      { id: "nav_berber", title: "💈 Başka Usta" },
     ]);
     s.adim = "saat_bekle";
     return;
@@ -365,7 +365,7 @@ async function saatListesiGonder(telefon, s, sayfa) {
   }
   // Navigasyon: en baştan başlamadan gün/berber değiştir
   rows.push({ id: "nav_gun",    title: "📅 Başka gün" });
-  rows.push({ id: "nav_berber", title: "💈 Başka berber" });
+  rows.push({ id: "nav_berber", title: "💈 Başka usta" });
 
   const toplamBos = bos.length;
   const gosterilen = Math.min(baslangic + SAYFA_BOY, toplamBos);
@@ -417,7 +417,7 @@ async function adimSaat(telefon, metin, s) {
   const ozet =
     "*Randevu Özeti*\n\n" +
     `👤 Ad: ${s.veri.ad}\n` +
-    `💈 Berber: ${s.veri.berber}\n` +
+    `💈 Usta: ${s.veri.berber}\n` +
     (kisiSayisi > 1
       ? `👥 Kişi sayısı: ${kisiSayisi}\n✂️ Hizmetler:\n${hizmetSatiri}\n`
       : `✂️ Hizmet: ${hizmetSatiri}\n`) +
@@ -510,7 +510,7 @@ async function adimOnay(telefon, metin, s) {
         `🔖 Randevu No: *${kayit.id.slice(-6)}*\n` +
         `💈 ${kayit.berber}\n✂️ ${kayit.hizmet}\n` +
         `📅 ${tarih} ⏰ ${saatStr}\n💰 Toplam: ${kayit.fiyat}₺\n\n` +
-        "Randevunuz berber onayına gönderildi. Onaylandığında size haber vereceğiz. Teşekkürler! 🙏"
+        "Randevunuz ustamızın onayına gönderildi. Onaylandığında size haber vereceğiz. Teşekkürler! 🙏"
     );
     resetSession(telefon);
     return;

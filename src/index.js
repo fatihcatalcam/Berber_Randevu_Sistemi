@@ -266,14 +266,14 @@ app.post("/api/randevular/:id/durum", requireAuth, ah(async (req, res) => {
     await sendText(
       kayit.telefon,
       "✅ *Randevunuz onaylandı!*\n\n" +
-        `💈 Berber: ${kayit.berber}\n✂️ Hizmet: ${kayit.hizmet}\n` +
+        `💈 Usta: ${kayit.berber}\n✂️ Hizmet: ${kayit.hizmet}\n` +
         `📅 Tarih: ${tarih}\n⏰ Saat: ${kayit.saat}\n\nSizi bekliyoruz! 🙏`
     );
   } else if (durum === "iptal") {
     await sendText(
       kayit.telefon,
       "❌ *Randevunuz iptal edildi.*\n\n" +
-        `💈 Berber: ${kayit.berber}\n📅 Tarih: ${tarih} ⏰ ${kayit.saat}\n\n` +
+        `💈 Usta: ${kayit.berber}\n📅 Tarih: ${tarih} ⏰ ${kayit.saat}\n\n` +
         "Yeni randevu için bize *merhaba* yazabilirsiniz."
     );
   }
