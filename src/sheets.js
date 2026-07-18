@@ -308,23 +308,28 @@ async function syncKapaliSaat(berberId, tarih, saat, kapali) {
 let musteriBaslikHazir = false;
 
 // Her randevuda müşteri bilgisini ayrı dosyaya ekler: Ad, Telefon, Berber, Tarih/Saat
+const MUSTERI_BASLIK = ["Ad Soyad", "Telefon", "Berber", "Tarih", "Saat", "Kayıt Zamanı", "Ücret"];
+
 async function musteriKaydet(randevu) {
   if (!sheetsApi || !MUSTERI_ID) return;
   try {
-    // İlk kullanımda başlık satırını garanti et
+    // Başlık satırını garanti et. Farklıysa (ör. "Ücret" sütunu sonradan
+    // eklendiyse) güncelle — mevcut veri satırları etkilenmez.
     if (!musteriBaslikHazir) {
       const mevcut = await sheetsApi.spreadsheets.values.get({
-        spreadsheetId: MUSTERI_ID, range: "A1:F1",
+        spreadsheetId: MUSTERI_ID, range: "A1:G1",
       });
-      if (!mevcut.data.values || mevcut.data.values.length === 0) {
+      const satir = (mevcut.data.values && mevcut.data.values[0]) || [];
+      if (satir.join("|") !== MUSTERI_BASLIK.join("|")) {
         await sheetsApi.spreadsheets.values.update({
           spreadsheetId: MUSTERI_ID, range: "A1", valueInputOption: "RAW",
-          requestBody: { values: [["Ad Soyad", "Telefon", "Berber", "Tarih", "Saat", "Kayıt Zamanı"]] },
+          requestBody: { values: [MUSTERI_BASLIK] },
         });
       }
       musteriBaslikHazir = true;
     }
     const kayitZamani = new Date().toLocaleString("tr-TR");
+    const ucret = randevu.gercekFiyat != null ? randevu.gercekFiyat : (randevu.fiyat ?? "");
     await sheetsApi.spreadsheets.values.append({
       spreadsheetId: MUSTERI_ID,
       range: "A1",
@@ -333,7 +338,7 @@ async function musteriKaydet(randevu) {
       requestBody: {
         values: [[
           randevu.ad || "", randevu.telefon || "", randevu.berber || "",
-          randevu.tarih || "", randevu.saat || "", kayitZamani,
+          randevu.tarih || "", randevu.saat || "", kayitZamani, ucret,
         ]],
       },
     });
