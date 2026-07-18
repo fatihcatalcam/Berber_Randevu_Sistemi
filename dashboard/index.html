@@ -665,13 +665,10 @@ function loginGizle() {
   const isAdmin = auth.role === "admin";
   document.getElementById("berberFiltreWrap").style.display = isAdmin ? "" : "none";
   document.querySelectorAll(".berber-col").forEach(el => el.style.display = isAdmin ? "" : "none");
-  // Gün değiştirme (takvim + gün navigasyonu + tüm günü aç) sadece admin'de
-  document.getElementById("takvimKart").style.display  = isAdmin ? "" : "none";
-  document.getElementById("gunOnceki").style.display   = isAdmin ? "" : "none";
-  document.getElementById("gunSonraki").style.display  = isAdmin ? "" : "none";
-  document.getElementById("bugunBtn").style.display    = isAdmin ? "" : "none";
+  // Berber de admin gibi gün gezebilir (takvim + ileri/geri) — ama sadece
+  // kendi randevularını görür (gorRunumRandevular/gorRunumBerberler filtreler).
+  // Yalnızca "Tüm Günü Aç" admin yetkisi ister.
   document.getElementById("tumGunuAcBtn").style.display = isAdmin ? "" : "none";
-  if (!isAdmin) seciliTarih = todayStr(); // berber bugüne kilitli
   // iOS Safari'de Notification API olmayabilir — yoksa atla (yoksa baslat() çalışmaz!)
   try {
     if (typeof Notification !== "undefined" && Notification.permission === "default") {
