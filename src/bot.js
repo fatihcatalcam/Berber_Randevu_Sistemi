@@ -243,7 +243,7 @@ async function hizmetSor(telefon, s, kisiIndex) {
   const rows = HIZMETLER.map((h) => ({
     id:          `hizmet_${h.id}`,
     title:       h.ad,
-    description: `${h.sure} • ${berber.fiyat[h.id]}₺`,
+    description: `${berber.fiyat[h.id]}₺`,
   }));
 
   await sendList(
