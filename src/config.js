@@ -89,15 +89,16 @@ function berberSaatleri(berberId) {
   return berberSlotDk(berberId) === 45 ? SAATLER_45 : SAATLER;
 }
 
-// Bir berberin BELİRLİ TARİHTE gerçekten randevu alınabilir slotları:
+// Bir berberin BELİRLİ TARİHTEKİ tüm slotları, yemek işaretiyle birlikte:
 //   - kendi başlangıç saatinden başlar (ızgara kaydırılır)
 //   - son slot bitiş saatinden önce biter
-//   - yemek arasıyla çakışan slotlar çıkarılır
-function berberCalismaSaatleri(berberId, tarih) {
+//   - yemek arasıyla çakışan slotlar { yemek: true } olarak işaretlenir
+// [{ saat, yemek }]
+function berberGunSlotlari(berberId, tarih) {
   const b = berber(berberId);
   const step = berberSlotDk(berberId);
   const c = b && b.calisma;
-  if (!c) return berberSaatleri(berberId).slice();
+  if (!c) return berberSaatleri(berberId).map((s) => ({ saat: s, yemek: false }));
 
   const bas  = saatToDk(berberBaslangicSaati(berberId, tarih));
   const bit  = saatToDk(c.bitis);
@@ -106,11 +107,20 @@ function berberCalismaSaatleri(berberId, tarih) {
 
   const slots = [];
   for (let t = bas; t + step <= bit; t += step) {
-    // Yemek aralığıyla çakışan slotu atla ([t, t+step) ∩ [yBas, yBit) ≠ ∅)
-    if (yBas != null && t < yBit && t + step > yBas) continue;
-    slots.push(dkToSaat(t));
+    // Yemek aralığıyla çakışıyor mu? ([t, t+step) ∩ [yBas, yBit) ≠ ∅)
+    const yemek = yBas != null && t < yBit && t + step > yBas;
+    slots.push({ saat: dkToSaat(t), yemek });
   }
   return slots;
+}
+
+// Randevu alınabilir slotlar. acikSaatler: o gün için özel açılmış yemek
+// slotları (berber tokken yemek saatini randevuya açabilir).
+function berberCalismaSaatleri(berberId, tarih, acikSaatler = []) {
+  const acikSet = new Set(acikSaatler);
+  return berberGunSlotlari(berberId, tarih)
+    .filter((x) => !x.yemek || acikSet.has(x.saat))
+    .map((x) => x.saat);
 }
 
 // Berberin günlük net gelir hesabı: (ciro - taban) * oran
@@ -143,6 +153,6 @@ function gelecekTarihler(kacGun = 7, acikGunler = []) {
 
 module.exports = {
   BERBERLER, HIZMETLER, SAATLER, SAATLER_45,
-  berberSlotDk, berberSaatleri, berberCalismaSaatleri,
+  berberSlotDk, berberSaatleri, berberCalismaSaatleri, berberGunSlotlari,
   berberBaslangicSaati, berberNet, gelecekTarihler, ADMIN_PIN,
 };

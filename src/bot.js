@@ -20,6 +20,12 @@ function bugunStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// O berber/tarih için özel açılmış yemek slotları (db yoksa boş döner)
+async function acikSaatleriGetir(berberId, tarih) {
+  if (typeof db.getAcikSaatlerFor !== "function") return [];
+  return db.getAcikSaatlerFor(berberId, tarih).catch(() => []);
+}
+
 // "10:30" → 630 (gece yarısından beri geçen dakika)
 function saatToDk(saat) {
   const [h, m] = saat.split(":").map(Number);
@@ -315,7 +321,8 @@ async function adimTarih(telefon, metin, s) {
   const dolu = await db.getBusySlots(s.veri.berberId, tarih);
   const kisiSayisi = s.veri.kisiSayisi || 1;
   const slotDk  = berberSlotDk(s.veri.berberId);
-  const saatler = berberCalismaSaatleri(s.veri.berberId, tarih);
+  const acikSaatler = await acikSaatleriGetir(s.veri.berberId, tarih);
+  const saatler = berberCalismaSaatleri(s.veri.berberId, tarih, acikSaatler);
   const calisilan = new Set(saatler); // çalışma saati kümesi (yemek/mesai dışı hariç)
   const bos = saatler.filter((saat) => {
     if (slotGectiMi(tarih, saat)) return false; // bugünün geçmiş saatleri seçilemez
@@ -440,7 +447,8 @@ async function adimOnay(telefon, metin, s) {
     // Onay anında slotları yeniden kontrol et (çift rezervasyon + çalışma saati)
     const dolu = await db.getBusySlots(s.veri.berberId, s.veri.tarih);
     const slotDk  = berberSlotDk(s.veri.berberId);
-    const calisilan = new Set(berberCalismaSaatleri(s.veri.berberId, s.veri.tarih));
+    const onayAcik = await acikSaatleriGetir(s.veri.berberId, s.veri.tarih);
+    const calisilan = new Set(berberCalismaSaatleri(s.veri.berberId, s.veri.tarih, onayAcik));
     let cakisma = !calisilan.has(s.veri.saat);
     for (let i = 0; i < kisiSayisi && !cakisma; i++) {
       const slot = slotEkle(s.veri.saat, i * slotDk);

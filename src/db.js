@@ -82,6 +82,16 @@ async function init() {
       tarih TEXT PRIMARY KEY
     )
   `);
+  // Özel olarak açılan saatler — normalde yemek arası olan bir slot buraya
+  // eklenince o gün için randevuya açılır (berber tok/yemek saatini kaydırdı).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS acik_saatler (
+      berber_id TEXT NOT NULL,
+      tarih     TEXT NOT NULL,
+      saat      TEXT NOT NULL,
+      PRIMARY KEY (berber_id, tarih, saat)
+    )
+  `);
   // Mevcut tabloya aciklama sütunu ekle (yoksa)
   await pool.query(`ALTER TABLE randevular ADD COLUMN IF NOT EXISTS aciklama TEXT`);
   // Hatırlatma gönderildi mi? (randevudan 1 saat önce)
@@ -299,6 +309,41 @@ async function getAcikGunler() {
   return res.rows.map((r) => r.tarih);
 }
 
+// Özel açılan saatler (yemek arası istisnası) — { berberId: { tarih: [saat] } }
+async function getAcikSaatler() {
+  const res = await pool.query("SELECT berber_id, tarih, saat FROM acik_saatler");
+  const data = {};
+  for (const row of res.rows) {
+    if (!data[row.berber_id])            data[row.berber_id] = {};
+    if (!data[row.berber_id][row.tarih]) data[row.berber_id][row.tarih] = [];
+    data[row.berber_id][row.tarih].push(row.saat);
+  }
+  return data;
+}
+
+// Tek berber/tarih için açılan saatler (bot slot hesabında kullanılır)
+async function getAcikSaatlerFor(berberId, tarih) {
+  const res = await pool.query(
+    "SELECT saat FROM acik_saatler WHERE berber_id=$1 AND tarih=$2",
+    [berberId, tarih]
+  );
+  return res.rows.map((r) => r.saat);
+}
+
+async function setAcikSaat(berberId, tarih, saat, acik) {
+  if (acik) {
+    await pool.query(
+      "INSERT INTO acik_saatler (berber_id, tarih, saat) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",
+      [berberId, tarih, saat]
+    );
+  } else {
+    await pool.query(
+      "DELETE FROM acik_saatler WHERE berber_id=$1 AND tarih=$2 AND saat=$3",
+      [berberId, tarih, saat]
+    );
+  }
+}
+
 // Bir günü herkes için tamamen aç: tüm kapalı-gün ve kapalı-saat kayıtlarını
 // o tarih için sil ve günü "özel açık" olarak işaretle (Pazar/bayram istisnası).
 async function tumGunuAc(tarih) {
@@ -349,4 +394,7 @@ module.exports = {
   setKapaliGun,
   getAcikGunler,
   tumGunuAc,
+  getAcikSaatler,
+  getAcikSaatlerFor,
+  setAcikSaat,
 };

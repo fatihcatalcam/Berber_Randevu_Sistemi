@@ -379,6 +379,19 @@ app.get("/api/acik-gunler", requireAuth, ah(async (req, res) => {
   res.json(await db.getAcikGunler());
 }));
 
+// Özel açılan saatler (yemek arası istisnası)
+app.get("/api/acik-saatler", requireAuth, ah(async (req, res) => {
+  res.json(await db.getAcikSaatler());
+}));
+
+app.post("/api/acik-saat", requireAuth, ah(async (req, res) => {
+  const { berberId, tarih, saat, acik } = req.body;
+  if (!berberId || !tarih || !saat)
+    return res.status(400).json({ hata: "Eksik parametre." });
+  await db.setAcikSaat(berberId, tarih, saat, acik !== false);
+  res.json({ ok: true });
+}));
+
 // Tüm günü herkes için aç — sadece admin
 app.post("/api/gun-ac", requireAuth, ah(async (req, res) => {
   if (req.auth.role !== "admin") return res.status(403).json({ hata: "Bu işlem sadece admin içindir." });
