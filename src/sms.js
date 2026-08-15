@@ -1,5 +1,6 @@
 // ---------------------------------------------------------------------------
-// Netgsm SMS gönderimi — telefon doğrulama (OTP) kodları için.
+// Netgsm SMS gönderimi — telefon doğrulama (OTP) ve web randevularında
+// iptal/taşıma bildirimleri için.
 //
 // Netgsm'in klasik REST API'si (GET, düz metin yanıt döner — JSON değil):
 //   https://api.netgsm.com.tr/sms/send/get?usercode=...&password=...&gsmno=...&message=...&msgheader=...
@@ -11,8 +12,9 @@ const axios = require("axios");
 
 const NETGSM_URL = "https://api.netgsm.com.tr/sms/send/get";
 
-async function otpGonder(telefon, kod) {
+async function gonder(telefon, mesaj) {
   const { NETGSM_USERCODE, NETGSM_PASSWORD, NETGSM_MSGHEADER } = process.env;
+  if (!telefon) return null;
   if (!NETGSM_USERCODE || !NETGSM_PASSWORD || !NETGSM_MSGHEADER) {
     console.warn("⚠️ NETGSM_* env değişkenleri tanımsız — SMS gönderilemedi.");
     return { hata: true, kod: "yapilandirma_yok" };
@@ -23,7 +25,7 @@ async function otpGonder(telefon, kod) {
         usercode:  NETGSM_USERCODE,
         password:  NETGSM_PASSWORD,
         gsmno:     telefon,
-        message:   `Resul Tabu Saç Atölyesi doğrulama kodunuz: ${kod}`,
+        message:   mesaj,
         msgheader: NETGSM_MSGHEADER,
       },
     });
@@ -37,4 +39,22 @@ async function otpGonder(telefon, kod) {
   }
 }
 
-module.exports = { otpGonder };
+async function otpGonder(telefon, kod) {
+  return gonder(telefon, `Resul Tabu Saç Atölyesi doğrulama kodunuz: ${kod}`);
+}
+
+async function randevuIptalSms(randevu, tarihStr) {
+  return gonder(
+    randevu.telefon,
+    `Resul Tabu Saç Atölyesi: ${tarihStr} ${randevu.saat} saatindeki randevunuz iptal edildi. Yeni randevu için sitemizi ziyaret edebilirsiniz.`
+  );
+}
+
+async function randevuTasindiSms(randevu, tarihStr) {
+  return gonder(
+    randevu.telefon,
+    `Resul Tabu Saç Atölyesi: Randevunuz ${tarihStr} ${randevu.saat} saatine güncellendi. Görüşürüz!`
+  );
+}
+
+module.exports = { otpGonder, randevuIptalSms, randevuTasindiSms };

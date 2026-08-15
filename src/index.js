@@ -498,6 +498,7 @@ app.post("/api/randevular/:id/durum", requireAuth, ah(async (req, res) => {
   } else if (durum === "iptal") {
     if (webden) {
       eposta.randevuIptalMaili(kayit, tarih).catch(() => {});
+      sms.randevuIptalSms(kayit, tarih).catch(() => {});
     } else {
       await sendText(
         kayit.telefon,
@@ -555,11 +556,16 @@ app.patch("/api/randevular/:id/tasi", requireAuth, ah(async (req, res) => {
   const tarihStr = new Date(tarih + "T00:00:00").toLocaleDateString("tr-TR", {
     weekday: "long", day: "numeric", month: "long",
   });
-  await sendText(
-    guncellenen.telefon,
-    `📅 *Randevunuz güncellendi!*\n\n💈 ${guncellenen.berber}\n✂️ ${guncellenen.hizmet}\n` +
-    `📅 ${tarihStr} ⏰ ${saat}\n\nGörüşürüz! 🙏`
-  );
+  if (guncellenen.kaynak === "web") {
+    eposta.randevuTasindiMaili(guncellenen, tarihStr).catch(() => {});
+    sms.randevuTasindiSms(guncellenen, tarihStr).catch(() => {});
+  } else {
+    await sendText(
+      guncellenen.telefon,
+      `📅 *Randevunuz güncellendi!*\n\n💈 ${guncellenen.berber}\n✂️ ${guncellenen.hizmet}\n` +
+      `📅 ${tarihStr} ⏰ ${saat}\n\nGörüşürüz! 🙏`
+    );
+  }
   res.json(guncellenen);
 }));
 

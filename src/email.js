@@ -66,6 +66,21 @@ async function randevuOnayMaili(randevu, tarihStr) {
   );
 }
 
+async function randevuTasindiMaili(randevu, tarihStr) {
+  return gonder(
+    randevu.email,
+    "Randevunuz güncellendi",
+    taban(`
+      <p>Merhaba ${randevu.ad},</p>
+      <p>📅 Randevunuz yeni bir tarih/saate alındı.</p>
+      <p>💈 Usta: <strong>${randevu.berber}</strong><br>
+      ✂️ Hizmet: ${randevu.hizmet}<br>
+      📅 Yeni Tarih: ${tarihStr}<br>⏰ Yeni Saat: ${randevu.saat}</p>
+      <p>Görüşürüz! 🙏</p>
+    `)
+  );
+}
+
 async function randevuIptalMaili(randevu, tarihStr) {
   return gonder(
     randevu.email,
@@ -95,4 +110,4 @@ async function randevuHatirlatmaMaili(randevu, tarihStr) {
   );
 }
 
-module.exports = { randevuAlindiMaili, randevuOnayMaili, randevuIptalMaili, randevuHatirlatmaMaili };
+module.exports = { randevuAlindiMaili, randevuOnayMaili, randevuTasindiMaili, randevuIptalMaili, randevuHatirlatmaMaili };
