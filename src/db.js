@@ -96,6 +96,25 @@ async function init() {
   await pool.query(`ALTER TABLE randevular ADD COLUMN IF NOT EXISTS aciklama TEXT`);
   // Hatırlatma gönderildi mi? (randevudan 1 saat önce)
   await pool.query(`ALTER TABLE randevular ADD COLUMN IF NOT EXISTS hatirlatildi BOOLEAN DEFAULT false`);
+  // Web sitesinden randevu alanların e-posta adresi (opsiyonel)
+  await pool.query(`ALTER TABLE randevular ADD COLUMN IF NOT EXISTS email TEXT`);
+  // Randevu kaynağı: 'whatsapp' (bot) veya 'web' (site formu). Mevcut kayıtlar
+  // whatsapp'tan geldiği için default doğru davranışı otomatik verir.
+  await pool.query(`ALTER TABLE randevular ADD COLUMN IF NOT EXISTS kaynak TEXT DEFAULT 'whatsapp'`);
+
+  // Web sitesi telefon doğrulama (OTP) kodları — spam/sahte randevu önleme
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS otp_kodlari (
+      id             BIGSERIAL PRIMARY KEY,
+      telefon        TEXT NOT NULL,
+      kod            TEXT NOT NULL,
+      olusturulma    BIGINT NOT NULL,
+      son_gecerlilik BIGINT NOT NULL,
+      deneme         INTEGER NOT NULL DEFAULT 0,
+      dogrulandi     BOOLEAN NOT NULL DEFAULT false
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_otp_telefon ON otp_kodlari (telefon, olusturulma DESC)`);
   // Aynı berber/tarih/saat için iptal olmayan iki randevu engellenir (çift rezervasyon koruması)
   try {
     await pool.query(`
@@ -135,6 +154,8 @@ function rowToRandevu(row) {
     kisiSayisi:  row.kisi_sayisi   ?? undefined,
     kisiler:     row.kisiler       ?? undefined,
     aciklama:    row.aciklama      ?? undefined,
+    email:       row.email         ?? undefined,
+    kaynak:      row.kaynak        ?? "whatsapp",
     olusturulma: Number(row.olusturulma),
   };
 }
@@ -151,12 +172,13 @@ async function add(randevu) {
   const id          = Date.now().toString();
   const olusturulma = Date.now();
   const durum       = randevu.durum || "bekliyor";
+  const kaynak      = randevu.kaynak || "whatsapp";
   try {
     await pool.query(
       `INSERT INTO randevular
          (id, ad, telefon, berber_id, berber, hizmet_id, hizmet,
-          tarih, saat, fiyat, durum, kisi_sayisi, kisiler, olusturulma)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+          tarih, saat, fiyat, durum, kisi_sayisi, kisiler, olusturulma, email, kaynak)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
       [
         id, randevu.ad, randevu.telefon,
         randevu.berberId, randevu.berber,
@@ -166,13 +188,15 @@ async function add(randevu) {
         randevu.kisiSayisi || null,
         randevu.kisiler    ? JSON.stringify(randevu.kisiler) : null,
         olusturulma,
+        randevu.email || null,
+        kaynak,
       ]
     );
   } catch (e) {
     if (e.code === "23505") throw new SlotDoluError(); // benzersizlik ihlali = slot dolu
     throw e;
   }
-  return { ...randevu, id, olusturulma, durum };
+  return { ...randevu, id, olusturulma, durum, kaynak };
 }
 
 async function getBusySlots(berberId, tarih) {
@@ -374,6 +398,57 @@ async function setKapaliSaat(berberId, tarih, saat, kapali) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// OTP (telefon doğrulama) — web sitesi randevu formunda spam önleme
+// ---------------------------------------------------------------------------
+async function otpKaydet(telefon, kod, sonGecerlilik) {
+  const olusturulma = Date.now();
+  await pool.query(
+    "INSERT INTO otp_kodlari (telefon, kod, olusturulma, son_gecerlilik) VALUES ($1,$2,$3,$4)",
+    [telefon, kod, olusturulma, sonGecerlilik]
+  );
+}
+
+// En son (doğrulanmamış) OTP kaydını kontrol eder ve sonucu döner:
+//   { sonuc: "suresi_gecti" | "cok_deneme" | "yanlis" | "basarili" | "kod_yok" }
+async function otpDogrula(telefon, kod) {
+  const res = await pool.query(
+    `SELECT * FROM otp_kodlari WHERE telefon=$1 AND dogrulandi=false
+     ORDER BY olusturulma DESC LIMIT 1`,
+    [telefon]
+  );
+  const kayit = res.rows[0];
+  if (!kayit) return { sonuc: "kod_yok" };
+  if (Date.now() > Number(kayit.son_gecerlilik)) return { sonuc: "suresi_gecti" };
+  if (kayit.deneme >= 5) return { sonuc: "cok_deneme" };
+
+  if (kayit.kod !== kod) {
+    await pool.query("UPDATE otp_kodlari SET deneme = deneme + 1 WHERE id=$1", [kayit.id]);
+    return { sonuc: "yanlis" };
+  }
+  await pool.query("UPDATE otp_kodlari SET dogrulandi=true WHERE id=$1", [kayit.id]);
+  return { sonuc: "basarili" };
+}
+
+// Aynı telefona en son ne zaman OTP gönderildi (60 sn kuralı için)
+async function otpSonGonderim(telefon) {
+  const res = await pool.query(
+    "SELECT olusturulma FROM otp_kodlari WHERE telefon=$1 ORDER BY olusturulma DESC LIMIT 1",
+    [telefon]
+  );
+  return res.rows[0] ? Number(res.rows[0].olusturulma) : null;
+}
+
+// Bugün bu telefona kaç OTP gönderildi (günlük limit için)
+async function otpBugunSayisi(telefon) {
+  const gunBasi = new Date(); gunBasi.setHours(0, 0, 0, 0);
+  const res = await pool.query(
+    "SELECT COUNT(*) FROM otp_kodlari WHERE telefon=$1 AND olusturulma >= $2",
+    [telefon, gunBasi.getTime()]
+  );
+  return Number(res.rows[0].count);
+}
+
 module.exports = {
   init,
   SlotDoluError,
@@ -397,4 +472,8 @@ module.exports = {
   getAcikSaatler,
   getAcikSaatlerFor,
   setAcikSaat,
+  otpKaydet,
+  otpDogrula,
+  otpSonGonderim,
+  otpBugunSayisi,
 };

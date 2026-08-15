@@ -11,8 +11,11 @@ const crypto = require("crypto");
 const db = require("./db");
 const { handleMessage } = require("./bot");
 const { sendText, sendTemplate } = require("./whatsapp");
-const { BERBERLER, HIZMETLER, SAATLER, SAATLER_45, ADMIN_PIN } = require("./config");
+const { BERBERLER, HIZMETLER, SAATLER, SAATLER_45, ADMIN_PIN, berberCalismaSaatleri } = require("./config");
 const sheets = require("./sheets");
+const sms = require("./sms");
+const eposta = require("./email");
+const { slotGectiMi, acikSaatleriGetir } = require("./randevu-yardimci");
 
 const app = express();
 // Render ters proxy arkasında gerçek istemci IP'si (req.ip) için
@@ -66,6 +69,68 @@ function girisHatasiKaydet(ip) {
   girisDenemeleri.set(ip, k);
 }
 
+// ---------------------------------------------------------------------------
+// Genel amaçlı rate-limit yardımcıları — web sitesi randevu formunda (OTP
+// gönderme/doğrulama, randevu oluşturma) spam/kaba kuvvet önleme için.
+// girisDenemeleri ile aynı "sliding kilit" mantığının yeniden kullanılabilir hali.
+// ---------------------------------------------------------------------------
+function slidingKilitOlustur(maxDeneme, kilitMs) {
+  const harita = new Map();
+  return {
+    engelli(anahtar) {
+      const k = harita.get(anahtar);
+      if (!k) return false;
+      if (Date.now() - k.son > kilitMs) { harita.delete(anahtar); return false; }
+      return k.sayac >= maxDeneme;
+    },
+    hataKaydet(anahtar) {
+      const k = harita.get(anahtar) || { sayac: 0, son: 0 };
+      if (Date.now() - k.son > kilitMs) k.sayac = 0;
+      k.sayac++; k.son = Date.now();
+      harita.set(anahtar, k);
+    },
+    basarili(anahtar) { harita.delete(anahtar); },
+    temizle(simdi) { for (const [a, k] of harita) if (simdi - k.son > kilitMs) harita.delete(a); },
+  };
+}
+
+// Sabit pencereli istek sıklığı sınırlayıcı (ör. "dakikada en fazla N istek")
+function istekSinirlayiciOlustur(limit, pencereMs) {
+  const harita = new Map();
+  return {
+    asildiMi(anahtar) {
+      const k = harita.get(anahtar);
+      if (!k || Date.now() - k.baslangic > pencereMs) return false;
+      return k.sayac >= limit;
+    },
+    kaydet(anahtar) {
+      const k = harita.get(anahtar);
+      if (!k || Date.now() - k.baslangic > pencereMs) harita.set(anahtar, { sayac: 1, baslangic: Date.now() });
+      else k.sayac++;
+    },
+    temizle(simdi) { for (const [a, k] of harita) if (simdi - k.baslangic > pencereMs) harita.delete(a); },
+  };
+}
+
+const otpGonderIpDakika = istekSinirlayiciOlustur(3, 60 * 1000);        // IP: dakikada 3
+const otpGonderIpSaat    = istekSinirlayiciOlustur(10, 60 * 60 * 1000);  // IP: saatte 10
+const otpDogrulaKilit     = slidingKilitOlustur(5, 15 * 60 * 1000);      // 5 yanlış / 15 dk (girisDenemeleri ile aynı)
+const publicRandevuSinir  = istekSinirlayiciOlustur(5, 60 * 1000);       // IP: dakikada 5
+
+// Telefon doğrulama token'ları (OTP doğrulandıktan sonra randevu oluşturmak için)
+const dogrulamaTokenlari = new Map(); // token -> { telefon, olusturulma }
+const DOGRULAMA_TOKEN_OMUR_MS = 15 * 60 * 1000; // 15 dk, tek kullanımlık
+
+// Kullanıcının girdiği telefonu "905XXXXXXXXX" formatına çevirir; geçersizse null.
+// Örnekler: "0555 123 45 67", "+90 555 123 45 67", "5551234567" -> "905551234567"
+function telefonNormalize(giris) {
+  if (!giris) return null;
+  let t = String(giris).replace(/\D/g, ""); // sadece rakamlar kalsın
+  if (t.startsWith("0")) t = t.slice(1);     // baştaki 0'ı at
+  if (!t.startsWith("90")) t = "90" + t;     // ülke kodu yoksa ekle
+  return /^905\d{9}$/.test(t) ? t : null;
+}
+
 // Süresi dolan token'ları ve eski giriş denemelerini periyodik temizle
 setInterval(() => {
   const simdi = Date.now();
@@ -74,6 +139,13 @@ setInterval(() => {
   }
   for (const [ip, k] of girisDenemeleri) {
     if (simdi - k.son > GIRIS_KILIT_MS) girisDenemeleri.delete(ip);
+  }
+  otpGonderIpDakika.temizle(simdi);
+  otpGonderIpSaat.temizle(simdi);
+  otpDogrulaKilit.temizle(simdi);
+  publicRandevuSinir.temizle(simdi);
+  for (const [t, v] of dogrulamaTokenlari) {
+    if (simdi - v.olusturulma > DOGRULAMA_TOKEN_OMUR_MS) dogrulamaTokenlari.delete(t);
   }
 }, 60 * 60 * 1000).unref();
 
@@ -201,6 +273,154 @@ app.get("/api/config", (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// 4b) Web sitesi randevu formu — herkese açık, requireAuth kullanmaz.
+// Telefon SMS OTP ile doğrulanır (spam önleme), sonra randevu "bekliyor"
+// durumunda kaydedilir — panel/berber onay akışı WhatsApp bot'takiyle aynı.
+// ---------------------------------------------------------------------------
+
+// Telefon numarasına OTP kodu gönder
+app.post("/api/public/otp-gonder", ah(async (req, res) => {
+  const telefon = telefonNormalize(req.body.telefon);
+  if (!telefon) return res.status(400).json({ hata: "Geçerli bir telefon numarası girin." });
+
+  const ip = req.ip;
+  if (otpGonderIpDakika.asildiMi(ip) || otpGonderIpSaat.asildiMi(ip)) {
+    return res.status(429).json({ hata: "Çok fazla istek. Lütfen biraz sonra tekrar deneyin." });
+  }
+
+  const sonGonderim = await db.otpSonGonderim(telefon);
+  if (sonGonderim && Date.now() - sonGonderim < 60 * 1000) {
+    return res.status(429).json({ hata: "Lütfen tekrar denemeden önce 60 saniye bekleyin." });
+  }
+  if ((await db.otpBugunSayisi(telefon)) >= 5) {
+    return res.status(429).json({ hata: "Bu numara için günlük kod gönderim limitine ulaşıldı." });
+  }
+
+  otpGonderIpDakika.kaydet(ip);
+  otpGonderIpSaat.kaydet(ip);
+
+  const kod = String(crypto.randomInt(100000, 1000000));
+  await db.otpKaydet(telefon, kod, Date.now() + 5 * 60 * 1000);
+
+  // Netgsm hesabı henüz tanımlı değilse (geliştirme / kurulum öncesi) SMS
+  // atmaya çalışmak yerine kodu konsola yaz — form yine test edilebilsin.
+  if (!process.env.NETGSM_USERCODE) {
+    console.log(`🔑 DEV OTP (${telefon}): ${kod}`);
+    return res.json({ ok: true, gelistirmeModu: true });
+  }
+
+  const sonuc = await sms.otpGonder(telefon, kod);
+  if (sonuc.hata) return res.status(502).json({ hata: "Kod gönderilemedi, lütfen tekrar deneyin." });
+  res.json({ ok: true });
+}));
+
+// OTP kodunu doğrula, başarılıysa kısa ömürlü tek kullanımlık token döner
+app.post("/api/public/otp-dogrula", ah(async (req, res) => {
+  const telefon = telefonNormalize(req.body.telefon);
+  const kod     = String(req.body.kod || "").trim();
+  if (!telefon || !kod) return res.status(400).json({ hata: "Eksik parametre." });
+
+  const ip = req.ip;
+  if (otpDogrulaKilit.engelli(ip)) {
+    return res.status(429).json({ hata: "Çok fazla yanlış deneme. 15 dakika sonra tekrar deneyin." });
+  }
+
+  const sonuc = await db.otpDogrula(telefon, kod);
+  if (sonuc.sonuc !== "basarili") {
+    otpDogrulaKilit.hataKaydet(ip);
+    const mesajlar = {
+      kod_yok:      "Önce doğrulama kodu isteyin.",
+      suresi_gecti: "Kodun süresi doldu, yeni kod isteyin.",
+      cok_deneme:   "Çok fazla yanlış deneme, yeni kod isteyin.",
+      yanlis:       "Kod yanlış.",
+    };
+    return res.status(401).json({ hata: mesajlar[sonuc.sonuc] || "Doğrulama başarısız." });
+  }
+  otpDogrulaKilit.basarili(ip);
+  const token = crypto.randomBytes(32).toString("hex");
+  dogrulamaTokenlari.set(token, { telefon, olusturulma: Date.now() });
+  res.json({ ok: true, dogrulamaToken: token });
+}));
+
+// Bir berberin belirli tarihteki boş saatleri (herkese açık, sadece okuma)
+app.get("/api/public/musait-saatler", ah(async (req, res) => {
+  const { berberId, tarih } = req.query;
+  const berber = BERBERLER.find((b) => b.id === berberId);
+  if (!berber || !tarih) return res.status(400).json({ hata: "Eksik/geçersiz parametre." });
+
+  const [dolu, acikSaatler] = await Promise.all([
+    db.getBusySlots(berberId, tarih),
+    acikSaatleriGetir(berberId, tarih),
+  ]);
+  const saatler = berberCalismaSaatleri(berberId, tarih, acikSaatler)
+    .filter((saat) => !slotGectiMi(tarih, saat) && !dolu.includes(saat));
+  res.json({ saatler });
+}));
+
+// Doğrulanmış telefonla randevu oluştur — "bekliyor" durumunda kaydedilir
+app.post("/api/public/randevu", ah(async (req, res) => {
+  const { dogrulamaToken, ad, email: musteriEmail, berberId, hizmetId, tarih, saat } = req.body;
+
+  const dogrulama = dogrulamaToken && dogrulamaTokenlari.get(dogrulamaToken);
+  if (!dogrulama || Date.now() - dogrulama.olusturulma > DOGRULAMA_TOKEN_OMUR_MS) {
+    if (dogrulamaToken) dogrulamaTokenlari.delete(dogrulamaToken);
+    return res.status(401).json({ hata: "Telefon doğrulanmamış. Lütfen tekrar kod isteyin." });
+  }
+  const telefon = dogrulama.telefon; // client body'sine değil, doğrulanmış numaraya güvenilir
+
+  const ip = req.ip;
+  if (publicRandevuSinir.asildiMi(ip)) {
+    return res.status(429).json({ hata: "Çok fazla istek. Lütfen biraz sonra tekrar deneyin." });
+  }
+  publicRandevuSinir.kaydet(ip);
+
+  if (!ad || !berberId || !hizmetId || !tarih || !saat)
+    return res.status(400).json({ hata: "Eksik parametre." });
+
+  const berber = BERBERLER.find((b) => b.id === berberId);
+  const hizmet = HIZMETLER.find((h) => h.id === hizmetId);
+  if (!berber || !hizmet) return res.status(400).json({ hata: "Geçersiz usta veya hizmet." });
+
+  if (slotGectiMi(tarih, saat)) {
+    return res.status(400).json({ hata: "Seçilen saat artık geçmiş. Lütfen başka bir saat seçin." });
+  }
+
+  const acikSaatler = await acikSaatleriGetir(berberId, tarih);
+  const calisilanSaatler = berberCalismaSaatleri(berberId, tarih, acikSaatler);
+  if (!calisilanSaatler.includes(saat)) {
+    return res.status(400).json({ hata: "Seçilen saat çalışma saatleri dışında." });
+  }
+  const dolu = await db.getBusySlots(berberId, tarih);
+  if (dolu.includes(saat)) return res.status(409).json({ hata: "Seçilen saat dolu." });
+
+  try {
+    const kayit = await db.add({
+      ad, telefon,
+      email: musteriEmail || null,
+      berberId, berber: berber.ad,
+      hizmetId, hizmet: hizmet.ad,
+      tarih, saat,
+      fiyat: berber.fiyat[hizmetId],
+      kaynak: "web",
+    });
+    dogrulamaTokenlari.delete(dogrulamaToken); // tek kullanımlık
+
+    sheets.syncRandevu(kayit).catch(() => {});
+    sheets.musteriKaydet(kayit).catch(() => {});
+    if (kayit.email) {
+      const tarihStr = new Date(kayit.tarih + "T00:00:00").toLocaleDateString("tr-TR", {
+        weekday: "long", day: "numeric", month: "long",
+      });
+      eposta.randevuAlindiMaili(kayit, tarihStr).catch(() => {});
+    }
+    res.status(201).json(kayit);
+  } catch (e) {
+    if (e.code === "SLOT_DOLU") return res.status(409).json({ hata: "Seçilen saat dolu." });
+    throw e;
+  }
+}));
+
+// ---------------------------------------------------------------------------
 // 5) Tüm randevular
 // ---------------------------------------------------------------------------
 app.get("/api/randevular", requireAuth, ah(async (req, res) => {
@@ -262,20 +482,30 @@ app.post("/api/randevular/:id/durum", requireAuth, ah(async (req, res) => {
     weekday: "long", day: "numeric", month: "long",
   });
 
+  const webden = kayit.kaynak === "web";
+
   if (durum === "onaylı") {
-    await sendText(
-      kayit.telefon,
-      "✅ *Randevunuz onaylandı!*\n\n" +
-        `💈 Usta: ${kayit.berber}\n✂️ Hizmet: ${kayit.hizmet}\n` +
-        `📅 Tarih: ${tarih}\n⏰ Saat: ${kayit.saat}\n\nSizi bekliyoruz! 🙏`
-    );
+    if (webden) {
+      eposta.randevuOnayMaili(kayit, tarih).catch(() => {});
+    } else {
+      await sendText(
+        kayit.telefon,
+        "✅ *Randevunuz onaylandı!*\n\n" +
+          `💈 Usta: ${kayit.berber}\n✂️ Hizmet: ${kayit.hizmet}\n` +
+          `📅 Tarih: ${tarih}\n⏰ Saat: ${kayit.saat}\n\nSizi bekliyoruz! 🙏`
+      );
+    }
   } else if (durum === "iptal") {
-    await sendText(
-      kayit.telefon,
-      "❌ *Randevunuz iptal edildi.*\n\n" +
-        `💈 Usta: ${kayit.berber}\n📅 Tarih: ${tarih} ⏰ ${kayit.saat}\n\n` +
-        "Yeni randevu için bize *merhaba* yazabilirsiniz."
-    );
+    if (webden) {
+      eposta.randevuIptalMaili(kayit, tarih).catch(() => {});
+    } else {
+      await sendText(
+        kayit.telefon,
+        "❌ *Randevunuz iptal edildi.*\n\n" +
+          `💈 Usta: ${kayit.berber}\n📅 Tarih: ${tarih} ⏰ ${kayit.saat}\n\n` +
+          "Yeni randevu için bize *merhaba* yazabilirsiniz."
+      );
+    }
   }
   res.json(kayit);
 }));
@@ -428,6 +658,19 @@ app.get("/dashboard", (req, res) => {
 app.get("/", (req, res) => res.redirect("/dashboard"));
 
 // ---------------------------------------------------------------------------
+// Web sitesinden randevu alma — herkese açık müşteri sayfası
+// ---------------------------------------------------------------------------
+app.use("/randevu-al", express.static(path.join(__dirname, "..", "public-booking"), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith(".html")) res.set("Cache-Control", "no-cache");
+  },
+}));
+app.get("/randevu-al", (req, res) => {
+  res.set("Cache-Control", "no-cache");
+  res.sendFile(path.join(__dirname, "..", "public-booking", "index.html"));
+});
+
+// ---------------------------------------------------------------------------
 // Gizlilik Politikası — Meta uygulamayı Live'a almak için geçerli bir
 // Privacy Policy URL zorunlu kılar. Herkese açık, giriş gerektirmez.
 // ---------------------------------------------------------------------------
@@ -486,17 +729,23 @@ async function hatirlatmaKontrol() {
     for (const r of liste) {
       const kalan = saatToDk(r.saat) - simdiDk;
       if (kalan > 0 && kalan <= 60) {
-        let sonuc = await sendText(
-          r.telefon,
-          `⏰ *Randevu Hatırlatması!*\n\nYaklaşık 1 saat sonra randevunuz var:\n\n💈 ${r.berber}\n✂️ ${r.hizmet}\n📅 ${gunLabel} ⏰ ${r.saat}\n\nSizi bekliyoruz! 🙏`
-        );
-        // 131047: müşterinin 24 saat penceresi kapalı — onaylı şablonla gönder
-        if (sonuc && sonuc.hata && sonuc.kod === 131047) {
-          if (TEMPLATE_HATIRLATMA) {
-            sonuc = await sendTemplate(r.telefon, TEMPLATE_HATIRLATMA, [r.berber, r.hizmet, gunLabel, r.saat]);
-          } else {
-            console.warn(`⚠️ ${r.telefon}: 24 saat penceresi kapalı ve TEMPLATE_HATIRLATMA tanımsız — hatırlatma gönderilemedi.`);
-            sonuc = null; // tekrar denemenin anlamı yok
+        let sonuc;
+        if (r.kaynak === "web") {
+          // Web'den gelen müşteri hiç WhatsApp açmadı — e-posta ile hatırlat
+          sonuc = await eposta.randevuHatirlatmaMaili(r, gunLabel);
+        } else {
+          sonuc = await sendText(
+            r.telefon,
+            `⏰ *Randevu Hatırlatması!*\n\nYaklaşık 1 saat sonra randevunuz var:\n\n💈 ${r.berber}\n✂️ ${r.hizmet}\n📅 ${gunLabel} ⏰ ${r.saat}\n\nSizi bekliyoruz! 🙏`
+          );
+          // 131047: müşterinin 24 saat penceresi kapalı — onaylı şablonla gönder
+          if (sonuc && sonuc.hata && sonuc.kod === 131047) {
+            if (TEMPLATE_HATIRLATMA) {
+              sonuc = await sendTemplate(r.telefon, TEMPLATE_HATIRLATMA, [r.berber, r.hizmet, gunLabel, r.saat]);
+            } else {
+              console.warn(`⚠️ ${r.telefon}: 24 saat penceresi kapalı ve TEMPLATE_HATIRLATMA tanımsız — hatırlatma gönderilemedi.`);
+              sonuc = null; // tekrar denemenin anlamı yok
+            }
           }
         }
         // Başarısız gönderim işaretlenmez — 5 dk sonra tekrar denenir
@@ -597,4 +846,4 @@ const GIZLILIK_HTML = `<!DOCTYPE html>
 </body>
 </html>`;
 
-module.exports = { app, server };
+module.exports = { app, server, hatirlatmaKontrol };

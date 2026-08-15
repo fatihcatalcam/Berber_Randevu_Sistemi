@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Randevu Al — Resul Tabu Saç Atölyesi</title>
+<meta name="theme-color" content="#075E54">
+<style>
+  :root {
+    --yesil1: #075E54; --yesil2: #25D366;
+    --bg: #f0f2f5; --kart: #ffffff;
+    --metin: #1f2937; --soluk: #6b7280; --cizgi: #e5e7eb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--metin);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+  }
+  .ust {
+    background: linear-gradient(135deg, #075E54 0%, #128C7E 100%);
+    padding: 22px 16px; text-align: center; color: #fff;
+  }
+  .ust img { width: 72px; border-radius: 12px; background: #fff; padding: 6px; margin-bottom: 8px; }
+  .ust h1 { font-size: 18px; margin: 0; }
+  .ust p { margin: 4px 0 0; font-size: 13px; opacity: .9; }
+
+  .kapsayici { max-width: 480px; margin: -10px auto 40px; padding: 0 14px; }
+  .kart {
+    background: var(--kart); border-radius: 14px; padding: 18px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.08); margin-bottom: 14px;
+  }
+  .adim-baslik { font-size: 13px; font-weight: 700; color: var(--soluk); margin: 0 0 12px; text-transform: uppercase; letter-spacing: .03em; }
+
+  .secim-liste { display: flex; flex-direction: column; gap: 8px; }
+  .secim-btn {
+    display: flex; justify-content: space-between; align-items: center;
+    width: 100%; padding: 13px 14px; border: 1.5px solid var(--cizgi); border-radius: 10px;
+    background: #fff; font-size: 14px; font-weight: 600; color: var(--metin);
+    cursor: pointer; text-align: left;
+  }
+  .secim-btn:active { background: #f9fafb; }
+  .secim-btn.secili { border-color: var(--yesil2); background: #ecfdf5; }
+  .secim-btn small { display: block; font-weight: 400; color: var(--soluk); font-size: 12px; margin-top: 2px; }
+  .secim-btn .fiyat { color: var(--yesil1); font-weight: 700; white-space: nowrap; }
+
+  .saat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .saat-btn {
+    padding: 11px 4px; border: 1.5px solid var(--cizgi); border-radius: 8px;
+    background: #fff; font-size: 14px; font-weight: 600; cursor: pointer; text-align: center;
+  }
+  .saat-btn.secili { border-color: var(--yesil2); background: #ecfdf5; color: var(--yesil1); }
+
+  label { display: block; font-size: 13px; font-weight: 700; color: var(--soluk); margin: 12px 0 5px; }
+  label:first-child { margin-top: 0; }
+  input[type="text"], input[type="tel"], input[type="email"] {
+    width: 100%; padding: 12px; border: 1.5px solid var(--cizgi); border-radius: 9px;
+    font-size: 15px; outline: none; box-sizing: border-box;
+  }
+  input:focus { border-color: var(--yesil2); }
+  .kod-input { text-align: center; letter-spacing: .3em; font-size: 22px; font-weight: 700; }
+
+  .btn {
+    width: 100%; padding: 13px; border: none; border-radius: 10px;
+    background: var(--yesil1); color: #fff; font-size: 15px; font-weight: 700;
+    cursor: pointer; margin-top: 14px;
+  }
+  .btn:disabled { background: #9ca3af; cursor: not-allowed; }
+  .btn-ikincil {
+    background: #fff; color: var(--yesil1); border: 1.5px solid var(--yesil1);
+  }
+  .hata { color: #dc2626; font-size: 13px; margin-top: 8px; min-height: 1em; }
+  .bilgi { color: var(--soluk); font-size: 12.5px; margin-top: 8px; }
+  .geri-btn {
+    background: none; border: none; color: var(--soluk); font-size: 13px;
+    cursor: pointer; padding: 6px 0; margin-bottom: 8px;
+  }
+
+  .ozet { background: #f9fafb; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; margin-bottom: 4px; }
+  .ozet div { margin: 3px 0; }
+
+  .basari { text-align: center; padding: 20px 6px; }
+  .basari .ikon { font-size: 48px; margin-bottom: 10px; }
+  .basari h2 { margin: 0 0 8px; color: var(--yesil1); }
+
+  .yukleniyor { text-align: center; color: var(--soluk); padding: 24px; font-size: 14px; }
+  .gizli { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="ust">
+  <img src="/dashboard/logo.jpg" alt="Logo">
+  <h1>Resul Tabu Saç Atölyesi</h1>
+  <p>Online randevu formu</p>
+</div>
+
+<div class="kapsayici">
+
+  <!-- Adım 1: Usta -->
+  <div class="kart" id="adimBerber">
+    <p class="adim-baslik">1. Usta Seçin</p>
+    <div class="secim-liste" id="berberListe"><div class="yukleniyor">Yükleniyor…</div></div>
+  </div>
+
+  <!-- Adım 2: Hizmet -->
+  <div class="kart gizli" id="adimHizmet">
+    <button class="geri-btn" onclick="geriGit('adimBerber')">‹ Usta seçimine dön</button>
+    <p class="adim-baslik">2. Hizmet Seçin</p>
+    <div class="secim-liste" id="hizmetListe"></div>
+  </div>
+
+  <!-- Adım 3: Tarih -->
+  <div class="kart gizli" id="adimTarih">
+    <button class="geri-btn" onclick="geriGit('adimHizmet')">‹ Hizmet seçimine dön</button>
+    <p class="adim-baslik">3. Tarih Seçin</p>
+    <div class="secim-liste" id="tarihListe"></div>
+  </div>
+
+  <!-- Adım 4: Saat -->
+  <div class="kart gizli" id="adimSaat">
+    <button class="geri-btn" onclick="geriGit('adimTarih')">‹ Tarih seçimine dön</button>
+    <p class="adim-baslik">4. Saat Seçin</p>
+    <div class="saat-grid" id="saatListe"><div class="yukleniyor">Yükleniyor…</div></div>
+  </div>
+
+  <!-- Adım 5: Bilgiler + OTP -->
+  <div class="kart gizli" id="adimBilgi">
+    <button class="geri-btn" onclick="geriGit('adimSaat')">‹ Saat seçimine dön</button>
+    <p class="adim-baslik">5. Bilgileriniz</p>
+    <div class="ozet" id="ozetKutu"></div>
+
+    <div id="bilgiForm">
+      <label for="inAd">Ad Soyad *</label>
+      <input type="text" id="inAd" placeholder="Adınız Soyadınız">
+
+      <label for="inTelefon">Telefon *</label>
+      <input type="tel" id="inTelefon" placeholder="05XX XXX XX XX">
+
+      <label for="inEmail">E-posta (opsiyonel)</label>
+      <input type="email" id="inEmail" placeholder="Randevu onayı için e-posta">
+
+      <button class="btn" id="kodGonderBtn" onclick="kodGonder()">Doğrulama Kodu Gönder</button>
+      <div class="hata" id="bilgiHata"></div>
+    </div>
+
+    <div id="otpForm" class="gizli">
+      <p class="bilgi" id="otpBilgi"></p>
+      <label for="inKod">Telefonunuza gelen 6 haneli kod</label>
+      <input type="text" id="inKod" class="kod-input" maxlength="6" inputmode="numeric" placeholder="______">
+      <button class="btn" id="kodDogrulaBtn" onclick="kodDogrula()">Kodu Doğrula</button>
+      <button class="btn btn-ikincil" id="tekrarGonderBtn" onclick="kodGonder(true)" disabled>Tekrar Gönder (60)</button>
+      <div class="hata" id="otpHata"></div>
+    </div>
+
+    <div id="onayForm" class="gizli">
+      <p class="bilgi">✅ Telefon numaranız doğrulandı.</p>
+      <button class="btn" id="randevuAlBtn" onclick="randevuOlustur()">Randevuyu Onayla</button>
+      <div class="hata" id="onayHata"></div>
+    </div>
+  </div>
+
+  <!-- Başarı ekranı -->
+  <div class="kart gizli" id="adimBasari">
+    <div class="basari">
+      <div class="ikon">🎉</div>
+      <h2>Randevunuz Alındı!</h2>
+      <p>Talebiniz ustamızın onayına gönderildi. E-posta adresi girdiyseniz onaylandığında bilgilendirileceksiniz.</p>
+      <div class="ozet" id="basariOzet" style="text-align:left;"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// State
+// ============================================================
+let BERBERLER = [], HIZMETLER = [];
+let secim = { berberId: null, hizmetId: null, tarih: null, saat: null };
+let dogrulamaToken = null;
+let geriSayimTimer = null;
+
+function kacis(s) {
+  const d = document.createElement("div");
+  d.textContent = s == null ? "" : String(s);
+  return d.innerHTML;
+}
+
+function adimGoster(id) {
+  document.querySelectorAll(".kapsayici > .kart").forEach((el) => el.classList.add("gizli"));
+  document.getElementById(id).classList.remove("gizli");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function geriGit(id) { adimGoster(id); }
+
+// ============================================================
+// Adım 1: Usta listesi
+// ============================================================
+async function baslat() {
+  try {
+    const res = await fetch("/api/config", { cache: "no-store" });
+    const c = await res.json();
+    BERBERLER = c.berberler; HIZMETLER = c.hizmetler;
+    berberListesiniDoldur();
+  } catch (e) {
+    document.getElementById("berberListe").innerHTML =
+      '<div class="hata">Bağlantı hatası. Sayfayı yenileyin.</div>';
+  }
+}
+
+function berberListesiniDoldur() {
+  const kutu = document.getElementById("berberListe");
+  kutu.innerHTML = BERBERLER.map((b) => `
+    <button class="secim-btn" onclick="berberSec('${b.id}')">
+      <span>💈 ${kacis(b.ad)}<small>${kacis(b.uzmanlik || "")}</small></span>
+    </button>`).join("");
+}
+
+function berberSec(id) {
+  secim.berberId = id; secim.hizmetId = null; secim.tarih = null; secim.saat = null;
+  hizmetListesiniDoldur();
+  adimGoster("adimHizmet");
+}
+
+// ============================================================
+// Adım 2: Hizmet listesi
+// ============================================================
+function hizmetListesiniDoldur() {
+  const berber = BERBERLER.find((b) => b.id === secim.berberId);
+  const kutu = document.getElementById("hizmetListe");
+  kutu.innerHTML = HIZMETLER.map((h) => `
+    <button class="secim-btn" onclick="hizmetSec('${h.id}')">
+      <span>✂️ ${kacis(h.ad)}</span>
+      <span class="fiyat">${berber.fiyat[h.id]}₺</span>
+    </button>`).join("");
+}
+
+function hizmetSec(id) {
+  secim.hizmetId = id; secim.tarih = null; secim.saat = null;
+  tarihListesiniDoldur();
+  adimGoster("adimTarih");
+}
+
+// ============================================================
+// Adım 3: Tarih listesi (önümüzdeki 7 gün, Pazar hariç)
+// ============================================================
+function gelecekTarihleriUret(kacGun) {
+  const sonuc = [];
+  const bugun = new Date();
+  for (let i = 0; sonuc.length < kacGun && i < 21; i++) {
+    const d = new Date(bugun);
+    d.setDate(bugun.getDate() + i);
+    if (d.getDay() === 0) continue; // Pazar
+    const etiket = d.toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
+    const yil = d.getFullYear();
+    const ay  = String(d.getMonth() + 1).padStart(2, "0");
+    const gun = String(d.getDate()).padStart(2, "0");
+    sonuc.push({ etiket, deger: `${yil}-${ay}-${gun}` });
+  }
+  return sonuc;
+}
+
+function tarihListesiniDoldur() {
+  const kutu = document.getElementById("tarihListe");
+  const tarihler = gelecekTarihleriUret(7);
+  kutu.innerHTML = tarihler.map((t) => `
+    <button class="secim-btn" onclick="tarihSec('${t.deger}')"><span>📅 ${kacis(t.etiket)}</span></button>`).join("");
+}
+
+async function tarihSec(deger) {
+  secim.tarih = deger; secim.saat = null;
+  adimGoster("adimSaat");
+  const kutu = document.getElementById("saatListe");
+  kutu.innerHTML = '<div class="yukleniyor">Yükleniyor…</div>';
+  try {
+    const url = `/api/public/musait-saatler?berberId=${encodeURIComponent(secim.berberId)}&tarih=${encodeURIComponent(secim.tarih)}`;
+    const res = await fetch(url, { cache: "no-store" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.hata || "sunucu hatası");
+    saatListesiniDoldur(data.saatler || []);
+  } catch (e) {
+    kutu.innerHTML = '<div class="hata">Saatler alınamadı, sayfayı yenileyip tekrar deneyin.</div>';
+  }
+}
+
+function saatListesiniDoldur(saatler) {
+  const kutu = document.getElementById("saatListe");
+  if (!saatler.length) {
+    kutu.innerHTML = '<div class="bilgi" style="grid-column:1/-1;">Bu gün için boş saat kalmamış. Lütfen başka bir tarih seçin.</div>';
+    return;
+  }
+  kutu.innerHTML = saatler.map((s) => `<button class="saat-btn" onclick="saatSec('${s}')">${s}</button>`).join("");
+}
+
+function saatSec(saat) {
+  secim.saat = saat;
+  ozetGoster();
+  adimGoster("adimBilgi");
+}
+
+// ============================================================
+// Adım 5: Bilgi formu + OTP
+// ============================================================
+function ozetGoster() {
+  const berber = BERBERLER.find((b) => b.id === secim.berberId);
+  const hizmet = HIZMETLER.find((h) => h.id === secim.hizmetId);
+  const tarihStr = new Date(secim.tarih + "T00:00:00").toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
+  document.getElementById("ozetKutu").innerHTML = `
+    <div>💈 <strong>${kacis(berber.ad)}</strong></div>
+    <div>✂️ ${kacis(hizmet.ad)} — ${berber.fiyat[hizmet.id]}₺</div>
+    <div>📅 ${kacis(tarihStr)} ⏰ ${secim.saat}</div>`;
+  document.getElementById("bilgiForm").classList.remove("gizli");
+  document.getElementById("otpForm").classList.add("gizli");
+  document.getElementById("onayForm").classList.add("gizli");
+  document.getElementById("bilgiHata").textContent = "";
+}
+
+function telefonGoruntu() {
+  return document.getElementById("inTelefon").value.trim();
+}
+
+async function kodGonder(tekrar) {
+  const hataEl = document.getElementById(tekrar ? "otpHata" : "bilgiHata");
+  hataEl.textContent = "";
+
+  if (!tekrar) {
+    const ad = document.getElementById("inAd").value.trim();
+    const tel = telefonGoruntu();
+    if (ad.length < 3) { hataEl.textContent = "Lütfen adınızı ve soyadınızı girin."; return; }
+    if (tel.replace(/\D/g, "").length < 10) { hataEl.textContent = "Lütfen geçerli bir telefon numarası girin."; return; }
+  }
+
+  const btn = document.getElementById(tekrar ? "tekrarGonderBtn" : "kodGonderBtn");
+  btn.disabled = true;
+  try {
+    const res = await fetch("/api/public/otp-gonder", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ telefon: telefonGoruntu() }),
+    });
+    const data = await res.json();
+    if (!res.ok) { hataEl.textContent = data.hata || "Kod gönderilemedi."; btn.disabled = false; return; }
+
+    document.getElementById("bilgiForm").classList.add("gizli");
+    document.getElementById("otpForm").classList.remove("gizli");
+    document.getElementById("otpBilgi").textContent =
+      (data.gelistirmeModu ? "(Geliştirme modu — kod sunucu konsoluna yazıldı) " : "") +
+      "Telefonunuza gönderilen 6 haneli kodu girin.";
+    document.getElementById("inKod").value = "";
+    document.getElementById("inKod").focus();
+    geriSayimBaslat();
+  } catch (e) {
+    hataEl.textContent = "Bağlantı hatası, tekrar deneyin.";
+    btn.disabled = false;
+  }
+}
+
+function geriSayimBaslat() {
+  clearInterval(geriSayimTimer);
+  let kalan = 60;
+  const btn = document.getElementById("tekrarGonderBtn");
+  btn.disabled = true;
+  btn.textContent = `Tekrar Gönder (${kalan})`;
+  geriSayimTimer = setInterval(() => {
+    kalan--;
+    if (kalan <= 0) {
+      clearInterval(geriSayimTimer);
+      btn.disabled = false;
+      btn.textContent = "Tekrar Gönder";
+    } else {
+      btn.textContent = `Tekrar Gönder (${kalan})`;
+    }
+  }, 1000);
+}
+
+async function kodDogrula() {
+  const hataEl = document.getElementById("otpHata");
+  hataEl.textContent = "";
+  const kod = document.getElementById("inKod").value.trim();
+  if (kod.length !== 6) { hataEl.textContent = "6 haneli kodu eksiksiz girin."; return; }
+
+  const btn = document.getElementById("kodDogrulaBtn");
+  btn.disabled = true;
+  try {
+    const res = await fetch("/api/public/otp-dogrula", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ telefon: telefonGoruntu(), kod }),
+    });
+    const data = await res.json();
+    btn.disabled = false;
+    if (!res.ok) { hataEl.textContent = data.hata || "Doğrulama başarısız."; return; }
+
+    dogrulamaToken = data.dogrulamaToken;
+    clearInterval(geriSayimTimer);
+    document.getElementById("otpForm").classList.add("gizli");
+    document.getElementById("onayForm").classList.remove("gizli");
+  } catch (e) {
+    hataEl.textContent = "Bağlantı hatası, tekrar deneyin.";
+    btn.disabled = false;
+  }
+}
+
+async function randevuOlustur() {
+  const hataEl = document.getElementById("onayHata");
+  hataEl.textContent = "";
+  const btn = document.getElementById("randevuAlBtn");
+  btn.disabled = true;
+
+  try {
+    const res = await fetch("/api/public/randevu", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        dogrulamaToken,
+        ad: document.getElementById("inAd").value.trim(),
+        email: document.getElementById("inEmail").value.trim() || undefined,
+        berberId: secim.berberId, hizmetId: secim.hizmetId,
+        tarih: secim.tarih, saat: secim.saat,
+      }),
+    });
+    const data = await res.json();
+    btn.disabled = false;
+    if (!res.ok) { hataEl.textContent = data.hata || "Randevu oluşturulamadı."; return; }
+
+    const berber = BERBERLER.find((b) => b.id === secim.berberId);
+    const hizmet = HIZMETLER.find((h) => h.id === secim.hizmetId);
+    const tarihStr = new Date(secim.tarih + "T00:00:00").toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
+    document.getElementById("basariOzet").innerHTML = `
+      <div>💈 <strong>${kacis(berber.ad)}</strong></div>
+      <div>✂️ ${kacis(hizmet.ad)}</div>
+      <div>📅 ${kacis(tarihStr)} ⏰ ${secim.saat}</div>`;
+    adimGoster("adimBasari");
+  } catch (e) {
+    hataEl.textContent = "Bağlantı hatası, tekrar deneyin.";
+    btn.disabled = false;
+  }
+}
+
+baslat();
+</script>
+</body>
+</html>
