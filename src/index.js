@@ -121,6 +121,12 @@ const publicRandevuSinir  = istekSinirlayiciOlustur(5, 60 * 1000);       // IP: 
 const dogrulamaTokenlari = new Map(); // token -> { telefon, olusturulma }
 const DOGRULAMA_TOKEN_OMUR_MS = 15 * 60 * 1000; // 15 dk, tek kullanımlık
 
+// Netgsm hesabı kurulana kadar SMS OTP doğrulaması geçici olarak kapalı —
+// randevu formunda telefon numarası doğrudan (doğrulanmadan) kabul edilir.
+// Render'da OTP_AKTIF=true env değişkeni eklemek yeterli, akış (otp-gonder/
+// otp-dogrula uçları, public-booking'teki OTP adımı) hiç silinmedi, hazır bekliyor.
+const OTP_AKTIF = process.env.OTP_AKTIF === "true";
+
 // Kullanıcının girdiği telefonu "905XXXXXXXXX" formatına çevirir; geçersizse null.
 // Örnekler: "0555 123 45 67", "+90 555 123 45 67", "5551234567" -> "905551234567"
 function telefonNormalize(giris) {
@@ -359,14 +365,20 @@ app.get("/api/public/musait-saatler", ah(async (req, res) => {
 
 // Doğrulanmış telefonla randevu oluştur — "bekliyor" durumunda kaydedilir
 app.post("/api/public/randevu", ah(async (req, res) => {
-  const { dogrulamaToken, ad, email: musteriEmail, berberId, hizmetId, tarih, saat } = req.body;
+  const { dogrulamaToken, ad, telefon: gelenTelefon, email: musteriEmail, berberId, hizmetId, tarih, saat } = req.body;
 
-  const dogrulama = dogrulamaToken && dogrulamaTokenlari.get(dogrulamaToken);
-  if (!dogrulama || Date.now() - dogrulama.olusturulma > DOGRULAMA_TOKEN_OMUR_MS) {
-    if (dogrulamaToken) dogrulamaTokenlari.delete(dogrulamaToken);
-    return res.status(401).json({ hata: "Telefon doğrulanmamış. Lütfen tekrar kod isteyin." });
+  let telefon;
+  if (OTP_AKTIF) {
+    const dogrulama = dogrulamaToken && dogrulamaTokenlari.get(dogrulamaToken);
+    if (!dogrulama || Date.now() - dogrulama.olusturulma > DOGRULAMA_TOKEN_OMUR_MS) {
+      if (dogrulamaToken) dogrulamaTokenlari.delete(dogrulamaToken);
+      return res.status(401).json({ hata: "Telefon doğrulanmamış. Lütfen tekrar kod isteyin." });
+    }
+    telefon = dogrulama.telefon; // client body'sine değil, doğrulanmış numaraya güvenilir
+  } else {
+    telefon = telefonNormalize(gelenTelefon);
+    if (!telefon) return res.status(400).json({ hata: "Geçerli bir telefon numarası girin." });
   }
-  const telefon = dogrulama.telefon; // client body'sine değil, doğrulanmış numaraya güvenilir
 
   const ip = req.ip;
   if (publicRandevuSinir.asildiMi(ip)) {
@@ -403,7 +415,7 @@ app.post("/api/public/randevu", ah(async (req, res) => {
       fiyat: berber.fiyat[hizmetId],
       kaynak: "web",
     });
-    dogrulamaTokenlari.delete(dogrulamaToken); // tek kullanımlık
+    if (OTP_AKTIF) dogrulamaTokenlari.delete(dogrulamaToken); // tek kullanımlık
 
     sheets.syncRandevu(kayit).catch(() => {});
     sheets.musteriKaydet(kayit).catch(() => {});

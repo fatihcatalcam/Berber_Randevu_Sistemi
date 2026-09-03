@@ -191,7 +191,7 @@
       <label for="inEmail">E-posta (opsiyonel)</label>
       <input type="email" id="inEmail" placeholder="Randevu onayı için e-posta">
 
-      <button class="btn" id="kodGonderBtn" onclick="kodGonder()">Doğrulama Kodu Gönder</button>
+      <button class="btn" id="kodGonderBtn" onclick="bilgiDevam()">Randevu Al</button>
       <div class="hata" id="bilgiHata"></div>
     </div>
 
@@ -231,6 +231,11 @@ let BERBERLER = [], HIZMETLER = [];
 let secim = { berberId: null, hizmetId: null, tarih: null, saat: null };
 let dogrulamaToken = null;
 let geriSayimTimer = null;
+
+// Netgsm hesabı kurulana kadar SMS doğrulaması geçici kapalı — sunucudaki
+// OTP_AKTIF ile birebir aynı anlam. true yapılınca eski (kod gönder/doğrula)
+// akış otomatik geri döner, hiçbir fonksiyon silinmedi.
+const OTP_AKTIF = false;
 
 const ADIM_SIRASI = ["adimBerber", "adimHizmet", "adimTarih", "adimSaat", "adimBilgi"];
 
@@ -407,6 +412,20 @@ function telefonGoruntu() {
   return document.getElementById("inTelefon").value.trim();
 }
 
+// Bilgi formu "devam" butonu — OTP açıksa kod gönderme akışına, kapalıysa
+// doğrudan randevu oluşturmaya gider (telefon doğrulanmadan kabul edilir).
+function bilgiDevam() {
+  const hataEl = document.getElementById("bilgiHata");
+  hataEl.textContent = "";
+  const ad = document.getElementById("inAd").value.trim();
+  const tel = telefonGoruntu();
+  if (ad.length < 3) { hataEl.textContent = "Lütfen adınızı ve soyadınızı girin."; return; }
+  if (tel.replace(/\D/g, "").length < 10) { hataEl.textContent = "Lütfen geçerli bir telefon numarası girin."; return; }
+
+  if (OTP_AKTIF) kodGonder();
+  else randevuOlustur();
+}
+
 async function kodGonder(tekrar) {
   const hataEl = document.getElementById(tekrar ? "otpHata" : "bilgiHata");
   hataEl.textContent = "";
@@ -488,9 +507,11 @@ async function kodDogrula() {
 }
 
 async function randevuOlustur() {
-  const hataEl = document.getElementById("onayHata");
+  // OTP açıkken onay adımından (doğrulama sonrası), kapalıyken doğrudan
+  // bilgi formundan çağrılır — hata/buton hedefleri buna göre değişir.
+  const hataEl = document.getElementById(OTP_AKTIF ? "onayHata" : "bilgiHata");
   hataEl.textContent = "";
-  const btn = document.getElementById("randevuAlBtn");
+  const btn = document.getElementById(OTP_AKTIF ? "randevuAlBtn" : "kodGonderBtn");
   btn.disabled = true;
 
   try {
@@ -498,6 +519,7 @@ async function randevuOlustur() {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         dogrulamaToken,
+        telefon: OTP_AKTIF ? undefined : telefonGoruntu(),
         ad: document.getElementById("inAd").value.trim(),
         email: document.getElementById("inEmail").value.trim() || undefined,
         berberId: secim.berberId, hizmetId: secim.hizmetId,

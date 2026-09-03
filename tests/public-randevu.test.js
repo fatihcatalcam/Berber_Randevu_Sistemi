@@ -8,8 +8,11 @@ const Module = require("module");
 // db/sheets/email mock'lanir; dogrulama token'ini test dogrudan sunucunun
 // bellek ici otp-dogrula akisi UZERINDEN degil, gercek /api/public/otp-*
 // uclarini kullanarak elde eder (uctan uca, gercekci).
+// Bu dosya OTP_AKTIF=true (token zorunlu) akisini test eder — OTP kapaliyken
+// (varsayilan/production su an) davranis icin tests/randevu-otpsuz.test.js'e bak.
 // ---------------------------------------------------------------------------
 process.env.NETGSM_USERCODE = "test-user";
+process.env.OTP_AKTIF = "true";
 
 const otpKayitlari = [];
 const smsGonderilenler = [];
