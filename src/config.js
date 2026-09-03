@@ -27,19 +27,19 @@ const EREN_BASLANGIC = { 1: "10:30", 2: "09:45", 3: "10:30", 4: "09:45", 5: "10:
 // Boş bırakılırsa o berbere bildirim gönderilmez.
 // slotDk: bir randevu diliminin süresi (Resul 30dk, diğerleri 45dk).
 const BERBERLER = [
-  { id: "resul",     ad: "Resul Tabu",     uzmanlik: "Saç & Sakal Tasarımı", pin: "2278", tel: null, admin: true, slotDk: 30, fiyat: RESUL_FIYAT,
+  { id: "resul",     ad: "Resul Tabu",     uzmanlik: "Saç & Sakal Tasarımı", pin: "2278", tel: null, admin: true, slotDk: 30, fiyat: RESUL_FIYAT, foto: "/randevu-al/fotolar/resul.jpeg",
     calisma: { baslangic: "09:00", bitis: "20:00", yemek: "14:00", yemekDk: 120 }, net: { taban: 0, oran: 1 } },
-  { id: "eren",      ad: "Eren Tokalak",   uzmanlik: "Saç & Sakal Tasarımı", pin: "2828", tel: null, slotDk: 45, fiyat: EKIP_FIYAT,
+  { id: "eren",      ad: "Eren Tokalak",   uzmanlik: "Saç & Sakal Tasarımı", pin: "2828", tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/eren.jpeg",
     calisma: { baslangic: EREN_BASLANGIC, bitis: "21:00", yemek: "16:30", yemekDk: 45 }, net: { taban: 100, oran: 0.55 } },
-  { id: "kaan",      ad: "Kaan Ekinci",    uzmanlik: "Saç & Sakal Tasarımı", pin: "3436", tel: null, slotDk: 45, fiyat: EKIP_FIYAT,
+  { id: "kaan",      ad: "Kaan Ekinci",    uzmanlik: "Saç & Sakal Tasarımı", pin: "3436", tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/kaan.jpeg",
     calisma: { baslangic: "10:45", bitis: "21:00", yemek: "16:00", yemekDk: 45 }, net: { taban: 100, oran: 0.60 } },
-  { id: "burak",     ad: "Burak Şahin",    uzmanlik: "Saç & Sakal Tasarımı", pin: "1453", tel: null, slotDk: 45, fiyat: EKIP_FIYAT,
+  { id: "burak",     ad: "Burak Şahin",    uzmanlik: "Saç & Sakal Tasarımı", pin: "1453", tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/burak.jpeg",
     calisma: { baslangic: "10:30", bitis: "20:15", yemek: "16:30", yemekDk: 45 }, net: { taban: 0, oran: 0.45 } },
-  { id: "emre",      ad: "Emre Akçam",     uzmanlik: "Saç & Sakal Tasarımı", pin: "3434", tel: null, slotDk: 45, fiyat: EKIP_FIYAT,
+  { id: "emre",      ad: "Emre Akçam",     uzmanlik: "Saç & Sakal Tasarımı", pin: "3434", tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/emre.jpeg",
     calisma: { baslangic: "09:30", bitis: "20:00", yemek: "16:15", yemekDk: 45 }, net: { taban: 0, oran: 0.50 } },
-  { id: "huseyin",   ad: "Hüseyin Dincer", uzmanlik: "Saç & Sakal Tasarımı", pin: "2233", tel: null, slotDk: 45, fiyat: EKIP_FIYAT,
+  { id: "huseyin",   ad: "Hüseyin Dincer", uzmanlik: "Saç & Sakal Tasarımı", pin: "2233", tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/huseyin.jpeg",
     calisma: { baslangic: "09:00", bitis: "20:00", yemek: "15:00", yemekDk: 45 }, net: { taban: 0, oran: 0.45 } },
-  { id: "mehmetali", ad: "Mehmet Ali",     uzmanlik: "Saç & Sakal Tasarımı", pin: "4773", tel: null, slotDk: 45, fiyat: EKIP_FIYAT,
+  { id: "mehmetali", ad: "Mehmet Ali",     uzmanlik: "Saç & Sakal Tasarımı", pin: "4773", tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/mehmetali.jpeg",
     calisma: { baslangic: "09:30", bitis: "20:00", yemek: "16:15", yemekDk: 45 }, net: { taban: 0, oran: 0.45 } },
 ];
 

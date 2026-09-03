@@ -16,72 +16,116 @@
     margin: 0; background: var(--bg); color: var(--metin);
     font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
   }
   .ust {
     background: linear-gradient(135deg, #075E54 0%, #128C7E 100%);
-    padding: 22px 16px; text-align: center; color: #fff;
+    padding: 26px 16px 22px; text-align: center; color: #fff;
   }
-  .ust img { width: 72px; border-radius: 12px; background: #fff; padding: 6px; margin-bottom: 8px; }
-  .ust h1 { font-size: 18px; margin: 0; }
-  .ust p { margin: 4px 0 0; font-size: 13px; opacity: .9; }
+  .ust img { width: 68px; height: 68px; object-fit: cover; border-radius: 16px; background: #fff; padding: 5px; margin-bottom: 10px; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
+  .ust h1 { font-size: 19px; margin: 0; font-weight: 800; letter-spacing: -.01em; }
+  .ust p { margin: 4px 0 0; font-size: 13px; opacity: .85; }
 
-  .kapsayici { max-width: 480px; margin: -10px auto 40px; padding: 0 14px; }
+  /* Adım göstergesi */
+  .ilerleme { display: flex; gap: 6px; max-width: 480px; margin: 14px auto 0; padding: 0 16px; }
+  .ilerleme .nokta { flex: 1; height: 4px; border-radius: 3px; background: rgba(255,255,255,.28); transition: background .25s; }
+  .ilerleme .nokta.tamam { background: var(--yesil2); }
+  .ilerleme .nokta.aktif { background: #fff; }
+
+  .kapsayici { max-width: 480px; margin: -8px auto 40px; padding: 0 14px; }
   .kart {
-    background: var(--kart); border-radius: 14px; padding: 18px;
-    box-shadow: 0 2px 10px rgba(0,0,0,.08); margin-bottom: 14px;
+    background: var(--kart); border-radius: 16px; padding: 18px;
+    box-shadow: 0 2px 14px rgba(17,24,39,.07); margin-bottom: 14px;
+    animation: girisAnim .28s ease both;
   }
-  .adim-baslik { font-size: 13px; font-weight: 700; color: var(--soluk); margin: 0 0 12px; text-transform: uppercase; letter-spacing: .03em; }
+  @keyframes girisAnim { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .adim-baslik { font-size: 12.5px; font-weight: 800; color: var(--soluk); margin: 0 0 13px; text-transform: uppercase; letter-spacing: .05em; }
 
   .secim-liste { display: flex; flex-direction: column; gap: 8px; }
   .secim-btn {
     display: flex; justify-content: space-between; align-items: center;
-    width: 100%; padding: 13px 14px; border: 1.5px solid var(--cizgi); border-radius: 10px;
+    width: 100%; padding: 13px 14px; border: 1.5px solid var(--cizgi); border-radius: 12px;
     background: #fff; font-size: 14px; font-weight: 600; color: var(--metin);
-    cursor: pointer; text-align: left;
+    cursor: pointer; text-align: left; transition: border-color .15s, background .15s, transform .1s;
   }
-  .secim-btn:active { background: #f9fafb; }
+  .secim-btn:active { background: #f9fafb; transform: scale(.98); }
   .secim-btn.secili { border-color: var(--yesil2); background: #ecfdf5; }
   .secim-btn small { display: block; font-weight: 400; color: var(--soluk); font-size: 12px; margin-top: 2px; }
-  .secim-btn .fiyat { color: var(--yesil1); font-weight: 700; white-space: nowrap; }
+  .secim-btn .fiyat { color: var(--yesil1); font-weight: 800; white-space: nowrap; }
+
+  /* Usta kartları (fotoğraflı) */
+  .usta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .usta-kart {
+    border: 1.5px solid var(--cizgi); border-radius: 14px; padding: 12px 10px 13px;
+    background: #fff; cursor: pointer; text-align: center; transition: border-color .15s, background .15s, transform .1s;
+  }
+  .usta-kart:active { transform: scale(.97); background: #f9fafb; }
+  .usta-kart.secili { border-color: var(--yesil2); background: #ecfdf5; }
+  .usta-foto {
+    width: 100%; aspect-ratio: 1/1; border-radius: 11px; object-fit: cover;
+    background: linear-gradient(135deg,#e5e7eb,#f3f4f6); margin-bottom: 9px; display: block;
+  }
+  .usta-avatar-yer {
+    width: 100%; aspect-ratio: 1/1; border-radius: 11px; margin-bottom: 9px;
+    display: flex; align-items: center; justify-content: center; font-size: 26px;
+    background: linear-gradient(135deg,#075E54,#128C7E); color: #fff;
+  }
+  .usta-ad { font-size: 13.5px; font-weight: 700; line-height: 1.25; }
+  .usta-uzmanlik { font-size: 11px; color: var(--soluk); margin-top: 2px; }
 
   .saat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .saat-btn {
-    padding: 11px 4px; border: 1.5px solid var(--cizgi); border-radius: 8px;
-    background: #fff; font-size: 14px; font-weight: 600; cursor: pointer; text-align: center;
+    padding: 11px 4px; border: 1.5px solid var(--cizgi); border-radius: 10px;
+    background: #fff; font-size: 14px; font-weight: 700; cursor: pointer; text-align: center;
+    transition: border-color .15s, background .15s, transform .1s;
   }
+  .saat-btn:active { transform: scale(.96); }
   .saat-btn.secili { border-color: var(--yesil2); background: #ecfdf5; color: var(--yesil1); }
 
   label { display: block; font-size: 13px; font-weight: 700; color: var(--soluk); margin: 12px 0 5px; }
   label:first-child { margin-top: 0; }
   input[type="text"], input[type="tel"], input[type="email"] {
-    width: 100%; padding: 12px; border: 1.5px solid var(--cizgi); border-radius: 9px;
-    font-size: 15px; outline: none; box-sizing: border-box;
+    width: 100%; padding: 12px 13px; border: 1.5px solid var(--cizgi); border-radius: 10px;
+    font-size: 15px; outline: none; box-sizing: border-box; transition: border-color .15s;
   }
   input:focus { border-color: var(--yesil2); }
-  .kod-input { text-align: center; letter-spacing: .3em; font-size: 22px; font-weight: 700; }
+  .kod-input { text-align: center; letter-spacing: .4em; font-size: 24px; font-weight: 800; padding-left: 18px; }
 
   .btn {
-    width: 100%; padding: 13px; border: none; border-radius: 10px;
+    width: 100%; padding: 14px; border: none; border-radius: 11px;
     background: var(--yesil1); color: #fff; font-size: 15px; font-weight: 700;
-    cursor: pointer; margin-top: 14px;
+    cursor: pointer; margin-top: 14px; transition: transform .1s, opacity .15s;
   }
-  .btn:disabled { background: #9ca3af; cursor: not-allowed; }
+  .btn:active:not(:disabled) { transform: scale(.98); }
+  .btn:disabled { background: #b7bdc6; cursor: not-allowed; }
   .btn-ikincil {
     background: #fff; color: var(--yesil1); border: 1.5px solid var(--yesil1);
   }
-  .hata { color: #dc2626; font-size: 13px; margin-top: 8px; min-height: 1em; }
+  .btn-ikincil:disabled { background: #fff; color: #b7bdc6; border-color: #e5e7eb; }
+  .hata { color: #dc2626; font-size: 13px; margin-top: 8px; min-height: 1em; font-weight: 600; }
   .bilgi { color: var(--soluk); font-size: 12.5px; margin-top: 8px; }
   .geri-btn {
-    background: none; border: none; color: var(--soluk); font-size: 13px;
-    cursor: pointer; padding: 6px 0; margin-bottom: 8px;
+    background: none; border: none; color: var(--soluk); font-size: 13px; font-weight: 600;
+    cursor: pointer; padding: 6px 0; margin-bottom: 10px; display: flex; align-items: center; gap: 3px;
   }
 
-  .ozet { background: #f9fafb; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; margin-bottom: 4px; }
-  .ozet div { margin: 3px 0; }
+  .ozet {
+    background: #f9fafb; border: 1px solid var(--cizgi); border-radius: 12px;
+    padding: 12px 14px; font-size: 13.5px; margin-bottom: 4px; display: flex; gap: 12px; align-items: center;
+  }
+  .ozet-foto { width: 46px; height: 46px; border-radius: 10px; object-fit: cover; flex-shrink: 0; }
+  .ozet-avatar-yer {
+    width: 46px; height: 46px; border-radius: 10px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+    background: linear-gradient(135deg,#075E54,#128C7E); color: #fff;
+  }
+  .ozet-metin div { margin: 2px 0; }
 
-  .basari { text-align: center; padding: 20px 6px; }
-  .basari .ikon { font-size: 48px; margin-bottom: 10px; }
-  .basari h2 { margin: 0 0 8px; color: var(--yesil1); }
+  .basari { text-align: center; padding: 22px 6px 8px; }
+  .basari .ikon { font-size: 50px; margin-bottom: 10px; }
+  .basari h2 { margin: 0 0 8px; color: var(--yesil1); font-size: 20px; }
+  .basari p { color: var(--soluk); font-size: 13.5px; margin: 0 0 16px; }
 
   .yukleniyor { text-align: center; color: var(--soluk); padding: 24px; font-size: 14px; }
   .gizli { display: none !important; }
@@ -94,40 +138,47 @@
   <h1>Resul Tabu Saç Atölyesi</h1>
   <p>Online randevu formu</p>
 </div>
+<div class="ilerleme" id="ilerleme">
+  <div class="nokta" data-adim="0"></div>
+  <div class="nokta" data-adim="1"></div>
+  <div class="nokta" data-adim="2"></div>
+  <div class="nokta" data-adim="3"></div>
+  <div class="nokta" data-adim="4"></div>
+</div>
 
 <div class="kapsayici">
 
   <!-- Adım 1: Usta -->
   <div class="kart" id="adimBerber">
-    <p class="adim-baslik">1. Usta Seçin</p>
-    <div class="secim-liste" id="berberListe"><div class="yukleniyor">Yükleniyor…</div></div>
+    <p class="adim-baslik">1 / 5 — Usta Seçin</p>
+    <div class="usta-grid" id="berberListe"><div class="yukleniyor">Yükleniyor…</div></div>
   </div>
 
   <!-- Adım 2: Hizmet -->
   <div class="kart gizli" id="adimHizmet">
     <button class="geri-btn" onclick="geriGit('adimBerber')">‹ Usta seçimine dön</button>
-    <p class="adim-baslik">2. Hizmet Seçin</p>
+    <p class="adim-baslik">2 / 5 — Hizmet Seçin</p>
     <div class="secim-liste" id="hizmetListe"></div>
   </div>
 
   <!-- Adım 3: Tarih -->
   <div class="kart gizli" id="adimTarih">
     <button class="geri-btn" onclick="geriGit('adimHizmet')">‹ Hizmet seçimine dön</button>
-    <p class="adim-baslik">3. Tarih Seçin</p>
+    <p class="adim-baslik">3 / 5 — Tarih Seçin</p>
     <div class="secim-liste" id="tarihListe"></div>
   </div>
 
   <!-- Adım 4: Saat -->
   <div class="kart gizli" id="adimSaat">
     <button class="geri-btn" onclick="geriGit('adimTarih')">‹ Tarih seçimine dön</button>
-    <p class="adim-baslik">4. Saat Seçin</p>
+    <p class="adim-baslik">4 / 5 — Saat Seçin</p>
     <div class="saat-grid" id="saatListe"><div class="yukleniyor">Yükleniyor…</div></div>
   </div>
 
   <!-- Adım 5: Bilgiler + OTP -->
   <div class="kart gizli" id="adimBilgi">
     <button class="geri-btn" onclick="geriGit('adimSaat')">‹ Saat seçimine dön</button>
-    <p class="adim-baslik">5. Bilgileriniz</p>
+    <p class="adim-baslik">5 / 5 — Bilgileriniz</p>
     <div class="ozet" id="ozetKutu"></div>
 
     <div id="bilgiForm">
@@ -181,15 +232,45 @@ let secim = { berberId: null, hizmetId: null, tarih: null, saat: null };
 let dogrulamaToken = null;
 let geriSayimTimer = null;
 
+const ADIM_SIRASI = ["adimBerber", "adimHizmet", "adimTarih", "adimSaat", "adimBilgi"];
+
 function kacis(s) {
   const d = document.createElement("div");
   d.textContent = s == null ? "" : String(s);
   return d.innerHTML;
 }
 
+function baslarKirp(ad) {
+  return (ad || "").trim().split(/\s+/).map((p) => p[0]).slice(0, 2).join("").toUpperCase();
+}
+
+function ustaGorseli(berber, sinifAdi, avatarSinifAdi) {
+  const foto = berber.foto;
+  if (!foto) return `<div class="${avatarSinifAdi}">${kacis(baslarKirp(berber.ad)) || "💈"}</div>`;
+  return `<img class="${sinifAdi}" src="${foto}" alt="${kacis(berber.ad)}"
+    onerror="this.outerHTML='<div class=&quot;${avatarSinifAdi}&quot;>${kacis(baslarKirp(berber.ad)) || "💈"}</div>'">`;
+}
+
+function ilerlemeGuncelle(id) {
+  const bar = document.getElementById("ilerleme");
+  const idx = ADIM_SIRASI.indexOf(id);
+  if (idx === -1) { bar.style.display = "none"; return; }
+  bar.style.display = "flex";
+  bar.querySelectorAll(".nokta").forEach((el) => {
+    const n = Number(el.dataset.adim);
+    el.classList.toggle("tamam", n < idx);
+    el.classList.toggle("aktif", n === idx);
+  });
+}
+
 function adimGoster(id) {
   document.querySelectorAll(".kapsayici > .kart").forEach((el) => el.classList.add("gizli"));
-  document.getElementById(id).classList.remove("gizli");
+  const hedef = document.getElementById(id);
+  hedef.classList.remove("gizli");
+  hedef.style.animation = "none";
+  hedef.offsetHeight; // reflow — girişAnim'i her adımda yeniden tetikle
+  hedef.style.animation = "";
+  ilerlemeGuncelle(id);
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 function geriGit(id) { adimGoster(id); }
@@ -203,6 +284,7 @@ async function baslat() {
     const c = await res.json();
     BERBERLER = c.berberler; HIZMETLER = c.hizmetler;
     berberListesiniDoldur();
+    ilerlemeGuncelle("adimBerber");
   } catch (e) {
     document.getElementById("berberListe").innerHTML =
       '<div class="hata">Bağlantı hatası. Sayfayı yenileyin.</div>';
@@ -212,8 +294,10 @@ async function baslat() {
 function berberListesiniDoldur() {
   const kutu = document.getElementById("berberListe");
   kutu.innerHTML = BERBERLER.map((b) => `
-    <button class="secim-btn" onclick="berberSec('${b.id}')">
-      <span>💈 ${kacis(b.ad)}<small>${kacis(b.uzmanlik || "")}</small></span>
+    <button class="usta-kart" onclick="berberSec('${b.id}')">
+      ${ustaGorseli(b, "usta-foto", "usta-avatar-yer")}
+      <div class="usta-ad">${kacis(b.ad)}</div>
+      <div class="usta-uzmanlik">${kacis(b.uzmanlik || "")}</div>
     </button>`).join("");
 }
 
@@ -307,9 +391,12 @@ function ozetGoster() {
   const hizmet = HIZMETLER.find((h) => h.id === secim.hizmetId);
   const tarihStr = new Date(secim.tarih + "T00:00:00").toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
   document.getElementById("ozetKutu").innerHTML = `
-    <div>💈 <strong>${kacis(berber.ad)}</strong></div>
-    <div>✂️ ${kacis(hizmet.ad)} — ${berber.fiyat[hizmet.id]}₺</div>
-    <div>📅 ${kacis(tarihStr)} ⏰ ${secim.saat}</div>`;
+    ${ustaGorseli(berber, "ozet-foto", "ozet-avatar-yer")}
+    <div class="ozet-metin">
+      <div><strong>${kacis(berber.ad)}</strong></div>
+      <div>✂️ ${kacis(hizmet.ad)} — ${berber.fiyat[hizmet.id]}₺</div>
+      <div>📅 ${kacis(tarihStr)} ⏰ ${secim.saat}</div>
+    </div>`;
   document.getElementById("bilgiForm").classList.remove("gizli");
   document.getElementById("otpForm").classList.add("gizli");
   document.getElementById("onayForm").classList.add("gizli");
@@ -425,9 +512,12 @@ async function randevuOlustur() {
     const hizmet = HIZMETLER.find((h) => h.id === secim.hizmetId);
     const tarihStr = new Date(secim.tarih + "T00:00:00").toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
     document.getElementById("basariOzet").innerHTML = `
-      <div>💈 <strong>${kacis(berber.ad)}</strong></div>
-      <div>✂️ ${kacis(hizmet.ad)}</div>
-      <div>📅 ${kacis(tarihStr)} ⏰ ${secim.saat}</div>`;
+      ${ustaGorseli(berber, "ozet-foto", "ozet-avatar-yer")}
+      <div class="ozet-metin">
+        <div><strong>${kacis(berber.ad)}</strong></div>
+        <div>✂️ ${kacis(hizmet.ad)}</div>
+        <div>📅 ${kacis(tarihStr)} ⏰ ${secim.saat}</div>
+      </div>`;
     adimGoster("adimBasari");
   } catch (e) {
     hataEl.textContent = "Bağlantı hatası, tekrar deneyin.";
