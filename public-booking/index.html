@@ -4,146 +4,228 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Randevu Al — Resul Tabu Saç Atölyesi</title>
-<meta name="theme-color" content="#075E54">
+<meta name="theme-color" content="#2563eb">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --yesil1: #075E54; --yesil2: #25D366;
-    --bg: #f0f2f5; --kart: #ffffff;
-    --metin: #1f2937; --soluk: #6b7280; --cizgi: #e5e7eb;
+    --mavi: #2563eb; --mavi-koyu: #1d4ed8; --mavi-acik: #eff6ff; --mavi-halka: #dbeafe;
+    --bg: #f4f7fc; --kart: #ffffff;
+    --lacivert: #0f172a; --soluk: #64748b; --cizgi: #e2e8f0;
+    --yay: cubic-bezier(.32,.72,0,1); /* kritik sönümlü yay eğrisi — sıçramasız, yumuşak yerleşme */
   }
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body {
-    margin: 0; background: var(--bg); color: var(--metin);
-    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0; background: var(--bg); color: var(--lacivert);
+    font: 15px/1.5 "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
   }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    html { scroll-behavior: auto !important; }
+  }
+
+  /* Üst başlık — beyaz zemin, mavi vurgular */
   .ust {
-    background: linear-gradient(135deg, #075E54 0%, #128C7E 100%);
-    padding: 26px 16px 22px; text-align: center; color: #fff;
+    position: relative; overflow: hidden;
+    background: linear-gradient(180deg, #eaf1ff 0%, var(--bg) 100%);
+    padding: 40px 16px 26px; text-align: center;
   }
-  .ust img { width: 68px; height: 68px; object-fit: cover; border-radius: 16px; background: #fff; padding: 5px; margin-bottom: 10px; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
-  .ust h1 { font-size: 19px; margin: 0; font-weight: 800; letter-spacing: -.01em; }
-  .ust p { margin: 4px 0 0; font-size: 13px; opacity: .85; }
+  .ust::before {
+    content: ""; position: absolute; top: -90px; left: 50%; transform: translateX(-50%);
+    width: 260px; height: 260px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(37,99,235,.16) 0%, rgba(37,99,235,0) 70%);
+  }
+  .ust-icerik { position: relative; }
+  .etiket {
+    display: inline-flex; align-items: center; gap: 6px; background: #fff; color: var(--mavi);
+    font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    padding: 6px 14px; border-radius: 999px; box-shadow: 0 2px 10px rgba(37,99,235,.12);
+    margin-bottom: 16px;
+  }
+  .ust img {
+    width: 76px; height: 76px; object-fit: cover; border-radius: 20px; background: #fff; padding: 6px;
+    box-shadow: 0 8px 24px rgba(37,99,235,.18), 0 0 0 1px var(--cizgi); margin-bottom: 14px;
+  }
+  .ust h1 { font-size: 21px; margin: 0; font-weight: 800; letter-spacing: -.02em; color: var(--lacivert); }
+  .ust .cizgi-vurgu { width: 42px; height: 4px; border-radius: 3px; background: var(--mavi); margin: 10px auto 0; }
+  .ust p { margin: 10px 0 0; font-size: 13.5px; color: var(--soluk); }
 
-  /* Adım göstergesi */
-  .ilerleme { display: flex; gap: 6px; max-width: 480px; margin: 14px auto 0; padding: 0 16px; }
-  .ilerleme .nokta { flex: 1; height: 4px; border-radius: 3px; background: rgba(255,255,255,.28); transition: background .25s; }
-  .ilerleme .nokta.tamam { background: var(--yesil2); }
-  .ilerleme .nokta.aktif { background: #fff; }
+  /* Adım göstergesi — numaralı, çizgiyle bağlı halkalar. Kaydırınca da
+     bağlam kaybolmasın diye camsı (translucent) bir üst şerit olarak sabitlenir. */
+  .ilerleme-sarici {
+    position: sticky; top: 0; z-index: 5; max-width: 480px; margin: 0 auto; padding: 14px 30px;
+    background: rgba(244,247,252,.72); backdrop-filter: blur(14px) saturate(180%); -webkit-backdrop-filter: blur(14px) saturate(180%);
+    border-bottom: 1px solid transparent; transition: border-color .2s, box-shadow .2s;
+  }
+  .ilerleme-sarici.golgeli { border-color: var(--cizgi); box-shadow: 0 6px 16px -12px rgba(15,23,42,.25); }
+  .ilerleme { display: flex; justify-content: space-between; align-items: center; position: relative; }
+  .ilerleme::before {
+    content: ""; position: absolute; top: 50%; left: 0; right: 0; height: 2px;
+    background: var(--cizgi); transform: translateY(-50%); z-index: 0;
+  }
+  .ilerleme .nokta {
+    position: relative; z-index: 1; width: 26px; height: 26px; border-radius: 50%;
+    background: #fff; border: 2px solid var(--cizgi); color: var(--soluk);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800; transition: background-color .22s ease, border-color .22s ease, color .22s ease, box-shadow .22s ease;
+  }
+  .ilerleme .nokta.tamam { background: var(--mavi); border-color: var(--mavi); color: #fff; }
+  .ilerleme .nokta.aktif { border-color: var(--mavi); color: var(--mavi); box-shadow: 0 0 0 5px var(--mavi-halka); }
 
-  .kapsayici { max-width: 480px; margin: -8px auto 40px; padding: 0 14px; }
+  .kapsayici { max-width: 480px; margin: 22px auto 40px; padding: 0 14px; overflow-x: clip; overflow-y: visible; }
   .kart {
-    background: var(--kart); border-radius: 16px; padding: 18px;
-    box-shadow: 0 2px 14px rgba(17,24,39,.07); margin-bottom: 14px;
-    animation: girisAnim .28s ease both;
+    background: var(--kart); border: 1px solid var(--cizgi); border-radius: 22px; padding: 22px;
+    box-shadow: 0 1px 2px rgba(15,23,42,.03), 0 12px 28px -8px rgba(15,23,42,.08); margin-bottom: 14px;
+    animation: girisIleri .28s var(--yay) both;
   }
-  @keyframes girisAnim { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  /* Yön tutarlılığı: ileri gidince içerik sağdan gelir, geri dönünce soldan —
+     iOS'un push/pop navigasyonuyla aynı uzamsal mantık (nereden geldiyse oraya döner). */
+  .kart.yon-geri { animation-name: girisGeri; }
+  @keyframes girisIleri { from { opacity: 0; transform: translate(16px, 4px) scale(.98); } to { opacity: 1; transform: translate(0,0) scale(1); } }
+  @keyframes girisGeri { from { opacity: 0; transform: translate(-16px, 4px) scale(.98); } to { opacity: 1; transform: translate(0,0) scale(1); } }
 
-  .adim-baslik { font-size: 12.5px; font-weight: 800; color: var(--soluk); margin: 0 0 13px; text-transform: uppercase; letter-spacing: .05em; }
+  .adim-baslik { font-size: 12px; font-weight: 800; color: var(--mavi); margin: 0 0 16px; text-transform: uppercase; letter-spacing: .06em; }
 
-  .secim-liste { display: flex; flex-direction: column; gap: 8px; }
+  .secim-liste { display: flex; flex-direction: column; gap: 9px; }
   .secim-btn {
     display: flex; justify-content: space-between; align-items: center;
-    width: 100%; padding: 13px 14px; border: 1.5px solid var(--cizgi); border-radius: 12px;
-    background: #fff; font-size: 14px; font-weight: 600; color: var(--metin);
-    cursor: pointer; text-align: left; transition: border-color .15s, background .15s, transform .1s;
+    width: 100%; padding: 14px 16px; border: 1.5px solid var(--cizgi); border-radius: 14px;
+    background: #fff; font-size: 14px; font-weight: 600; color: var(--lacivert);
+    cursor: pointer; text-align: left; transition: border-color .15s, background .15s, transform .15s var(--yay), box-shadow .15s;
   }
-  .secim-btn:active { background: #f9fafb; transform: scale(.98); }
-  .secim-btn.secili { border-color: var(--yesil2); background: #ecfdf5; }
+  .secim-btn:active { transform: scale(.98); }
+  .secim-btn.secili { border-color: var(--mavi); background: var(--mavi-acik); box-shadow: 0 0 0 3px var(--mavi-halka); }
   .secim-btn small { display: block; font-weight: 400; color: var(--soluk); font-size: 12px; margin-top: 2px; }
-  .secim-btn .fiyat { color: var(--yesil1); font-weight: 800; white-space: nowrap; }
+  .secim-btn .fiyat { color: var(--mavi-koyu); font-weight: 800; white-space: nowrap; }
 
   /* Usta kartları (fotoğraflı) */
-  .usta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .usta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .usta-kart {
-    border: 1.5px solid var(--cizgi); border-radius: 14px; padding: 12px 10px 13px;
-    background: #fff; cursor: pointer; text-align: center; transition: border-color .15s, background .15s, transform .1s;
+    border: 1.5px solid var(--cizgi); border-radius: 18px; padding: 12px 10px 14px;
+    background: #fff; cursor: pointer; text-align: center; transition: border-color .15s, background .15s, transform .25s var(--yay), box-shadow .25s var(--yay);
   }
-  .usta-kart:active { transform: scale(.97); background: #f9fafb; }
-  .usta-kart.secili { border-color: var(--yesil2); background: #ecfdf5; }
+  .usta-kart:active { transform: scale(.97); }
+  .usta-kart.secili { border-color: var(--mavi); background: var(--mavi-acik); box-shadow: 0 0 0 3px var(--mavi-halka); }
   .usta-foto {
-    width: 100%; aspect-ratio: 1/1; border-radius: 11px; object-fit: cover;
-    background: linear-gradient(135deg,#e5e7eb,#f3f4f6); margin-bottom: 9px; display: block;
+    width: 100%; aspect-ratio: 1/1; border-radius: 14px; object-fit: cover;
+    background: linear-gradient(135deg,#e2e8f0,#f1f5f9); margin-bottom: 10px; display: block;
   }
   .usta-avatar-yer {
-    width: 100%; aspect-ratio: 1/1; border-radius: 11px; margin-bottom: 9px;
-    display: flex; align-items: center; justify-content: center; font-size: 26px;
-    background: linear-gradient(135deg,#075E54,#128C7E); color: #fff;
+    width: 100%; aspect-ratio: 1/1; border-radius: 14px; margin-bottom: 10px;
+    display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 700;
+    background: linear-gradient(135deg,var(--mavi),var(--mavi-koyu)); color: #fff;
   }
-  .usta-ad { font-size: 13.5px; font-weight: 700; line-height: 1.25; }
+  .usta-ad { font-size: 13.5px; font-weight: 700; line-height: 1.25; color: var(--lacivert); }
   .usta-uzmanlik { font-size: 11px; color: var(--soluk); margin-top: 2px; }
 
-  .saat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .saat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
   .saat-btn {
-    padding: 11px 4px; border: 1.5px solid var(--cizgi); border-radius: 10px;
-    background: #fff; font-size: 14px; font-weight: 700; cursor: pointer; text-align: center;
-    transition: border-color .15s, background .15s, transform .1s;
+    padding: 12px 4px; border: 1.5px solid var(--cizgi); border-radius: 12px;
+    background: #fff; font-size: 14px; font-weight: 700; color: var(--lacivert); cursor: pointer; text-align: center;
+    transition: border-color .15s, background .15s, transform .15s var(--yay);
   }
   .saat-btn:active { transform: scale(.96); }
-  .saat-btn.secili { border-color: var(--yesil2); background: #ecfdf5; color: var(--yesil1); }
+  .saat-btn.secili { border-color: var(--mavi); background: var(--mavi-acik); color: var(--mavi-koyu); }
 
-  label { display: block; font-size: 13px; font-weight: 700; color: var(--soluk); margin: 12px 0 5px; }
+  label { display: block; font-size: 13px; font-weight: 700; color: var(--soluk); margin: 14px 0 6px; }
   label:first-child { margin-top: 0; }
   input[type="text"], input[type="tel"], input[type="email"] {
-    width: 100%; padding: 12px 13px; border: 1.5px solid var(--cizgi); border-radius: 10px;
-    font-size: 15px; outline: none; box-sizing: border-box; transition: border-color .15s;
+    width: 100%; padding: 13px 14px; border: 1.5px solid var(--cizgi); border-radius: 12px;
+    font: 15px "Inter", sans-serif; color: var(--lacivert); outline: none; box-sizing: border-box; transition: border-color .15s, box-shadow .15s;
   }
-  input:focus { border-color: var(--yesil2); }
+  input:focus { border-color: var(--mavi); box-shadow: 0 0 0 4px var(--mavi-halka); }
   .kod-input { text-align: center; letter-spacing: .4em; font-size: 24px; font-weight: 800; padding-left: 18px; }
 
   .btn {
-    width: 100%; padding: 14px; border: none; border-radius: 11px;
-    background: var(--yesil1); color: #fff; font-size: 15px; font-weight: 700;
-    cursor: pointer; margin-top: 14px; transition: transform .1s, opacity .15s;
+    width: 100%; padding: 15px; border: none; border-radius: 13px;
+    background: linear-gradient(135deg, var(--mavi), var(--mavi-koyu)); color: #fff; font-size: 15px; font-weight: 700;
+    cursor: pointer; margin-top: 16px; transition: transform .15s var(--yay), box-shadow .2s var(--yay), opacity .15s;
+    box-shadow: 0 8px 18px -6px rgba(37,99,235,.5);
   }
   .btn:active:not(:disabled) { transform: scale(.98); }
-  .btn:disabled { background: #b7bdc6; cursor: not-allowed; }
+  .btn:disabled { background: #cbd5e1; box-shadow: none; cursor: not-allowed; }
   .btn-ikincil {
-    background: #fff; color: var(--yesil1); border: 1.5px solid var(--yesil1);
+    background: #fff; color: var(--mavi-koyu); border: 1.5px solid var(--mavi-halka); box-shadow: none;
   }
-  .btn-ikincil:disabled { background: #fff; color: #b7bdc6; border-color: #e5e7eb; }
+  .btn-ikincil:disabled { background: #fff; color: #cbd5e1; border-color: #e5e7eb; }
   .hata { color: #dc2626; font-size: 13px; margin-top: 8px; min-height: 1em; font-weight: 600; }
   .bilgi { color: var(--soluk); font-size: 12.5px; margin-top: 8px; }
   .geri-btn {
     background: none; border: none; color: var(--soluk); font-size: 13px; font-weight: 600;
-    cursor: pointer; padding: 6px 0; margin-bottom: 10px; display: flex; align-items: center; gap: 3px;
+    cursor: pointer; padding: 6px 0; margin-bottom: 12px; display: flex; align-items: center; gap: 3px;
   }
 
   .ozet {
-    background: #f9fafb; border: 1px solid var(--cizgi); border-radius: 12px;
-    padding: 12px 14px; font-size: 13.5px; margin-bottom: 4px; display: flex; gap: 12px; align-items: center;
+    background: var(--mavi-acik); border: 1px solid var(--mavi-halka); border-radius: 16px;
+    padding: 14px 16px; font-size: 13.5px; margin-bottom: 4px; display: flex; gap: 12px; align-items: center;
   }
-  .ozet-foto { width: 46px; height: 46px; border-radius: 10px; object-fit: cover; flex-shrink: 0; }
+  .ozet-foto { width: 48px; height: 48px; border-radius: 12px; object-fit: cover; flex-shrink: 0; }
   .ozet-avatar-yer {
-    width: 46px; height: 46px; border-radius: 10px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center; font-size: 18px;
-    background: linear-gradient(135deg,#075E54,#128C7E); color: #fff;
+    width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700;
+    background: linear-gradient(135deg,var(--mavi),var(--mavi-koyu)); color: #fff;
   }
   .ozet-metin div { margin: 2px 0; }
+  .ozet-metin strong { color: var(--lacivert); }
 
-  .basari { text-align: center; padding: 22px 6px 8px; }
-  .basari .ikon { font-size: 50px; margin-bottom: 10px; }
-  .basari h2 { margin: 0 0 8px; color: var(--yesil1); font-size: 20px; }
-  .basari p { color: var(--soluk); font-size: 13.5px; margin: 0 0 16px; }
+  .basari { text-align: center; padding: 26px 6px 8px; }
+  .basari .ikon {
+    width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--mavi), var(--mavi-koyu));
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 10px 24px -6px rgba(37,99,235,.5);
+  }
+  .basari h2 { margin: 0 0 8px; color: var(--lacivert); font-size: 20px; font-weight: 800; letter-spacing: -.015em; line-height: 1.2; }
+  .basari p { color: var(--soluk); font-size: 13.5px; margin: 0 0 18px; }
 
   .yukleniyor { text-align: center; color: var(--soluk); padding: 24px; font-size: 14px; }
   .gizli { display: none !important; }
+
+  /* Hover, sadece gerçek imleci olan cihazlarda (fare) uygulanır — dokunmatik
+     ekranda parmağı çekince "yapışık" kalan sahte hover durumunu önler. */
+  @media (hover: hover) and (pointer: fine) {
+    .secim-btn:hover { border-color: #bfd4fb; background: var(--mavi-acik); }
+    .usta-kart:hover { border-color: #bfd4fb; transform: translateY(-2px); box-shadow: 0 10px 20px -8px rgba(37,99,235,.2); }
+    .saat-btn:hover { border-color: #bfd4fb; background: var(--mavi-acik); }
+    .btn:hover:not(:disabled) { box-shadow: 0 10px 22px -6px rgba(37,99,235,.6); }
+    .geri-btn:hover { color: var(--mavi); }
+  }
+
+  /* Liste/ızgara öğeleri aynı anda değil, hafif art arda (stagger) belirir —
+     30-80ms arası kısa gecikmeler, "hepsi birden" hissini kırıp doğallaştırır. */
+  .usta-grid .usta-kart, .secim-liste .secim-btn, .saat-grid .saat-btn {
+    opacity: 0; animation: girisIleri .26s var(--yay) both;
+  }
+  .usta-grid .usta-kart:nth-child(1), .secim-liste .secim-btn:nth-child(1), .saat-grid .saat-btn:nth-child(1) { animation-delay: 0ms; }
+  .usta-grid .usta-kart:nth-child(2), .secim-liste .secim-btn:nth-child(2), .saat-grid .saat-btn:nth-child(2) { animation-delay: 40ms; }
+  .usta-grid .usta-kart:nth-child(3), .secim-liste .secim-btn:nth-child(3), .saat-grid .saat-btn:nth-child(3) { animation-delay: 80ms; }
+  .usta-grid .usta-kart:nth-child(4), .secim-liste .secim-btn:nth-child(4), .saat-grid .saat-btn:nth-child(4) { animation-delay: 120ms; }
+  .usta-grid .usta-kart:nth-child(5), .secim-liste .secim-btn:nth-child(5), .saat-grid .saat-btn:nth-child(5) { animation-delay: 160ms; }
+  .usta-grid .usta-kart:nth-child(n+6), .secim-liste .secim-btn:nth-child(n+6), .saat-grid .saat-btn:nth-child(n+6) { animation-delay: 200ms; }
 </style>
 </head>
 <body>
 
 <div class="ust">
-  <img src="/dashboard/logo.jpg" alt="Logo">
-  <h1>Resul Tabu Saç Atölyesi</h1>
-  <p>Online randevu formu</p>
+  <div class="ust-icerik">
+    <span class="etiket">✂️ Online Randevu</span>
+    <img src="/dashboard/logo.jpg" alt="Logo">
+    <h1>Resul Tabu Saç Atölyesi</h1>
+    <div class="cizgi-vurgu"></div>
+    <p>Birkaç adımda randevunuzu oluşturun</p>
+  </div>
 </div>
-<div class="ilerleme" id="ilerleme">
-  <div class="nokta" data-adim="0"></div>
-  <div class="nokta" data-adim="1"></div>
-  <div class="nokta" data-adim="2"></div>
-  <div class="nokta" data-adim="3"></div>
-  <div class="nokta" data-adim="4"></div>
+<div class="ilerleme-sarici">
+  <div class="ilerleme" id="ilerleme">
+    <div class="nokta" data-adim="0">1</div>
+    <div class="nokta" data-adim="1">2</div>
+    <div class="nokta" data-adim="2">3</div>
+    <div class="nokta" data-adim="3">4</div>
+    <div class="nokta" data-adim="4">5</div>
+  </div>
 </div>
 
 <div class="kapsayici">
@@ -214,7 +296,11 @@
   <!-- Başarı ekranı -->
   <div class="kart gizli" id="adimBasari">
     <div class="basari">
-      <div class="ikon">🎉</div>
+      <div class="ikon">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
       <h2>Randevunuz Alındı!</h2>
       <p>Talebiniz ustamızın onayına gönderildi. E-posta adresi girdiyseniz onaylandığında bilgilendirileceksiniz.</p>
       <div class="ozet" id="basariOzet" style="text-align:left;"></div>
@@ -268,17 +354,22 @@ function ilerlemeGuncelle(id) {
   });
 }
 
-function adimGoster(id) {
+const AZALTILMIS_HAREKET = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// yon: "ileri" (varsayılan) içerik sağdan gelir, "geri" soldan — iOS push/pop
+// mantığıyla aynı: bir adım nereden geldiyse geri dönüşte oraya gider.
+function adimGoster(id, yon) {
   document.querySelectorAll(".kapsayici > .kart").forEach((el) => el.classList.add("gizli"));
   const hedef = document.getElementById(id);
+  hedef.classList.toggle("yon-geri", yon === "geri");
   hedef.classList.remove("gizli");
   hedef.style.animation = "none";
-  hedef.offsetHeight; // reflow — girişAnim'i her adımda yeniden tetikle
+  hedef.offsetHeight; // reflow — giriş animasyonunu her adımda yeniden tetikle
   hedef.style.animation = "";
   ilerlemeGuncelle(id);
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  window.scrollTo({ top: 0, behavior: AZALTILMIS_HAREKET ? "auto" : "smooth" });
 }
-function geriGit(id) { adimGoster(id); }
+function geriGit(id) { adimGoster(id, "geri"); }
 
 // ============================================================
 // Adım 1: Usta listesi
@@ -546,6 +637,15 @@ async function randevuOlustur() {
     btn.disabled = false;
   }
 }
+
+// Sabitlenmiş adım şeridi — içerik altından kaydıkça ince bir kenar/gölge
+// belirsin (Apple'ın "sert çizgi değil, kaydırma kenar efekti" ilkesi).
+(function () {
+  const serit = document.getElementById("ilerleme").closest(".ilerleme-sarici");
+  window.addEventListener("scroll", () => {
+    serit.classList.toggle("golgeli", window.scrollY > 4);
+  }, { passive: true });
+})();
 
 baslat();
 </script>
