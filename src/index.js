@@ -275,7 +275,7 @@ app.post("/api/auth", (req, res) => {
 // ---------------------------------------------------------------------------
 app.get("/api/config", (req, res) => {
   const berberler = BERBERLER.map(({ pin, ...rest }) => rest);
-  res.json({ berberler, hizmetler: HIZMETLER, saatler: SAATLER, saatler45: SAATLER_45 });
+  res.json({ berberler, hizmetler: HIZMETLER, saatler: SAATLER, saatler45: SAATLER_45, otpAktif: OTP_AKTIF });
 });
 
 // ---------------------------------------------------------------------------

@@ -318,10 +318,10 @@ let secim = { berberId: null, hizmetId: null, tarih: null, saat: null };
 let dogrulamaToken = null;
 let geriSayimTimer = null;
 
-// Netgsm hesabı kurulana kadar SMS doğrulaması geçici kapalı — sunucudaki
-// OTP_AKTIF ile birebir aynı anlam. true yapılınca eski (kod gönder/doğrula)
-// akış otomatik geri döner, hiçbir fonksiyon silinmedi.
-const OTP_AKTIF = false;
+// Sunucudaki OTP_AKTIF env değişkeninden /api/config üzerinden okunur — iki
+// yerde ayrı ayrı elle senkron tutmaya gerek kalmaz. Sunucu ayarı ne ise
+// form otomatik ona göre davranır (kod gönder/doğrula akışı ya da doğrudan kabul).
+let OTP_AKTIF = false;
 
 const ADIM_SIRASI = ["adimBerber", "adimHizmet", "adimTarih", "adimSaat", "adimBilgi"];
 
@@ -379,6 +379,8 @@ async function baslat() {
     const res = await fetch("/api/config", { cache: "no-store" });
     const c = await res.json();
     BERBERLER = c.berberler; HIZMETLER = c.hizmetler;
+    OTP_AKTIF = !!c.otpAktif;
+    document.getElementById("kodGonderBtn").textContent = OTP_AKTIF ? "Doğrulama Kodu Gönder" : "Randevu Al";
     berberListesiniDoldur();
     ilerlemeGuncelle("adimBerber");
   } catch (e) {
