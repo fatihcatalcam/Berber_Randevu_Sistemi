@@ -673,7 +673,7 @@ app.get("/dashboard", (req, res) => {
   res.set("Cache-Control", "no-cache");
   res.sendFile(path.join(__dirname, "..", "dashboard", "index.html"));
 });
-app.get("/", (req, res) => res.redirect("/dashboard"));
+app.get("/", (req, res) => res.redirect("/randevu-al"));
 
 // ---------------------------------------------------------------------------
 // Web sitesinden randevu alma — herkese açık müşteri sayfası
