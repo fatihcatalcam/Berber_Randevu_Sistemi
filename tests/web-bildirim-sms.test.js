@@ -109,7 +109,7 @@ function sifirla() {
   epostaIptalCagrilari.length = 0; epostaTasindiCagrilari.length = 0;
 }
 
-test("iptal: kaynak=web icin SMS + eposta gider, WhatsApp gitmez", async (t) => {
+test("iptal: kaynak=web icin sadece SMS gider (mail kullanilmiyor), WhatsApp gitmez", async (t) => {
   sifirla();
   process.env.PORT = "3204";
   delete require.cache[require.resolve("../src/index")];
@@ -125,7 +125,7 @@ test("iptal: kaynak=web icin SMS + eposta gider, WhatsApp gitmez", async (t) => 
 
   assert.strictEqual(res.status, 200);
   assert.strictEqual(smsIptalCagrilari.length, 1, "sms.randevuIptalSms cagrilmali");
-  assert.strictEqual(epostaIptalCagrilari.length, 1, "eposta.randevuIptalMaili cagrilmali");
+  assert.strictEqual(epostaIptalCagrilari.length, 0, "iptal icin artik eposta gonderilmemeli");
   assert.strictEqual(whatsappCagrilari.length, 0, "whatsapp gonderilmemeli");
 });
 

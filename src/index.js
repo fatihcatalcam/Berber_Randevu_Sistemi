@@ -116,6 +116,7 @@ const otpGonderIpDakika = istekSinirlayiciOlustur(3, 60 * 1000);        // IP: d
 const otpGonderIpSaat    = istekSinirlayiciOlustur(10, 60 * 60 * 1000);  // IP: saatte 10
 const otpDogrulaKilit     = slidingKilitOlustur(5, 15 * 60 * 1000);      // 5 yanlış / 15 dk (girisDenemeleri ile aynı)
 const publicRandevuSinir  = istekSinirlayiciOlustur(5, 60 * 1000);       // IP: dakikada 5
+const publicIptalSinir    = istekSinirlayiciOlustur(10, 60 * 1000);      // IP: dakikada 10 (randevu listeleme + iptal)
 
 // Telefon doğrulama token'ları (OTP doğrulandıktan sonra randevu oluşturmak için)
 const dogrulamaTokenlari = new Map(); // token -> { telefon, olusturulma }
@@ -150,6 +151,7 @@ setInterval(() => {
   otpGonderIpSaat.temizle(simdi);
   otpDogrulaKilit.temizle(simdi);
   publicRandevuSinir.temizle(simdi);
+  publicIptalSinir.temizle(simdi);
   for (const [t, v] of dogrulamaTokenlari) {
     if (simdi - v.olusturulma > DOGRULAMA_TOKEN_OMUR_MS) dogrulamaTokenlari.delete(t);
   }
@@ -432,6 +434,50 @@ app.post("/api/public/randevu", ah(async (req, res) => {
   }
 }));
 
+// Doğrulanmış telefona ait, web'den alınmış, aktif randevuları listeler —
+// müşterinin kendi randevusunu iptal edebilmesi (self-servis) için.
+app.get("/api/public/randevularim", ah(async (req, res) => {
+  const dogrulama = req.query.dogrulamaToken && dogrulamaTokenlari.get(req.query.dogrulamaToken);
+  if (!dogrulama || Date.now() - dogrulama.olusturulma > DOGRULAMA_TOKEN_OMUR_MS) {
+    return res.status(401).json({ hata: "Doğrulama süresi doldu. Lütfen tekrar kod isteyin." });
+  }
+  const ip = req.ip;
+  if (publicIptalSinir.asildiMi(ip)) return res.status(429).json({ hata: "Çok fazla istek. Lütfen biraz sonra tekrar deneyin." });
+  publicIptalSinir.kaydet(ip);
+
+  const randevular = await db.getRandevularByTelefon(dogrulama.telefon);
+  res.json({ randevular });
+}));
+
+// Müşterinin kendi web randevusunu iptal etmesi — telefon token'la doğrulanır,
+// sadece kendi numarasına ait web randevusu iptal edilebilir.
+app.post("/api/public/randevu/:id/iptal", ah(async (req, res) => {
+  const dogrulama = req.body.dogrulamaToken && dogrulamaTokenlari.get(req.body.dogrulamaToken);
+  if (!dogrulama || Date.now() - dogrulama.olusturulma > DOGRULAMA_TOKEN_OMUR_MS) {
+    return res.status(401).json({ hata: "Doğrulama süresi doldu. Lütfen tekrar kod isteyin." });
+  }
+  const ip = req.ip;
+  if (publicIptalSinir.asildiMi(ip)) return res.status(429).json({ hata: "Çok fazla istek. Lütfen biraz sonra tekrar deneyin." });
+  publicIptalSinir.kaydet(ip);
+
+  const tumRandevular = await db.getAll();
+  const kayit = tumRandevular.find((r) => r.id === req.params.id);
+  if (!kayit) return res.status(404).json({ hata: "Randevu bulunamadı." });
+  if (kayit.kaynak !== "web" || kayit.telefon !== dogrulama.telefon) {
+    return res.status(403).json({ hata: "Bu randevuyu iptal etme yetkiniz yok." });
+  }
+  if (kayit.durum === "iptal") return res.status(409).json({ hata: "Randevu zaten iptal edilmiş." });
+
+  const guncellenen = await db.updateStatus(kayit.id, "iptal", "musteri");
+  sheets.updateRandevuDurum(guncellenen).catch(() => {});
+
+  const tarihStr = new Date(guncellenen.tarih + "T00:00:00").toLocaleDateString("tr-TR", {
+    weekday: "long", day: "numeric", month: "long",
+  });
+  iptalBildir(guncellenen, tarihStr).catch(() => {});
+  res.json(guncellenen);
+}));
+
 // ---------------------------------------------------------------------------
 // 5) Tüm randevular
 // ---------------------------------------------------------------------------
@@ -472,6 +518,21 @@ app.post("/api/randevular", requireAuth, ah(async (req, res) => {
   }
 }));
 
+// İptal bildirimi — kaynak=web için sadece SMS (mail kullanılmıyor), kaynak=
+// whatsapp için mevcut sendText akışı. Hem admin panelinden hem müşterinin
+// kendi randevusunu iptal ettiği self-servis uçtan ortak kullanılır.
+function iptalBildir(kayit, tarihStr) {
+  if (kayit.kaynak === "web") {
+    return sms.randevuIptalSms(kayit, tarihStr);
+  }
+  return sendText(
+    kayit.telefon,
+    "❌ *Randevunuz iptal edildi.*\n\n" +
+      `💈 Usta: ${kayit.berber}\n📅 Tarih: ${tarihStr} ⏰ ${kayit.saat}\n\n` +
+      "Yeni randevu için bize *merhaba* yazabilirsiniz."
+  );
+}
+
 // ---------------------------------------------------------------------------
 // 6) Randevu durumu güncelle + müşteriye bildir
 // ---------------------------------------------------------------------------
@@ -508,17 +569,7 @@ app.post("/api/randevular/:id/durum", requireAuth, ah(async (req, res) => {
       );
     }
   } else if (durum === "iptal") {
-    if (webden) {
-      eposta.randevuIptalMaili(kayit, tarih).catch(() => {});
-      sms.randevuIptalSms(kayit, tarih).catch(() => {});
-    } else {
-      await sendText(
-        kayit.telefon,
-        "❌ *Randevunuz iptal edildi.*\n\n" +
-          `💈 Usta: ${kayit.berber}\n📅 Tarih: ${tarih} ⏰ ${kayit.saat}\n\n` +
-          "Yeni randevu için bize *merhaba* yazabilirsiniz."
-      );
-    }
+    await iptalBildir(kayit, tarih);
   }
   res.json(kayit);
 }));

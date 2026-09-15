@@ -52,6 +52,7 @@
   .ust h1 { font-size: 21px; margin: 0; font-weight: 800; letter-spacing: -.02em; color: var(--lacivert); }
   .ust .cizgi-vurgu { width: 42px; height: 4px; border-radius: 3px; background: var(--mavi); margin: 10px auto 0; }
   .ust p { margin: 10px 0 0; font-size: 13.5px; color: var(--soluk); }
+  .iptal-link { margin-top: 8px !important; font-size: 12.5px !important; color: var(--mavi) !important; text-decoration: underline; cursor: pointer; }
 
   /* Adım göstergesi — numaralı, çizgiyle bağlı halkalar. Kaydırınca da
      bağlam kaybolmasın diye camsı (translucent) bir üst şerit olarak sabitlenir. */
@@ -216,6 +217,7 @@
     <h1>Resul Tabu Saç Atölyesi</h1>
     <div class="cizgi-vurgu"></div>
     <p>Birkaç adımda randevunuzu oluşturun</p>
+    <p class="iptal-link" onclick="iptalBaslat()">Randevunuzu iptal etmek mi istiyorsunuz?</p>
   </div>
 </div>
 <div class="ilerleme-sarici">
@@ -305,6 +307,34 @@
       <p>Talebiniz ustamızın onayına gönderildi. E-posta adresi girdiyseniz onaylandığında bilgilendirileceksiniz.</p>
       <div class="ozet" id="basariOzet" style="text-align:left;"></div>
     </div>
+  </div>
+
+  <!-- Randevu iptali (self-servis): telefon → SMS kod → randevu listesi -->
+  <div class="kart gizli" id="adimIptalTelefon">
+    <button class="geri-btn" onclick="adimGoster('adimBerber')">‹ Randevu almaya dön</button>
+    <p class="adim-baslik">Randevunuzu İptal Edin</p>
+    <label for="inIptalTelefon">Telefon numaranız</label>
+    <input type="tel" id="inIptalTelefon" placeholder="05XX XXX XX XX">
+    <button class="btn" id="iptalKodGonderBtn" onclick="iptalKodGonder()">Kod Gönder</button>
+    <div class="hata" id="iptalTelefonHata"></div>
+  </div>
+
+  <div class="kart gizli" id="adimIptalKod">
+    <button class="geri-btn" onclick="adimGoster('adimIptalTelefon')">‹ Telefon numarasına dön</button>
+    <p class="adim-baslik">Doğrulama Kodu</p>
+    <p class="bilgi" id="iptalOtpBilgi"></p>
+    <label for="inIptalKod">Telefonunuza gelen 6 haneli kod</label>
+    <input type="text" id="inIptalKod" class="kod-input" maxlength="6" inputmode="numeric" placeholder="______">
+    <button class="btn" id="iptalKodDogrulaBtn" onclick="iptalKodDogrula()">Doğrula</button>
+    <button class="btn btn-ikincil" id="iptalTekrarGonderBtn" onclick="iptalKodGonder(true)" disabled>Tekrar Gönder (60)</button>
+    <div class="hata" id="iptalKodHata"></div>
+  </div>
+
+  <div class="kart gizli" id="adimIptalListe">
+    <button class="geri-btn" onclick="adimGoster('adimBerber')">‹ Randevu almaya dön</button>
+    <p class="adim-baslik">Randevularınız</p>
+    <div class="hata" id="iptalListeHata"></div>
+    <div id="iptalListeKutu"></div>
   </div>
 
 </div>
@@ -554,10 +584,10 @@ async function kodGonder(tekrar) {
   }
 }
 
-function geriSayimBaslat() {
+function geriSayimBaslat(btnId) {
   clearInterval(geriSayimTimer);
   let kalan = 60;
-  const btn = document.getElementById("tekrarGonderBtn");
+  const btn = document.getElementById(btnId || "tekrarGonderBtn");
   btn.disabled = true;
   btn.textContent = `Tekrar Gönder (${kalan})`;
   geriSayimTimer = setInterval(() => {
@@ -570,6 +600,144 @@ function geriSayimBaslat() {
       btn.textContent = `Tekrar Gönder (${kalan})`;
     }
   }, 1000);
+}
+
+// ============================================================
+// Randevu iptali (self-servis): telefon → SMS kod → randevu listesi.
+// Her zaman OTP ile doğrulanır (OTP_AKTIF bayrağından bağımsız) —
+// telefon numarasına ait randevuları göstermek/iptal etmek için bu şart.
+// ============================================================
+let iptalToken = null;
+
+function iptalBaslat() {
+  document.getElementById("inIptalTelefon").value = "";
+  document.getElementById("iptalTelefonHata").textContent = "";
+  adimGoster("adimIptalTelefon");
+}
+
+async function iptalKodGonder(tekrar) {
+  const hataEl = document.getElementById(tekrar ? "iptalKodHata" : "iptalTelefonHata");
+  hataEl.textContent = "";
+  const tel = document.getElementById("inIptalTelefon").value.trim();
+  if (tel.replace(/\D/g, "").length < 10) { hataEl.textContent = "Lütfen geçerli bir telefon numarası girin."; return; }
+
+  const btn = document.getElementById(tekrar ? "iptalTekrarGonderBtn" : "iptalKodGonderBtn");
+  btn.disabled = true;
+  try {
+    const res = await fetch("/api/public/otp-gonder", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ telefon: tel }),
+    });
+    const data = await res.json();
+    if (!res.ok) { hataEl.textContent = data.hata || "Kod gönderilemedi."; btn.disabled = false; return; }
+
+    adimGoster("adimIptalKod");
+    document.getElementById("iptalOtpBilgi").textContent =
+      (data.gelistirmeModu ? "(Geliştirme modu — kod sunucu konsoluna yazıldı) " : "") +
+      "Telefonunuza gönderilen 6 haneli kodu girin.";
+    document.getElementById("inIptalKod").value = "";
+    document.getElementById("inIptalKod").focus();
+    geriSayimBaslat("iptalTekrarGonderBtn");
+  } catch (e) {
+    hataEl.textContent = "Bağlantı hatası, tekrar deneyin.";
+    btn.disabled = false;
+  }
+}
+
+async function iptalKodDogrula() {
+  const hataEl = document.getElementById("iptalKodHata");
+  hataEl.textContent = "";
+  const tel = document.getElementById("inIptalTelefon").value.trim();
+  const kod = document.getElementById("inIptalKod").value.trim();
+  if (kod.length !== 6) { hataEl.textContent = "6 haneli kodu eksiksiz girin."; return; }
+
+  const btn = document.getElementById("iptalKodDogrulaBtn");
+  btn.disabled = true;
+  try {
+    const res = await fetch("/api/public/otp-dogrula", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ telefon: tel, kod }),
+    });
+    const data = await res.json();
+    btn.disabled = false;
+    if (!res.ok) { hataEl.textContent = data.hata || "Doğrulama başarısız."; return; }
+
+    iptalToken = data.dogrulamaToken;
+    clearInterval(geriSayimTimer);
+    adimGoster("adimIptalListe");
+    iptalListesiGetir();
+  } catch (e) {
+    hataEl.textContent = "Bağlantı hatası, tekrar deneyin.";
+    btn.disabled = false;
+  }
+}
+
+async function iptalListesiGetir() {
+  const kutu = document.getElementById("iptalListeKutu");
+  document.getElementById("iptalListeHata").textContent = "";
+  kutu.innerHTML = '<div class="yukleniyor">Yükleniyor…</div>';
+  try {
+    const res = await fetch(`/api/public/randevularim?dogrulamaToken=${encodeURIComponent(iptalToken)}`, { cache: "no-store" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.hata || "sunucu hatası");
+    if (!data.randevular.length) {
+      kutu.innerHTML = '<p class="bilgi">Aktif randevunuz bulunmuyor.</p>';
+      return;
+    }
+    kutu.innerHTML = data.randevular.map(iptalKartHtml).join("");
+  } catch (e) {
+    kutu.innerHTML = '<div class="hata">Randevularınız alınamadı, sayfayı yenileyip tekrar deneyin.</div>';
+  }
+}
+
+function iptalKartHtml(r) {
+  const tarihStr = new Date(r.tarih + "T00:00:00").toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
+  const durumEtiket = r.durum === "onaylı" ? "✅ Onaylandı" : "⏳ Onay bekliyor";
+  return `
+    <div class="ozet" style="margin-bottom:10px;">
+      <div class="ozet-metin">
+        <div><strong>${kacis(r.berber)}</strong></div>
+        <div>✂️ ${kacis(r.hizmet)}</div>
+        <div>📅 ${kacis(tarihStr)} ⏰ ${r.saat}</div>
+        <div>${durumEtiket}</div>
+      </div>
+    </div>
+    <button class="btn btn-ikincil" style="margin-top:-4px;margin-bottom:16px;" onclick="iptalOnayIste('${r.id}', this)">İptal Et</button>`;
+}
+
+// Yanlışlıkla tek tıkla iptali önlemek için iki aşamalı onay: ilk tıkta buton
+// "Emin misiniz?" moduna geçer, 5 sn içinde tekrar tıklanırsa gerçekten iptal eder.
+function iptalOnayIste(id, btn) {
+  if (btn.dataset.armed === "1") { iptalRandevuSil(id, btn); return; }
+  btn.dataset.armed = "1";
+  btn.textContent = "Emin misiniz? Evet, iptal et";
+  setTimeout(() => {
+    if (btn.dataset.armed === "1" && !btn.disabled) {
+      btn.dataset.armed = "0";
+      btn.textContent = "İptal Et";
+    }
+  }, 5000);
+}
+
+async function iptalRandevuSil(id, btn) {
+  btn.disabled = true;
+  btn.textContent = "İptal ediliyor…";
+  try {
+    const res = await fetch(`/api/public/randevu/${id}/iptal`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dogrulamaToken: iptalToken }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      document.getElementById("iptalListeHata").textContent = data.hata || "İptal edilemedi.";
+      btn.disabled = false; btn.dataset.armed = "0"; btn.textContent = "İptal Et";
+      return;
+    }
+    iptalListesiGetir();
+  } catch (e) {
+    document.getElementById("iptalListeHata").textContent = "Bağlantı hatası, tekrar deneyin.";
+    btn.disabled = false; btn.dataset.armed = "0"; btn.textContent = "İptal Et";
+  }
 }
 
 async function kodDogrula() {

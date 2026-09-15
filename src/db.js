@@ -227,6 +227,21 @@ async function getBusySlots(berberId, tarih) {
   return [...dolu];
 }
 
+// Bir telefon numarasının web'den aldığı, henüz iptal edilmemiş, bugün veya
+// sonrası için olan randevuları — müşterinin kendi randevusunu iptal
+// edebilmesi (self-servis) için kullanılır.
+async function getRandevularByTelefon(telefon) {
+  const bugun = new Date();
+  const tarihStr = `${bugun.getFullYear()}-${String(bugun.getMonth() + 1).padStart(2, "0")}-${String(bugun.getDate()).padStart(2, "0")}`;
+  const res = await pool.query(
+    `SELECT * FROM randevular
+     WHERE telefon=$1 AND kaynak='web' AND durum IN ('bekliyor','onaylı') AND tarih >= $2
+     ORDER BY tarih ASC, saat ASC`,
+    [telefon, tarihStr]
+  );
+  return res.rows.map(rowToRandevu);
+}
+
 async function updateStatus(id, durum, iptalEden = null) {
   const res = await pool.query(
     `UPDATE randevular
@@ -455,6 +470,7 @@ module.exports = {
   getAll,
   add,
   getBusySlots,
+  getRandevularByTelefon,
   updateStatus,
   updateFiyat,
   updateAciklama,
