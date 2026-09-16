@@ -206,6 +206,35 @@
   .usta-grid .usta-kart:nth-child(4), .secim-liste .secim-btn:nth-child(4), .saat-grid .saat-btn:nth-child(4) { animation-delay: 120ms; }
   .usta-grid .usta-kart:nth-child(5), .secim-liste .secim-btn:nth-child(5), .saat-grid .saat-btn:nth-child(5) { animation-delay: 160ms; }
   .usta-grid .usta-kart:nth-child(n+6), .secim-liste .secim-btn:nth-child(n+6), .saat-grid .saat-btn:nth-child(n+6) { animation-delay: 200ms; }
+
+  /* ---------------------------------------------------------------------
+     Masaüstü (≥720px): mobil için tasarlanmış dar tek sütun, geniş ekranda
+     ortada dar bir telefon ekranı gibi kalıp etrafında boş alan bırakıyordu.
+     Kapsayıcı genişler, kartlara daha fazla nefes alanı ve ızgaralara daha
+     fazla sütun verilir; sayfa arka planına hafif bir derinlik eklenir.
+     --------------------------------------------------------------------- */
+  @media (min-width: 720px) {
+    body {
+      background:
+        radial-gradient(640px circle at 8% 4%, rgba(37,99,235,.07), transparent 55%),
+        radial-gradient(640px circle at 92% 96%, rgba(37,99,235,.06), transparent 55%),
+        var(--bg);
+    }
+    .ust { padding: 56px 16px 36px; }
+    .ust img { width: 88px; height: 88px; border-radius: 22px; }
+    .ust h1 { font-size: 25px; }
+    .ust p { font-size: 14.5px; }
+
+    .ilerleme-sarici, .kapsayici { max-width: 660px; }
+    .ilerleme-sarici { padding: 16px 40px; }
+
+    .kart { padding: 34px 38px; border-radius: 26px; }
+    .adim-baslik { font-size: 12.5px; margin-bottom: 20px; }
+
+    .usta-grid { grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .secim-liste { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .saat-grid { grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  }
 </style>
 </head>
 <body>
