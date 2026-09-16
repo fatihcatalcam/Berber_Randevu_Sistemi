@@ -51,6 +51,7 @@ Module._load = function (req) {
       init: async () => {},
       getBusySlots: async () => [],
       getAll: async () => store.slice(),
+      getById: async (id) => store.find((r) => r.id === id) || null,
       add: async (r) => ({ ...r, id: "x", durum: "bekliyor" }),
       getAcikGunler: async () => [],
       getAcikSaatlerFor: async () => [],

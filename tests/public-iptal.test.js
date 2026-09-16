@@ -34,6 +34,7 @@ Module._load = function (req) {
       init: async () => {},
       getBusySlots: async () => [],
       getAll: async () => store.slice(),
+      getById: async (id) => store.find((r) => r.id === id) || null,
       getRandevularByTelefon: async (telefon) => store.filter((r) => r.telefon === telefon && r.kaynak === "web" && ["bekliyor", "onaylı"].includes(r.durum)),
       updateStatus: async (id, durum, iptalEden) => {
         const k = store.find((r) => r.id === id);

@@ -125,6 +125,10 @@ async function init() {
   } catch (e) {
     console.warn("⚠️  Slot benzersizlik indeksi oluşturulamadı (mevcut çakışma olabilir):", e.message);
   }
+  // Panel canlı akışı tarihe göre, müşteri geçmişi telefona göre sorguluyor —
+  // tablo büyüdükçe bu taramaların hızlı kalması için indeks şart.
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_randevular_tarih ON randevular (tarih)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_randevular_telefon ON randevular (telefon)`);
   console.log("✅ Veritabanı tabloları hazır.");
 }
 
@@ -163,8 +167,50 @@ function rowToRandevu(row) {
 // ---------------------------------------------------------------------------
 // Randevular
 // ---------------------------------------------------------------------------
+// Tüm zamanlar — sadece nadiren çalışan işler için (Sheets tam senkron gibi).
+// Sık aralıklarla çağrılan hiçbir yerde kullanılmamalı; tablo büyüdükçe
+// gittikçe ağırlaşır. Panelin canlı akışı için getRecentAndUpcoming'i kullanın.
 async function getAll() {
   const res = await pool.query("SELECT * FROM randevular ORDER BY olusturulma DESC");
+  return res.rows.map(rowToRandevu);
+}
+
+// Panelin sık sık (10-20 sn'de bir) çektiği canlı liste bunu kullanmalı.
+// Ciro grafiği en fazla 6 ay geriye gidiyor, o yüzden pencere 6 aylık sabit
+// tutulur — yıllar geçse de sorgu/gövde boyutu büyümeye devam etmez.
+async function getRecentAndUpcoming(gecmisGun = 190) {
+  const d = new Date();
+  d.setDate(d.getDate() - gecmisGun);
+  const esikTarih = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const res = await pool.query(
+    "SELECT * FROM randevular WHERE tarih >= $1 ORDER BY olusturulma DESC",
+    [esikTarih]
+  );
+  return res.rows.map(rowToRandevu);
+}
+
+// Tek bir randevuyu id ile getirir — taşıma/iptal gibi işlemler artık tüm
+// tabloyu çekip JS'te aramak yerine tek satırlık indeksli sorgu yapar.
+async function getById(id) {
+  const res = await pool.query("SELECT * FROM randevular WHERE id=$1", [id]);
+  return res.rows.length ? rowToRandevu(res.rows[0]) : null;
+}
+
+// Bir müşterinin tüm geçmişi (telefon varsa telefona, yoksa ada göre) —
+// "Müşteri Geçmişi" paneli açıldığında istek üzerine çekilir, canlı akışın
+// parçası değildir; bu yüzden zaman penceresiyle sınırlı değildir.
+async function getMusteriGecmisi(telefon, ad) {
+  if (telefon) {
+    const res = await pool.query(
+      "SELECT * FROM randevular WHERE telefon=$1 ORDER BY tarih DESC, saat DESC",
+      [telefon]
+    );
+    return res.rows.map(rowToRandevu);
+  }
+  const res = await pool.query(
+    "SELECT * FROM randevular WHERE LOWER(ad)=LOWER($1) ORDER BY tarih DESC, saat DESC",
+    [ad || ""]
+  );
   return res.rows.map(rowToRandevu);
 }
 
@@ -468,6 +514,9 @@ module.exports = {
   init,
   SlotDoluError,
   getAll,
+  getRecentAndUpcoming,
+  getById,
+  getMusteriGecmisi,
   add,
   getBusySlots,
   getRandevularByTelefon,

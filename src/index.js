@@ -460,8 +460,7 @@ app.post("/api/public/randevu/:id/iptal", ah(async (req, res) => {
   if (publicIptalSinir.asildiMi(ip)) return res.status(429).json({ hata: "Çok fazla istek. Lütfen biraz sonra tekrar deneyin." });
   publicIptalSinir.kaydet(ip);
 
-  const tumRandevular = await db.getAll();
-  const kayit = tumRandevular.find((r) => r.id === req.params.id);
+  const kayit = await db.getById(req.params.id);
   if (!kayit) return res.status(404).json({ hata: "Randevu bulunamadı." });
   if (kayit.kaynak !== "web" || kayit.telefon !== dogrulama.telefon) {
     return res.status(403).json({ hata: "Bu randevuyu iptal etme yetkiniz yok." });
@@ -482,7 +481,18 @@ app.post("/api/public/randevu/:id/iptal", ah(async (req, res) => {
 // 5) Tüm randevular
 // ---------------------------------------------------------------------------
 app.get("/api/randevular", requireAuth, ah(async (req, res) => {
-  res.json(await db.getAll());
+  // Panel bunu sık sık (canlı akış) çektiği için tüm geçmiş yerine sınırlı
+  // bir pencere döner — bkz. db.getRecentAndUpcoming. Tam geçmiş için
+  // /api/randevular/gecmis kullanılır (Müşteri Geçmişi paneli).
+  res.json(await db.getRecentAndUpcoming());
+}));
+
+// Bir müşterinin tüm randevu geçmişi — "Müşteri Geçmişi" paneli açıldığında
+// istek üzerine çekilir, canlı akışın (yukarıdaki uç) parçası değildir.
+app.get("/api/randevular/gecmis", requireAuth, ah(async (req, res) => {
+  const { telefon, ad } = req.query;
+  if (!telefon && !ad) return res.status(400).json({ hata: "Eksik parametre." });
+  res.json(await db.getMusteriGecmisi(telefon, ad));
 }));
 
 // ---------------------------------------------------------------------------
@@ -596,8 +606,7 @@ app.patch("/api/randevular/:id/tasi", requireAuth, ah(async (req, res) => {
   const { tarih, saat } = req.body;
   if (!tarih || !saat) return res.status(400).json({ hata: "Eksik parametre." });
 
-  const tumRandevular = await db.getAll();
-  const kayit = tumRandevular.find((r) => r.id === id);
+  const kayit = await db.getById(id);
   if (!kayit) return res.status(404).json({ hata: "Randevu bulunamadı." });
 
   const dolu = await db.getBusySlots(kayit.berberId, tarih);

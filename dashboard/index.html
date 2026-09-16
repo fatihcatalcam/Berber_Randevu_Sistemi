@@ -1424,13 +1424,24 @@ function modalGecmisAc() {
   if (document.getElementById("gecmisBolum").style.display !== "none") musteriGecmisiDoldur();
 }
 
-function musteriGecmisiDoldur() {
+async function musteriGecmisiDoldur() {
   const r = randevular.find(x => x.id === modalRandevuId);
   if (!r) return;
-  // Aynı müşteri: telefon varsa telefona, yoksa ada göre eşleştir
-  const ayniMusteri = randevular.filter(x =>
-    r.telefon ? x.telefon === r.telefon : (x.ad || "").toLowerCase() === (r.ad || "").toLowerCase()
-  );
+  // Panelin canlı akışı artık son ~6 aylık pencereyle sınırlı (bkz. veriCek),
+  // bu yüzden müşterinin tüm geçmişi ayrı, istek üzerine çalışan bir uçtan çekilir.
+  document.getElementById("gecmisOzet").innerHTML = '<span style="color:var(--soluk);">Yükleniyor…</span>';
+  document.getElementById("gecmisListe").innerHTML = "";
+  let ayniMusteri;
+  try {
+    const param = r.telefon ? `telefon=${encodeURIComponent(r.telefon)}` : `ad=${encodeURIComponent(r.ad || "")}`;
+    const res = await authFetch(`/api/randevular/gecmis?${param}`);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    ayniMusteri = await res.json();
+  } catch (e) {
+    if (e && e.message === "Oturum süresi doldu.") return;
+    document.getElementById("gecmisOzet").innerHTML = "Geçmiş alınamadı, tekrar deneyin.";
+    return;
+  }
   const gelen   = ayniMusteri.filter(x => x.durum === "onaylı");
   const gelmedi = ayniMusteri.filter(x => x.durum === "gelmedi");
   const iptal   = ayniMusteri.filter(x => x.durum === "iptal");
@@ -1802,7 +1813,10 @@ async function baslat() {
   await configCek();
   berberSecenekleriDoldur();
   await veriCek();
-  setInterval(veriCek, 10000);
+  // 10sn -> 20sn: panel gün boyu açık kaldığı için sorgu sıklığı doğrudan
+  // veritabanı maliyetine yansıyor (bkz. db.getRecentAndUpcoming). 20 sn hâlâ
+  // "canlı" hissettirir ama yükü yarıya indirir.
+  setInterval(veriCek, 20000);
 }
 
 authYukle();
