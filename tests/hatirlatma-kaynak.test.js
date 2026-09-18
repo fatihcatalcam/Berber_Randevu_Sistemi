@@ -11,6 +11,8 @@ const whatsappCagrilari = [];
 const epostaCagrilari = [];
 let hatirlatilacaklar = [];
 const markHatirlatildiCagrilari = [];
+let dbSorguSayisi = 0; // getHatirlatilacaklar kac kez DB'ye gitti
+let surumNo = 0;       // db.degisimSurumu() simulasyonu (yazma olunca artar)
 
 const orig = Module._load;
 Module._load = function (req) {
@@ -42,8 +44,9 @@ Module._load = function (req) {
       getAcikSaatlerFor: async () => [],
       otpKaydet: async () => {}, otpDogrula: async () => ({ sonuc: "kod_yok" }),
       otpSonGonderim: async () => null, otpBugunSayisi: async () => 0,
-      getHatirlatilacaklar: async () => hatirlatilacaklar,
+      getHatirlatilacaklar: async () => { dbSorguSayisi++; return hatirlatilacaklar.slice(); },
       markHatirlatildi: async (id) => markHatirlatildiCagrilari.push(id),
+      degisimSurumu: () => "test:" + surumNo,
     };
   }
   return orig.apply(this, arguments);
@@ -104,4 +107,44 @@ test("hatirlatmaKontrol: kaynak tanimsiz (eski kayit) icin de WhatsApp kullanili
 
   assert.strictEqual(whatsappCagrilari.length, 1);
   assert.strictEqual(epostaCagrilari.length, 0);
+});
+
+test("hatirlatmaKontrol: yazma olmadikca DB'ye tekrar gitmez (Neon uyuyabilsin)", async (t) => {
+  process.env.PORT = "3203";
+  delete require.cache[require.resolve("../src/index")];
+  const { server, hatirlatmaKontrol } = require("../src/index");
+  t.after(() => new Promise((r) => server.close(r)));
+  await new Promise((r) => setTimeout(r, 400));
+
+  whatsappCagrilari.length = 0; markHatirlatildiCagrilari.length = 0;
+  hatirlatilacaklar = []; // hatirlatilacak bir sey yok
+  surumNo++;              // yeni sunucu ornegi icin taze onbellek
+  const bas = dbSorguSayisi;
+
+  await hatirlatmaKontrol();
+  await hatirlatmaKontrol();
+  await hatirlatmaKontrol();
+  assert.strictEqual(dbSorguSayisi - bas, 1, "3 kontrol sadece 1 DB sorgusu yapmali (onbellek)");
+
+  surumNo++; // bir randevu eklendi/degisti
+  await hatirlatmaKontrol();
+  assert.strictEqual(dbSorguSayisi - bas, 2, "surum degisince DB yeniden sorgulanmali");
+});
+
+test("hatirlatmaKontrol: gonderilen hatirlatma onbellekten dusulur, tekrar gonderilmez", async (t) => {
+  process.env.PORT = "3203";
+  delete require.cache[require.resolve("../src/index")];
+  const { server, hatirlatmaKontrol } = require("../src/index");
+  t.after(() => new Promise((r) => server.close(r)));
+  await new Promise((r) => setTimeout(r, 400));
+
+  whatsappCagrilari.length = 0; markHatirlatildiCagrilari.length = 0;
+  surumNo++;
+  hatirlatilacaklar = [{ id: "r9", kaynak: "whatsapp", saat: otuzDkSonra(), berber: "Resul Tabu", hizmet: "Saç Kesimi", telefon: "905550009999" }];
+
+  await hatirlatmaKontrol();
+  await hatirlatmaKontrol(); // DB mock'u ayni kaydi dondurmeye devam etse bile onbellekte yok
+
+  assert.strictEqual(whatsappCagrilari.length, 1, "hatirlatma yalnizca bir kez gitmeli");
+  assert.deepStrictEqual(markHatirlatildiCagrilari, ["r9"]);
 });

@@ -820,6 +820,23 @@ async function veriCek() {
     document.getElementById("footer").textContent =
       "⚠️ Görüntüleme hatası: " + ((e && e.message) || e);
   }
+  return true; // veri alındı (çizim hatası olsa bile) — surumKontrol yeniden denemesin
+}
+
+// Canlı akış: her seferinde tam veri çekmek yerine sunucudan ucuz bir "değişiklik
+// sürümü" alınır (DB'ye gitmez); sadece sürüm değişirse tam veri çekilir. Böylece
+// panel açık kalsa bile boştayken veritabanı uyuyabilir (Neon compute-saati
+// açık kalma süresine göre sayılır). Sekme gizliyken hiç yoklanmaz.
+let sonSurum = null;
+async function surumKontrol() {
+  if (document.hidden) return;
+  try {
+    const res = await authFetch("/api/versiyon");
+    if (!res.ok) return;
+    const { surum } = await res.json();
+    if (surum === sonSurum) return;
+    if (await veriCek()) sonSurum = surum;
+  } catch {}
 }
 
 async function durumDegistir(id, durum) {
@@ -1812,11 +1829,10 @@ document.getElementById("pinInput").addEventListener("keydown", (e) => {
 async function baslat() {
   await configCek();
   berberSecenekleriDoldur();
-  await veriCek();
-  // 10sn -> 20sn: panel gün boyu açık kaldığı için sorgu sıklığı doğrudan
-  // veritabanı maliyetine yansıyor (bkz. db.getRecentAndUpcoming). 20 sn hâlâ
-  // "canlı" hissettirir ama yükü yarıya indirir.
-  setInterval(veriCek, 20000);
+  await surumKontrol();
+  setInterval(surumKontrol, 15000);
+  // Sekmeye geri dönünce beklemeden güncelle
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) surumKontrol(); });
 }
 
 authYukle();

@@ -487,6 +487,12 @@ app.get("/api/randevular", requireAuth, ah(async (req, res) => {
   res.json(await db.getRecentAndUpcoming());
 }));
 
+// Panelin "veri değişti mi?" kontrolü — DB'ye gitmez (bellek içi sayaç). Panel
+// tam veriyi sadece sürüm değişince çeker, böylece boştayken DB uyuyabilir.
+app.get("/api/versiyon", requireAuth, (req, res) => {
+  res.json({ surum: db.degisimSurumu() });
+});
+
 // Bir müşterinin tüm randevu geçmişi — "Müşteri Geçmişi" paneli açıldığında
 // istek üzerine çekilir, canlı akışın (yukarıdaki uç) parçası değildir.
 app.get("/api/randevular/gecmis", requireAuth, ah(async (req, res) => {
@@ -796,12 +802,26 @@ function saatToDk(saat) {
   return h * 60 + m;
 }
 
+// Bugünün hatırlatılacak randevuları bellekte tutulur; DB'ye sadece gün
+// değişince ya da bir yazma (db.degisimSurumu değişimi) olunca gidilir. Aksi
+// halde bu 5 dakikalık iş DB'yi gece gündüz uyanık tutuyordu (Neon 5 dk
+// boşta kalınca uyur; compute-saati açık kalma süresine göre sayılır).
+let hatirlatmaOnbellek = { tarih: null, surum: null, liste: [] };
+
+async function bugunHatirlatilacaklar(tarih) {
+  const surum = db.degisimSurumu();
+  if (hatirlatmaOnbellek.tarih !== tarih || hatirlatmaOnbellek.surum !== surum) {
+    hatirlatmaOnbellek = { tarih, surum, liste: await db.getHatirlatilacaklar(tarih) };
+  }
+  return hatirlatmaOnbellek.liste;
+}
+
 async function hatirlatmaKontrol() {
   try {
     const now   = new Date();
     const tarih = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
     const simdiDk = now.getHours() * 60 + now.getMinutes();
-    const liste = await db.getHatirlatilacaklar(tarih);
+    const liste = await bugunHatirlatilacaklar(tarih);
     const gunLabel = now.toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
 
     for (const r of liste) {
@@ -827,7 +847,10 @@ async function hatirlatmaKontrol() {
           }
         }
         // Başarısız gönderim işaretlenmez — 5 dk sonra tekrar denenir
-        if (!sonuc || !sonuc.hata) await db.markHatirlatildi(r.id);
+        if (!sonuc || !sonuc.hata) {
+          await db.markHatirlatildi(r.id);
+          hatirlatmaOnbellek.liste = hatirlatmaOnbellek.liste.filter((x) => x.id !== r.id);
+        }
       }
     }
   } catch (e) {
@@ -847,9 +870,17 @@ if (sheets.isEnabled()) {
   setTimeout(arsivCalistir, 10000).unref();
   setInterval(arsivCalistir, 24 * 60 * 60 * 1000).unref();
 
-  // Aylık özet: başlangıçta bir kez + saatte bir güncelle
-  const aylikOzetCalistir = () =>
-    db.getAll().then((tumu) => sheets.aylikOzetYaz(tumu)).catch(() => {});
+  // Aylık özet: başlangıçta bir kez, sonra sadece veri değiştiyse güncelle
+  // (saatlik koşulsuz db.getAll, DB'yi her saat uyandırıyordu)
+  let sonOzetSurum = null;
+  const aylikOzetCalistir = () => {
+    const surum = db.degisimSurumu();
+    if (surum === sonOzetSurum) return Promise.resolve();
+    return db.getAll()
+      .then((tumu) => sheets.aylikOzetYaz(tumu))
+      .then(() => { sonOzetSurum = surum; })
+      .catch(() => {});
+  };
   setTimeout(aylikOzetCalistir, 20000).unref();
   setInterval(aylikOzetCalistir, 60 * 60 * 1000).unref();
 }

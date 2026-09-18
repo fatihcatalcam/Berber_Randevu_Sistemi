@@ -132,6 +132,20 @@ async function init() {
   console.log("✅ Veritabanı tabloları hazır.");
 }
 
+// ---------------------------------------------------------------------------
+// Değişiklik sürümü — randevu/kapalı-saat verisini değiştiren her yazma bunu
+// artırır. Arka plan işleri (hatırlatma, Sheets özeti) ve panel, "bir şey
+// değişti mi?" sorusunu veritabanına gitmeden bu bellek içi sayaçla cevaplar.
+// Böylece hiçbir şey olmadığında DB'ye dokunulmaz ve Neon'un compute'u uyuyabilir
+// (compute-saati "açık kalma süresine" göre sayılır, sorgu boyutuna göre değil).
+// Tek Node süreci varsayımı: tüm yazmalar bu süreçten geçtiği için yeterli.
+// bootId, sunucu yeniden başlayınca sayacın sıfırlanmasını "değişti" olarak gösterir.
+// ---------------------------------------------------------------------------
+const bootId = Date.now().toString(36);
+let degisimSayaci = 0;
+function degisti() { degisimSayaci++; }
+function degisimSurumu() { return `${bootId}:${degisimSayaci}`; }
+
 // Slot dolu hatası — çağıranlar bunu yakalayıp kullanıcıya bildirir
 class SlotDoluError extends Error {
   constructor() { super("Seçilen saat dolu."); this.code = "SLOT_DOLU"; }
@@ -242,6 +256,7 @@ async function add(randevu) {
     if (e.code === "23505") throw new SlotDoluError(); // benzersizlik ihlali = slot dolu
     throw e;
   }
+  degisti();
   return { ...randevu, id, olusturulma, durum, kaynak };
 }
 
@@ -295,6 +310,7 @@ async function updateStatus(id, durum, iptalEden = null) {
      WHERE id=$3 RETURNING *`,
     [durum, iptalEden, id]
   );
+  degisti();
   return res.rows.length ? rowToRandevu(res.rows[0]) : null;
 }
 
@@ -303,6 +319,7 @@ async function updateFiyat(id, gercekFiyat) {
     "UPDATE randevular SET gercek_fiyat=$1 WHERE id=$2 RETURNING *",
     [gercekFiyat, id]
   );
+  degisti();
   return res.rows.length ? rowToRandevu(res.rows[0]) : null;
 }
 
@@ -311,6 +328,7 @@ async function updateAciklama(id, aciklama) {
     "UPDATE randevular SET aciklama=$1 WHERE id=$2 RETURNING *",
     [aciklama, id]
   );
+  degisti();
   return res.rows.length ? rowToRandevu(res.rows[0]) : null;
 }
 
@@ -319,6 +337,7 @@ async function updateTarihSaat(id, tarih, saat) {
     "UPDATE randevular SET tarih=$1, saat=$2, hatirlatildi=false WHERE id=$3 RETURNING *",
     [tarih, saat, id]
   );
+  degisti();
   return res.rows.length ? rowToRandevu(res.rows[0]) : null;
 }
 
@@ -386,6 +405,7 @@ async function setKapaliGun(berberId, tarih, kapali) {
       [berberId, tarih]
     );
   }
+  degisti();
 }
 
 // Özel açılan günler
@@ -427,6 +447,7 @@ async function setAcikSaat(berberId, tarih, saat, acik) {
       [berberId, tarih, saat]
     );
   }
+  degisti();
 }
 
 // Bir günü herkes için tamamen aç: tüm kapalı-gün ve kapalı-saat kayıtlarını
@@ -435,6 +456,7 @@ async function tumGunuAc(tarih) {
   await pool.query("DELETE FROM kapali_gunler WHERE tarih=$1", [tarih]);
   await pool.query("DELETE FROM kapali_saatler WHERE tarih=$1", [tarih]);
   await pool.query("INSERT INTO acik_gunler (tarih) VALUES ($1) ON CONFLICT DO NOTHING", [tarih]);
+  degisti();
 }
 
 async function getKapaliListByBerber(berberId, tarih) {
@@ -457,6 +479,7 @@ async function setKapaliSaat(berberId, tarih, saat, kapali) {
       [berberId, tarih, saat]
     );
   }
+  degisti();
 }
 
 // ---------------------------------------------------------------------------
@@ -527,6 +550,7 @@ module.exports = {
   getTodayAppointments,
   getHatirlatilacaklar,
   markHatirlatildi,
+  degisimSurumu,
   getKapaliSaatler,
   getKapaliListByBerber,
   setKapaliSaat,
