@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#075E54" />
+<title>Ciro — Resul Tabu Saç Atölyesi</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --yesil1: #075E54; --yesil2: #25D366;
+    --bg: #f0f2f5; --kart: #ffffff;
+    --metin: #1f2937; --soluk: #6b7280; --cizgi: #e5e7eb;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--metin);
+    padding-bottom: max(40px, env(safe-area-inset-bottom, 40px));
+    -webkit-text-size-adjust: 100%;
+  }
+  button, input { touch-action: manipulation; }
+
+  /* --- Şifre ekranı --- */
+  .login-overlay {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, #075E54 0%, #128C7E 100%);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; padding: 16px;
+  }
+  .login-kart {
+    background: #fff; border-radius: 20px; padding: 26px 22px;
+    max-width: 360px; width: 100%; text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,.3);
+  }
+  .login-kart .kilit { font-size: 34px; margin-bottom: 6px; }
+  .login-kart h2 { font-size: 19px; font-weight: 800; margin-bottom: 4px; }
+  .login-kart .alt { font-size: 13px; color: var(--soluk); margin-bottom: 16px; }
+  #pinInput {
+    width: 100%; padding: 14px; border: 1px solid var(--cizgi); border-radius: 10px;
+    font-size: 20px; text-align: center; letter-spacing: 6px; margin-bottom: 8px;
+    outline: none;
+  }
+  #pinInput:focus { border-color: var(--yesil2); }
+  #pinHata { color: #dc2626; font-size: 13px; margin-bottom: 10px; min-height: 18px; }
+  .btn {
+    width: 100%; padding: 13px; border: none; border-radius: 10px;
+    background: var(--yesil1); color: #fff; font-size: 15px; font-weight: 700;
+    cursor: pointer; min-height: 46px;
+  }
+  .btn:active { opacity: .8; }
+  .geri-link { display: block; margin-top: 14px; font-size: 13px; color: var(--soluk); text-decoration: none; }
+
+  /* --- Header --- */
+  header {
+    background: linear-gradient(135deg, #075E54 0%, #25D366 100%);
+    color: #fff; padding: max(14px, calc(10px + env(safe-area-inset-top, 0px))) 16px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 2px 10px rgba(0,0,0,.15); flex-wrap: wrap; gap: 8px;
+  }
+  header h1 { font-size: 17px; font-weight: 700; }
+  header a { color: #fff; opacity: .9; font-size: 13px; font-weight: 600; text-decoration: none; }
+
+  .wrap { max-width: 900px; margin: 0 auto; padding: 16px 12px; }
+  .kart { background: var(--kart); border-radius: 12px; border: 1px solid var(--cizgi); box-shadow: 0 1px 4px rgba(0,0,0,.06); overflow: hidden; margin-bottom: 14px; }
+  .kart-baslik { padding: 12px 14px; font-size: 14px; font-weight: 700; border-bottom: 1px solid var(--cizgi); background: #f9fafb; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+
+  .gun-nav { display: flex; align-items: center; gap: 8px; }
+  .gun-nav button {
+    padding: 8px 12px; border: 1px solid var(--cizgi); background: #fff; border-radius: 8px;
+    cursor: pointer; font-size: 14px; font-weight: 700; min-height: 38px;
+  }
+  .gun-nav button:active { background: #f3f4f6; }
+
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    background: #f9fafb; text-align: left; padding: 10px 12px; font-size: 11px;
+    text-transform: uppercase; letter-spacing: .4px; color: var(--soluk); border-bottom: 1px solid var(--cizgi);
+  }
+  tbody td { padding: 11px 12px; font-size: 13.5px; border-bottom: 1px solid #f3f4f6; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  .durum-btn {
+    padding: 9px 12px; border: 1px solid var(--cizgi); background: #fff;
+    border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;
+    color: var(--soluk); min-height: 40px;
+  }
+  .durum-btn:active { opacity: .7; }
+  .durum-btn.aktif { background: var(--yesil1); color: #fff; border-color: var(--yesil1); }
+
+  .yukleniyor { text-align: center; color: var(--soluk); padding: 30px; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<div class="login-overlay" id="loginEkrani">
+  <div class="login-kart">
+    <div class="kilit">🔒</div>
+    <h2>Ciro Görüntüleme</h2>
+    <div class="alt">Devam etmek için admin şifresini girin</div>
+    <input type="password" id="pinInput" inputmode="numeric" maxlength="6" placeholder="••••">
+    <div id="pinHata"></div>
+    <button class="btn" onclick="girisYap()">Giriş</button>
+    <a class="geri-link" href="/dashboard">‹ Panele dön</a>
+  </div>
+</div>
+
+<div id="icerik" style="display:none;">
+  <header>
+    <h1>💰 Ciro</h1>
+    <a href="/dashboard">‹ Panele dön</a>
+  </header>
+
+  <div class="wrap">
+    <div class="kart">
+      <div class="kart-baslik">
+        <span>📅 <span id="gunBaslik"></span> — Berber Bazlı Ciro</span>
+        <div class="gun-nav">
+          <button onclick="gunDegistir(-1)">‹</button>
+          <button onclick="gunBugun()">Bugün</button>
+          <button onclick="gunDegistir(1)">›</button>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Berber</th><th style="text-align:right;">Randevu</th><th style="text-align:right;">Ciro</th></tr>
+        </thead>
+        <tbody id="ciroGovde"><tr><td colspan="3" class="yukleniyor">Yükleniyor…</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="kart">
+      <div class="kart-baslik">
+        <span>📈 Ciro Grafiği</span>
+        <div style="display:flex;gap:6px;">
+          <button id="grafikHaftaBtn" class="durum-btn aktif" onclick="grafikModuDegistir('hafta')">Son 7 Gün</button>
+          <button id="grafikAyBtn" class="durum-btn" onclick="grafikModuDegistir('ay')">Son 6 Ay</button>
+        </div>
+      </div>
+      <div style="padding:14px;">
+        <div id="ciroGrafik" style="display:flex;align-items:flex-end;gap:6px;height:180px;padding-top:18px;overflow-x:auto;"></div>
+        <div id="ciroGrafikToplam" style="text-align:right;font-size:13px;color:var(--soluk);margin-top:8px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Token sadece bellekte tutulur (localStorage'a YAZILMAZ) — bu sayfaya her
+// girişte, ana panelin 24 saatlik oturumu açık olsa bile şifre yeniden
+// sorulur. Amaç: parayla ilgili rakamlar tek tıkla görünmesin.
+let token = null;
+let BERBERLER = [];
+let randevular = [];
+let seciliTarih = bugunStr();
+let grafikModu = "hafta";
+
+function bugunStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+function kacis(s) {
+  const d = document.createElement("div");
+  d.textContent = s == null ? "" : String(s);
+  return d.innerHTML;
+}
+
+document.getElementById("pinInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") girisYap();
+});
+
+async function girisYap() {
+  const pin = document.getElementById("pinInput").value;
+  const hataEl = document.getElementById("pinHata");
+  hataEl.textContent = "";
+  try {
+    const res = await fetch("/api/auth", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ admin: true, pin }),
+    });
+    const data = await res.json();
+    if (!data.ok || data.role !== "admin") {
+      hataEl.textContent = data.hata || "Yanlış şifre.";
+      return;
+    }
+    token = data.token;
+    document.getElementById("loginEkrani").style.display = "none";
+    document.getElementById("icerik").style.display = "block";
+    await veriYukle();
+  } catch (e) {
+    hataEl.textContent = "Sunucu hatası.";
+  }
+}
+
+async function veriYukle() {
+  try {
+    const [cfgRes, randRes] = await Promise.all([
+      fetch("/api/config"),
+      fetch("/api/randevular", { headers: { Authorization: "Bearer " + token }, cache: "no-store" }),
+    ]);
+    const cfg = await cfgRes.json();
+    BERBERLER = cfg.berberler;
+    if (!randRes.ok) throw new Error("HTTP " + randRes.status);
+    randevular = await randRes.json();
+    if (!Array.isArray(randevular)) throw new Error("Beklenmeyen yanıt");
+    ciroRender();
+  } catch (e) {
+    document.getElementById("ciroGovde").innerHTML =
+      `<tr><td colspan="3" class="yukleniyor">⚠️ Veriler alınamadı (${(e && e.message) || e}). Sayfayı yenileyin.</td></tr>`;
+  }
+}
+
+function gunDegistir(delta) {
+  const d = new Date(seciliTarih + "T00:00:00");
+  d.setDate(d.getDate() + delta);
+  seciliTarih = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  ciroRender();
+}
+function gunBugun() { seciliTarih = bugunStr(); ciroRender(); }
+
+function ciroRender() {
+  const gunLabel = new Date(seciliTarih + "T00:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
+  document.getElementById("gunBaslik").textContent = gunLabel;
+
+  const gunRand = randevular.filter((r) => r.tarih === seciliTarih && r.durum === "onaylı");
+  const govde = document.getElementById("ciroGovde");
+  govde.innerHTML = "";
+  let toplamCiro = 0, toplamSayi = 0;
+
+  BERBERLER.forEach((b) => {
+    const bRand = gunRand.filter((r) => r.berberId === b.id);
+    const bCiro = bRand.reduce((s, r) => s + (r.gercekFiyat ?? r.fiyat ?? 0), 0);
+    toplamCiro += bCiro; toplamSayi += bRand.length;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${kacis(b.ad)}</td>
+      <td style="text-align:right;">${bRand.length}</td>
+      <td style="text-align:right;font-weight:700;color:#059669;">${bCiro.toLocaleString("tr-TR")}₺</td>`;
+    govde.appendChild(tr);
+  });
+
+  const tot = document.createElement("tr");
+  tot.style.cssText = "border-top:2px solid var(--cizgi);font-weight:800;background:#f9fafb;";
+  tot.innerHTML = `
+    <td>Toplam</td>
+    <td style="text-align:right;">${toplamSayi}</td>
+    <td style="text-align:right;color:#075E54;">${toplamCiro.toLocaleString("tr-TR")}₺</td>`;
+  govde.appendChild(tot);
+
+  ciroGrafikRender();
+}
+
+function grafikModuDegistir(mod) {
+  grafikModu = mod;
+  document.getElementById("grafikHaftaBtn").classList.toggle("aktif", mod === "hafta");
+  document.getElementById("grafikAyBtn").classList.toggle("aktif", mod === "ay");
+  ciroGrafikRender();
+}
+
+function ciroGrafikRender() {
+  const kutu = document.getElementById("ciroGrafik");
+  const onayli = randevular.filter((r) => r.durum === "onaylı");
+
+  const kovalar = [];
+  const bugun = new Date();
+  if (grafikModu === "hafta") {
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(bugun); d.setDate(bugun.getDate() - i);
+      const anahtar = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+      kovalar.push({ anahtar, etiket: d.toLocaleDateString("tr-TR", { weekday: "short", day: "numeric" }), eslesir: (r) => r.tarih === anahtar });
+    }
+  } else {
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(bugun.getFullYear(), bugun.getMonth() - i, 1);
+      const onek = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+      kovalar.push({ anahtar: onek, etiket: d.toLocaleDateString("tr-TR", { month: "short", year: "2-digit" }), eslesir: (r) => (r.tarih || "").startsWith(onek) });
+    }
+  }
+
+  const degerler = kovalar.map((k) => onayli.filter(k.eslesir).reduce((s, r) => s + (r.gercekFiyat ?? r.fiyat ?? 0), 0));
+  const maks = Math.max(1, ...degerler);
+  const toplam = degerler.reduce((s, v) => s + v, 0);
+
+  kutu.innerHTML = kovalar.map((k, i) => {
+    const v = degerler[i];
+    const yuzde = Math.round((v / maks) * 100);
+    const etiketDeger = v >= 1000 ? (v / 1000).toFixed(1).replace(".0", "") + "k" : v;
+    return `<div style="flex:1;min-width:38px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:4px;">
+      <div style="font-size:10px;font-weight:700;color:#065f46;white-space:nowrap;">${v ? etiketDeger + "₺" : ""}</div>
+      <div title="${v.toLocaleString("tr-TR")}₺" style="width:100%;background:linear-gradient(#34d399,#059669);border-radius:5px 5px 0 0;height:${Math.max(yuzde,2)}%;min-height:2px;"></div>
+      <div style="font-size:10px;color:var(--soluk);white-space:nowrap;">${k.etiket}</div>
+    </div>`;
+  }).join("");
+
+  document.getElementById("ciroGrafikToplam").textContent =
+    (grafikModu === "hafta" ? "Son 7 gün" : "Son 6 ay") + " toplam: " + toplam.toLocaleString("tr-TR") + "₺";
+}
+
+setTimeout(() => document.getElementById("pinInput").focus(), 100);
+</script>
+</body>
+</html>

@@ -150,11 +150,6 @@
   .kart.bekleyen .sayi { color: #2563eb; }
   .kart.ciro .sayi    { color: #7c3aed; font-size: 18px; }
 
-  /* --- Ciro tablosu --- */
-  #ciroTablosu { margin-bottom: 14px; }
-  #ciroTablosu .kart { padding: 0; overflow: hidden; }
-  #ciroTablosu .ciro-baslik { padding: 12px 14px; font-size: 14px; font-weight: 700; border-bottom: 1px solid var(--cizgi); background: #f9fafb; }
-
   /* --- Filtre --- */
   .filtre {
     display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
@@ -328,37 +323,7 @@
     <div class="kart bekliyor"> <div class="sayi" id="s-bekliyor">0</div> <div class="etiket">Bekliyor</div></div>
     <div class="kart iptal">    <div class="sayi" id="s-iptal">0</div>    <div class="etiket">İptal</div></div>
     <div class="kart bekleyen"> <div class="sayi" id="s-bekleyen">0</div> <div class="etiket">Onay Bek.</div></div>
-    <div class="kart ciro">     <div class="sayi" id="s-ciro">0₺</div>   <div class="etiket" id="s-ciro-etiket">Ciro</div></div>
-  </div>
-
-  <!-- Ciro tablosu (admin) -->
-  <div id="ciroTablosu" style="display:none;">
-    <div class="kart">
-      <div class="ciro-baslik">💰 <span id="ciroGunBaslik"></span> — Berber Bazlı Ciro</div>
-      <table>
-        <thead>
-          <tr>
-            <th style="cursor:default;">Berber</th>
-            <th style="cursor:default;text-align:right;">Randevu</th>
-            <th style="cursor:default;text-align:right;">Ciro</th>
-          </tr>
-        </thead>
-        <tbody id="ciroGovde"></tbody>
-      </table>
-    </div>
-
-    <!-- Ciro grafiği (haftalık / aylık) -->
-    <div class="kart" style="margin-top:12px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-        <div class="ciro-baslik" style="margin:0;">📈 Ciro Grafiği</div>
-        <div style="display:flex;gap:6px;">
-          <button id="grafikHaftaBtn" class="durum-btn aktif" onclick="grafikModuDegistir('hafta')">Son 7 Gün</button>
-          <button id="grafikAyBtn" class="durum-btn" onclick="grafikModuDegistir('ay')">Son 6 Ay</button>
-        </div>
-      </div>
-      <div id="ciroGrafik" style="display:flex;align-items:flex-end;gap:6px;height:180px;padding-top:18px;overflow-x:auto;"></div>
-      <div id="ciroGrafikToplam" style="text-align:right;font-size:13px;color:var(--soluk);margin-top:8px;"></div>
-    </div>
+    <div class="kart ciro" id="s-ciro-kart"> <div class="sayi" id="s-ciro">0₺</div>   <div class="etiket" id="s-ciro-etiket">Ciro</div></div>
   </div>
 
   <!-- Takvim (sadece admin gün değiştirebilir) -->
@@ -639,7 +604,6 @@ function berberNet(berberId, ciro) {
 let seciliTarih = todayStr();
 let takvimAy = new Date();
 let filtreDurum = "hepsi", filtreBerber = "hepsi", arama = "";
-let grafikModu = "hafta";
 let siralama = { kol: "tarih", yon: "desc" };
 let oncekiDurumlar = {}, flashIdler = new Set();
 let modalRandevuId = null;
@@ -815,7 +779,6 @@ async function veriCek() {
     takvimRender();
     cizelgeRender();
     render();
-    ciroRender();
   } catch (e) {
     document.getElementById("footer").textContent =
       "⚠️ Görüntüleme hatası: " + ((e && e.message) || e);
@@ -1055,7 +1018,7 @@ function takvimRender() {
     }
     hucre.addEventListener("click", () => {
       seciliTarih = deger;
-      takvimRender(); cizelgeRender(); render(); ciroRender();
+      takvimRender(); cizelgeRender(); render();
     });
     grid.appendChild(hucre);
   }
@@ -1572,105 +1535,24 @@ function istatistikGuncelle() {
   document.getElementById("s-bekliyor").textContent = gun.filter((r) => r.durum === "bekliyor").length;
   document.getElementById("s-iptal").textContent    = gun.filter((r) => r.durum === "iptal").length;
   document.getElementById("s-bekleyen").textContent = gun.filter((r) => r.durum === "bekliyor").length;
-  const ciro = gun.filter((r) => r.durum === "onaylı")
-    .reduce((s, r) => s + (r.gercekFiyat ?? r.fiyat ?? 0), 0);
-  // Admin (Resul) tam günlük ciroyu görür; diğer berberler sadece kendi günlük NET'ini
-  const berberGorunum = auth && auth.role !== "admin";
-  const gosterilen = berberGorunum ? berberNet(auth.berberId, ciro) : ciro;
-  document.getElementById("s-ciro").textContent = gosterilen.toLocaleString("tr-TR") + "₺";
-  document.getElementById("s-ciro-etiket").textContent = berberGorunum ? "Günlük Net" : "Ciro";
-}
-
-// ============================================================
-// Ciro tablosu (admin)
-// ============================================================
-function ciroRender() {
-  const el = document.getElementById("ciroTablosu");
-  if (!auth || auth.role !== "admin") { el.style.display = "none"; return; }
-  el.style.display = "block";
-
-  const gunLabel = new Date(seciliTarih + "T00:00:00").toLocaleDateString("tr-TR", { day:"numeric", month:"long", year:"numeric" });
-  document.getElementById("ciroGunBaslik").textContent = gunLabel;
-
-  const gunRand = randevular.filter((r) => r.tarih === seciliTarih && r.durum === "onaylı");
-  const govde = document.getElementById("ciroGovde");
-  govde.innerHTML = "";
-  let toplamCiro = 0, toplamSayi = 0;
-
-  BERBERLER.forEach((b) => {
-    const bRand = gunRand.filter((r) => r.berberId === b.id);
-    const bCiro = bRand.reduce((s, r) => s + (r.gercekFiyat ?? r.fiyat ?? 0), 0);
-    toplamCiro += bCiro; toplamSayi += bRand.length;
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td style="padding:9px 12px;font-size:14px;">${kacis(b.ad)}</td>
-      <td style="padding:9px 12px;font-size:14px;text-align:right;">${bRand.length}</td>
-      <td style="padding:9px 12px;font-size:14px;text-align:right;font-weight:700;color:#059669;">${bCiro.toLocaleString("tr-TR")}₺</td>`;
-    govde.appendChild(tr);
-  });
-
-  const tot = document.createElement("tr");
-  tot.style.cssText = "border-top:2px solid var(--cizgi);font-weight:800;background:#f9fafb;";
-  tot.innerHTML = `
-    <td style="padding:9px 12px;font-size:14px;">Toplam</td>
-    <td style="padding:9px 12px;font-size:14px;text-align:right;">${toplamSayi}</td>
-    <td style="padding:9px 12px;font-size:14px;text-align:right;color:#075E54;">${toplamCiro.toLocaleString("tr-TR")}₺</td>`;
-  govde.appendChild(tot);
-
-  ciroGrafikRender();
-}
-
-// ============================================================
-// Ciro grafiği (haftalık / aylık bar chart)
-// ============================================================
-function grafikModuDegistir(mod) {
-  grafikModu = mod;
-  document.getElementById("grafikHaftaBtn").classList.toggle("aktif", mod === "hafta");
-  document.getElementById("grafikAyBtn").classList.toggle("aktif", mod === "ay");
-  ciroGrafikRender();
-}
-
-function ciroGrafikRender() {
-  const kutu = document.getElementById("ciroGrafik");
-  if (!kutu) return;
-  const onayli = randevular.filter((r) => r.durum === "onaylı");
-
-  // Kovalar: hafta = son 7 gün, ay = son 6 ay
-  const kovalar = [];
-  const bugun = new Date();
-  if (grafikModu === "hafta") {
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(bugun); d.setDate(bugun.getDate() - i);
-      const anahtar = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-      kovalar.push({ anahtar, etiket: d.toLocaleDateString("tr-TR", { weekday:"short", day:"numeric" }), eslesir: (r) => r.tarih === anahtar });
-    }
-  } else {
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(bugun.getFullYear(), bugun.getMonth() - i, 1);
-      const onek = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
-      kovalar.push({ anahtar: onek, etiket: d.toLocaleDateString("tr-TR", { month:"short", year:"2-digit" }), eslesir: (r) => (r.tarih || "").startsWith(onek) });
-    }
+  const ciroKart = document.getElementById("s-ciro-kart");
+  const isAdmin = auth && auth.role === "admin";
+  if (isAdmin) {
+    // Ciro rakamlari artik ana panelde gosterilmiyor — ayri, sifre isteyen
+    // bir sayfada (bkz. ciro.html). Panel oturumu 24 saat acik kaldigi icin
+    // parayla ilgili rakamlar tek tikla gorunmesin diye ekstra sifre sorulur.
+    document.getElementById("s-ciro").textContent = "🔒";
+    document.getElementById("s-ciro-etiket").textContent = "Ciro — görüntüle";
+    ciroKart.style.cursor = "pointer";
+    ciroKart.onclick = () => { location.href = "/dashboard/ciro.html"; };
+  } else if (auth) {
+    const ciro = gun.filter((r) => r.durum === "onaylı")
+      .reduce((s, r) => s + (r.gercekFiyat ?? r.fiyat ?? 0), 0);
+    document.getElementById("s-ciro").textContent = berberNet(auth.berberId, ciro).toLocaleString("tr-TR") + "₺";
+    document.getElementById("s-ciro-etiket").textContent = "Günlük Net";
+    ciroKart.style.cursor = "default";
+    ciroKart.onclick = null;
   }
-
-  const degerler = kovalar.map((k) =>
-    onayli.filter(k.eslesir).reduce((s, r) => s + (r.gercekFiyat ?? r.fiyat ?? 0), 0)
-  );
-  const maks = Math.max(1, ...degerler);
-  const toplam = degerler.reduce((s, v) => s + v, 0);
-
-  kutu.innerHTML = kovalar.map((k, i) => {
-    const v = degerler[i];
-    const yuzde = Math.round((v / maks) * 100);
-    const etiketDeger = v >= 1000 ? (v/1000).toFixed(1).replace(".0","") + "k" : v;
-    return `<div style="flex:1;min-width:38px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:4px;">
-      <div style="font-size:10px;font-weight:700;color:#065f46;white-space:nowrap;">${v ? etiketDeger + "₺" : ""}</div>
-      <div title="${v.toLocaleString("tr-TR")}₺" style="width:100%;background:linear-gradient(#34d399,#059669);border-radius:5px 5px 0 0;height:${Math.max(yuzde,2)}%;min-height:2px;transition:height .3s;"></div>
-      <div style="font-size:10px;color:var(--soluk);white-space:nowrap;">${k.etiket}</div>
-    </div>`;
-  }).join("");
-
-  document.getElementById("ciroGrafikToplam").textContent =
-    (grafikModu === "hafta" ? "Son 7 gün" : "Son 6 ay") + " toplam: " + toplam.toLocaleString("tr-TR") + "₺";
 }
 
 // ============================================================
@@ -1784,16 +1666,16 @@ document.getElementById("aySonraki").addEventListener("click", () => {
 document.getElementById("gunOnceki").addEventListener("click", () => {
   const d = new Date(seciliTarih + "T00:00:00"); d.setDate(d.getDate() - 1);
   seciliTarih = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-  takvimAy = new Date(d); takvimRender(); cizelgeRender(); render(); ciroRender();
+  takvimAy = new Date(d); takvimRender(); cizelgeRender(); render();
 });
 document.getElementById("gunSonraki").addEventListener("click", () => {
   const d = new Date(seciliTarih + "T00:00:00"); d.setDate(d.getDate() + 1);
   seciliTarih = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-  takvimAy = new Date(d); takvimRender(); cizelgeRender(); render(); ciroRender();
+  takvimAy = new Date(d); takvimRender(); cizelgeRender(); render();
 });
 document.getElementById("bugunBtn").addEventListener("click", () => {
   seciliTarih = todayStr(); takvimAy = new Date();
-  takvimRender(); cizelgeRender(); render(); ciroRender();
+  takvimRender(); cizelgeRender(); render();
 });
 document.getElementById("tasiTarih")?.addEventListener("change", tasiSaatDoldur);
 document.getElementById("arama").addEventListener("input", (e) => {
