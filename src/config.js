@@ -17,8 +17,8 @@
 
 const ADMIN_PIN = process.env.ADMIN_PIN || "1734"; // ortam değişkeni ile override edilebilir
 
-const RESUL_FIYAT = { sac: 900, sakal: 300, kombin: 1200, cocuk: 900 };
-const EKIP_FIYAT  = { sac: 650, sakal: 250, kombin: 900,  cocuk: 650 };
+const RESUL_FIYAT = { sac: 900, sakal: 300, kombin: 1200 };
+const EKIP_FIYAT  = { sac: 650, sakal: 250, kombin: 900 };
 
 // Eren dönüşümlü başlar: Pzt/Çrş/Cum 10:30, Sal/Prş/Cmt 9:45
 const EREN_BASLANGIC = { 1: "10:30", 2: "09:45", 3: "10:30", 4: "09:45", 5: "10:30", 6: "09:45" };
@@ -47,7 +47,6 @@ const HIZMETLER = [
   { id: "sac",    ad: "Saç Kesimi",   sure: "~30 dk" },
   { id: "sakal",  ad: "Sakal Tıraşı", sure: "~20 dk" },
   { id: "kombin", ad: "Saç + Sakal",  sure: "~45 dk" },
-  { id: "cocuk",  ad: "Çocuk Kesimi", sure: "~25 dk" },
 ];
 
 // --- Saat yardımcıları ---

@@ -78,7 +78,7 @@ test("OTP kapaliyken: telefon dogrudan (token olmadan) kabul edilir, randevu olu
   assert.strictEqual(res.status, 201, "token olmadan da randevu olusmali");
   assert.strictEqual(res.body.telefon, "905551234567", "telefon normalize edilmis olmali");
   assert.strictEqual(res.body.kaynak, "web");
-  assert.strictEqual(res.body.durum, "bekliyor");
+  assert.strictEqual(res.body.durum, "onaylı", "berber onayi kalkti, dogrudan onayli olusmali");
 });
 
 test("OTP kapaliyken: gecersiz telefon formati 400 doner", async (t) => {

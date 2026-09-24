@@ -39,7 +39,7 @@ const TEMPLATE_HATIRLATMA = process.env.TEMPLATE_HATIRLATMA;
 // Oturum token'ları (bellek içi) — sunucu yeniden başlayınca sıfırlanır
 // ---------------------------------------------------------------------------
 const tokens = new Map(); // token -> { role, berberId, ad, olusturulma }
-const TOKEN_OMUR_MS = 12 * 60 * 60 * 1000; // 12 saat
+const TOKEN_OMUR_MS = 24 * 60 * 60 * 1000; // 24 saat — berberler her gün PIN girmesin
 
 function tokenUret(bilgi) {
   const token = crypto.randomBytes(32).toString("hex");
@@ -416,6 +416,7 @@ app.post("/api/public/randevu", ah(async (req, res) => {
       tarih, saat,
       fiyat: berber.fiyat[hizmetId],
       kaynak: "web",
+      durum: "onaylı", // berber onayı kalktı — web randevusu doğrudan onaylanmış sayılır
     });
     if (OTP_AKTIF) dogrulamaTokenlari.delete(dogrulamaToken); // tek kullanımlık
 
@@ -425,7 +426,7 @@ app.post("/api/public/randevu", ah(async (req, res) => {
       const tarihStr = new Date(kayit.tarih + "T00:00:00").toLocaleDateString("tr-TR", {
         weekday: "long", day: "numeric", month: "long",
       });
-      eposta.randevuAlindiMaili(kayit, tarihStr).catch(() => {});
+      eposta.randevuOnayMaili(kayit, tarihStr).catch(() => {});
     }
     res.status(201).json(kayit);
   } catch (e) {

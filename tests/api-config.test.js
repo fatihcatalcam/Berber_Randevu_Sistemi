@@ -25,7 +25,7 @@ test("API uclari: config acik, randevular kimlik dogrulama ister", async (t) => 
   const data = JSON.parse(cfg.body);
   assert.ok(Array.isArray(data.berberler));
   assert.ok(data.berberler.length >= 3);
-  assert.strictEqual(data.hizmetler.length, 4);
+  assert.strictEqual(data.hizmetler.length, 3);
   assert.strictEqual(data.saatler[0], "09:00");
 
   // PIN sızdırılmamalı

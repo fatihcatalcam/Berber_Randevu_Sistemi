@@ -40,7 +40,8 @@ Module._load = function (req) {
     Module._epostaCagrilari = cagrilar; // testten erisim icin
     return {
       randevuAlindiMaili: async (r) => { cagrilar.push(["alindi", r]); return null; },
-      randevuOnayMaili: async () => null, randevuIptalMaili: async () => null, randevuHatirlatmaMaili: async () => null,
+      randevuOnayMaili: async (r) => { cagrilar.push(["onay", r]); return null; },
+      randevuIptalMaili: async () => null, randevuHatirlatmaMaili: async () => null,
     };
   }
   if (req.endsWith("/db") || req === "./db") {
@@ -109,7 +110,7 @@ function yarinTarih() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-test("gecerli token ile randevu bekliyor durumunda ve kaynak=web olarak olusur", async (t) => {
+test("gecerli token ile randevu dogrudan onayli ve kaynak=web olarak olusur", async (t) => {
   store.length = 0; slotDoluAt = null;
   process.env.PORT = "3201";
   delete require.cache[require.resolve("../src/index")];
@@ -128,7 +129,7 @@ test("gecerli token ile randevu bekliyor durumunda ve kaynak=web olarak olusur",
   });
 
   assert.strictEqual(res.status, 201, "randevu olusmali");
-  assert.strictEqual(res.body.durum, "bekliyor");
+  assert.strictEqual(res.body.durum, "onaylı", "berber onayi kalkti, dogrudan onayli olusmali");
   assert.strictEqual(res.body.kaynak, "web");
   assert.strictEqual(res.body.telefon, tel, "telefon token'dan alinmali, body'den degil");
 });
@@ -199,6 +200,26 @@ test("email bos birakilinca randevu yine olusur, bildirim atlanir", async (t) =>
   assert.strictEqual(res.status, 201);
   assert.ok(!res.body.email, "email gonderilmemisse kayitta olmamali (null/undefined)");
   assert.strictEqual(Module._epostaCagrilari.length, 0, "email bossa bildirim gonderilmemeli");
+});
+
+test("email verilince onay maili gonderilir (berber onayi kalkti, dogrudan onay maili gider)", async (t) => {
+  store.length = 0; slotDoluAt = null;
+  process.env.PORT = "3201";
+  delete require.cache[require.resolve("../src/index")];
+  const { server } = require("../src/index");
+  t.after(() => new Promise((r) => server.close(r)));
+  await new Promise((r) => setTimeout(r, 400));
+  Module._epostaCagrilari.length = 0;
+
+  const token = await tokenAl("905552220006");
+  const res = await istek("POST", "/api/public/randevu", {
+    dogrulamaToken: token, ad: "Test", email: "musteri@example.com",
+    berberId: "resul", hizmetId: "sac", tarih: yarinTarih(), saat: "10:30",
+  });
+
+  assert.strictEqual(res.status, 201);
+  assert.strictEqual(Module._epostaCagrilari.length, 1, "onay maili gonderilmeli");
+  assert.strictEqual(Module._epostaCagrilari[0][0], "onay");
 });
 
 test("dogrulama token tek kullanimlik — ikinci istekte 401", async (t) => {

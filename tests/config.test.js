@@ -7,17 +7,17 @@ test("BERBERLER en az 3 berber icerir ve fiyat alanlari tam", () => {
   assert.ok(config.BERBERLER.length >= 3);
   for (const b of config.BERBERLER) {
     assert.ok(b.id && b.ad && b.uzmanlik);
-    for (const h of ["sac", "sakal", "kombin", "cocuk"]) {
+    for (const h of ["sac", "sakal", "kombin"]) {
       assert.strictEqual(typeof b.fiyat[h], "number");
     }
   }
 });
 
-test("HIZMETLER 4 hizmet icerir", () => {
-  assert.strictEqual(config.HIZMETLER.length, 4);
+test("HIZMETLER 3 hizmet icerir", () => {
+  assert.strictEqual(config.HIZMETLER.length, 3);
   assert.deepStrictEqual(
     config.HIZMETLER.map((h) => h.id),
-    ["sac", "sakal", "kombin", "cocuk"]
+    ["sac", "sakal", "kombin"]
   );
 });
 

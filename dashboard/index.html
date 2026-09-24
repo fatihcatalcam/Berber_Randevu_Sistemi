@@ -655,7 +655,7 @@ function todayStr() {
 // Auth
 // ============================================================
 function authYukle() {
-  try { auth = JSON.parse(sessionStorage.getItem("berberPanelAuth") || "null"); } catch {}
+  try { auth = JSON.parse(localStorage.getItem("berberPanelAuth") || "null"); } catch {}
   if (auth) loginGizle();
   else loginGoster();
 }
@@ -691,7 +691,7 @@ function loginGizle() {
 }
 
 function cikis() {
-  sessionStorage.removeItem("berberPanelAuth");
+  localStorage.removeItem("berberPanelAuth");
   auth = null;
   loginGoster();
 }
@@ -749,7 +749,7 @@ async function pinGiris() {
     const data = await res.json();
     if (data.ok) {
       auth = { role: data.role, berberId: data.berberId || null, ad: data.ad || "Admin", token: data.token };
-      sessionStorage.setItem("berberPanelAuth", JSON.stringify(auth));
+      localStorage.setItem("berberPanelAuth", JSON.stringify(auth));
       loginGizle();
     } else {
       hataEl.textContent = data.hata || "Yanlış PIN.";
