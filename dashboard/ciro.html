@@ -122,9 +122,9 @@
       </div>
       <table>
         <thead>
-          <tr><th>Berber</th><th style="text-align:right;">Randevu</th><th style="text-align:right;">Ciro</th></tr>
+          <tr><th>Berber</th><th style="text-align:right;">Randevu</th><th style="text-align:right;">Ciro</th><th style="text-align:right;">Net Ödeme</th></tr>
         </thead>
-        <tbody id="ciroGovde"><tr><td colspan="3" class="yukleniyor">Yükleniyor…</td></tr></tbody>
+        <tbody id="ciroGovde"><tr><td colspan="4" class="yukleniyor">Yükleniyor…</td></tr></tbody>
       </table>
     </div>
 
@@ -163,6 +163,14 @@ function kacis(s) {
   const d = document.createElement("div");
   d.textContent = s == null ? "" : String(s);
   return d.innerHTML;
+}
+
+// Berberin net ödemesi: (ciro - taban) * oran — src/config.js'teki
+// berberNet ile aynı formül, her berberin config'te tanımlı kendi oranı.
+function berberNet(berber, ciro) {
+  const n = berber.net || { taban: 0, oran: 1 };
+  const net = (ciro - n.taban) * n.oran;
+  return net > 0 ? Math.round(net) : 0;
 }
 
 document.getElementById("pinInput").addEventListener("keydown", (e) => {
@@ -225,17 +233,19 @@ function ciroRender() {
   const gunRand = randevular.filter((r) => r.tarih === seciliTarih && r.durum === "onaylı");
   const govde = document.getElementById("ciroGovde");
   govde.innerHTML = "";
-  let toplamCiro = 0, toplamSayi = 0;
+  let toplamCiro = 0, toplamSayi = 0, toplamNet = 0;
 
   BERBERLER.forEach((b) => {
     const bRand = gunRand.filter((r) => r.berberId === b.id);
     const bCiro = bRand.reduce((s, r) => s + (r.gercekFiyat ?? r.fiyat ?? 0), 0);
-    toplamCiro += bCiro; toplamSayi += bRand.length;
+    const bNet = berberNet(b, bCiro);
+    toplamCiro += bCiro; toplamSayi += bRand.length; toplamNet += bNet;
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${kacis(b.ad)}</td>
       <td style="text-align:right;">${bRand.length}</td>
-      <td style="text-align:right;font-weight:700;color:#059669;">${bCiro.toLocaleString("tr-TR")}₺</td>`;
+      <td style="text-align:right;font-weight:700;color:#059669;">${bCiro.toLocaleString("tr-TR")}₺</td>
+      <td style="text-align:right;font-weight:700;color:#2563eb;">${bNet.toLocaleString("tr-TR")}₺</td>`;
     govde.appendChild(tr);
   });
 
@@ -244,7 +254,8 @@ function ciroRender() {
   tot.innerHTML = `
     <td>Toplam</td>
     <td style="text-align:right;">${toplamSayi}</td>
-    <td style="text-align:right;color:#075E54;">${toplamCiro.toLocaleString("tr-TR")}₺</td>`;
+    <td style="text-align:right;color:#075E54;">${toplamCiro.toLocaleString("tr-TR")}₺</td>
+    <td style="text-align:right;color:#1d4ed8;">${toplamNet.toLocaleString("tr-TR")}₺</td>`;
   govde.appendChild(tot);
 
   ciroGrafikRender();

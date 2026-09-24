@@ -728,6 +728,13 @@ app.post("/api/sheets/resync", requireAuth, ah(async (req, res) => {
   res.json({ ok: true, ...sonuc });
 }));
 
+// Admin panelindeki "Sheets" butonu için — aktif tablonun linki (yoksa null)
+app.get("/api/sheets/baglanti", requireAuth, (req, res) => {
+  if (req.auth.role !== "admin") return res.status(403).json({ hata: "Bu işlem sadece admin içindir." });
+  const id = process.env.GOOGLE_SHEET_ID;
+  res.json({ url: id ? `https://docs.google.com/spreadsheets/d/${id}/edit` : null });
+});
+
 // ---------------------------------------------------------------------------
 // 10) Dashboard
 // ---------------------------------------------------------------------------
