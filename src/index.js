@@ -591,6 +591,16 @@ app.post("/api/randevular/:id/durum", requireAuth, ah(async (req, res) => {
   res.json(kayit);
 }));
 
+app.delete("/api/randevular/:id", requireAuth, ah(async (req, res) => {
+  const { id } = req.params;
+  const mevcut = await db.getById(id);
+  if (!mevcut) return res.status(404).json({ hata: "Randevu bulunamadı." });
+  if (mevcut.durum !== "iptal")
+    return res.status(400).json({ hata: "Sadece iptal edilmiş randevular silinebilir." });
+  await db.deleteRandevu(id);
+  res.json({ ok: true });
+}));
+
 // ---------------------------------------------------------------------------
 // 7) Randevu fiyatı düzenle
 // ---------------------------------------------------------------------------

@@ -227,14 +227,10 @@ async function veriYukle() {
   }
 }
 
-async function sheetsButonuYukle() {
+function sheetsButonuYukle() {
   const btn = document.getElementById("sheetsBtn");
-  try {
-    const res = await fetch("/api/sheets/baglanti", { headers: { Authorization: "Bearer " + token } });
-    if (!res.ok) return;
-    const { url } = await res.json();
-    if (url) { btn.href = url; btn.style.display = "inline-block"; }
-  } catch {}
+  btn.href = "https://docs.google.com/spreadsheets/d/161oVnKcrn8dHUJusZlp4AMgIzSWNmoaY_wtQOtZQZuk/edit?gid=0#gid=0";
+  btn.style.display = "inline-block";
 }
 
 function gunDegistir(delta) {

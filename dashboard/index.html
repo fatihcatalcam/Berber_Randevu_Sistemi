@@ -414,6 +414,7 @@
       <button id="modalOnayla" onclick="modalDurumDegistir('onaylı')" class="modal-btn modal-btn-yesil" style="flex:1;">✅ Onayla</button>
       <button id="modalIptal"  onclick="modalDurumDegistir('iptal')"  class="modal-btn modal-btn-kirmizi" style="flex:1;">❌ İptal Et</button>
       <button id="modalGelmedi" onclick="modalDurumDegistir('gelmedi')" class="modal-btn modal-btn-gri" style="flex:1;background:#ffedd5;color:#9a3412;">🚫 Gelmedi</button>
+      <button id="modalSil" onclick="modalSilOnayla()" class="modal-btn modal-btn-kirmizi" style="flex:1;display:none;">🗑️ Randevuyu Sil</button>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
       <button onclick="modalFiyatAc()" class="modal-btn modal-btn-gri" style="flex:1;">✏️ Ücret</button>
@@ -657,6 +658,7 @@ function loginGizle() {
 function cikis() {
   localStorage.removeItem("berberPanelAuth");
   auth = null;
+  sonSurum = null;
   loginGoster();
 }
 
@@ -809,6 +811,14 @@ async function durumDegistir(id, durum) {
       body: JSON.stringify({ durum }),
     });
     if (!res.ok) { alert("İşlem başarısız oldu."); return; }
+    await veriCek();
+  } catch { alert("Sunucu hatası."); }
+}
+
+async function randevuSil(id) {
+  try {
+    const res = await authFetch(`/api/randevular/${id}`, { method: "DELETE" });
+    if (!res.ok) { alert("Silme başarısız oldu."); return; }
     await veriCek();
   } catch { alert("Sunucu hatası."); }
 }
@@ -1265,6 +1275,7 @@ function hucreMenu(id) {
   document.getElementById("modalOnayla").disabled  = r.durum === "onaylı";
   document.getElementById("modalIptal").disabled   = r.durum === "iptal";
   document.getElementById("modalGelmedi").disabled = r.durum === "gelmedi";
+  document.getElementById("modalSil").style.display = r.durum === "iptal" ? "block" : "none";
   document.getElementById("standartFiyat").textContent = r.fiyat;
   document.getElementById("fiyatInput").value = r.gercekFiyat !== undefined ? r.gercekFiyat : r.fiyat;
   document.getElementById("notInput").value = r.aciklama || "";
@@ -1385,6 +1396,15 @@ async function modalDurumDegistir(durum) {
   if (!modalRandevuId) return;
   modalKapat();
   await durumDegistir(modalRandevuId, durum);
+}
+
+async function modalSilOnayla() {
+  if (!modalRandevuId) return;
+  const r = randevular.find(x => x.id === modalRandevuId);
+  if (!r) return;
+  if (!confirm(`${r.ad} için ${r.saat} randevusu kalıcı olarak silinsin mi?\n\nBu işlem geri alınamaz.`)) return;
+  modalKapat();
+  await randevuSil(modalRandevuId);
 }
 
 function panelAcKapat(id) {

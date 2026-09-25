@@ -314,6 +314,12 @@ async function updateStatus(id, durum, iptalEden = null) {
   return res.rows.length ? rowToRandevu(res.rows[0]) : null;
 }
 
+async function deleteRandevu(id) {
+  const res = await pool.query("DELETE FROM randevular WHERE id=$1 RETURNING *", [id]);
+  degisti();
+  return res.rows.length ? rowToRandevu(res.rows[0]) : null;
+}
+
 async function updateFiyat(id, gercekFiyat) {
   const res = await pool.query(
     "UPDATE randevular SET gercek_fiyat=$1 WHERE id=$2 RETURNING *",
@@ -544,6 +550,7 @@ module.exports = {
   getBusySlots,
   getRandevularByTelefon,
   updateStatus,
+  deleteRandevu,
   updateFiyat,
   updateAciklama,
   updateTarihSaat,
