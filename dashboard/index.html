@@ -306,7 +306,6 @@
   <h1 style="margin:0;"><img src="logo.jpg" alt="Resul Tabu Saç Atölyesi" style="height:46px;display:block;background:#fff;padding:4px 12px;border-radius:10px;" /></h1>
   <div class="header-sag">
     <span id="kullaniciBilgi"></span>
-    <a id="sheetsBtn" class="cikis-btn" href="#" target="_blank" rel="noopener" style="display:none;text-decoration:none;">📊 Sheets</a>
     <button onclick="cikis()" class="cikis-btn">Çıkış</button>
     <div class="canli">
       <span class="nokta"></span>
@@ -646,8 +645,6 @@ function loginGizle() {
   // kendi randevularını görür (gorRunumRandevular/gorRunumBerberler filtreler).
   // Yalnızca "Tüm Günü Aç" admin yetkisi ister.
   document.getElementById("tumGunuAcBtn").style.display = isAdmin ? "" : "none";
-  if (isAdmin) sheetsButonuYukle();
-  else document.getElementById("sheetsBtn").style.display = "none";
   // iOS Safari'de Notification API olmayabilir — yoksa atla (yoksa baslat() çalışmaz!)
   try {
     if (typeof Notification !== "undefined" && Notification.permission === "default") {
@@ -736,16 +733,6 @@ async function authFetch(url, opts = {}) {
   const res = await fetch(url, opts);
   if (res.status === 401) { cikis(); throw new Error("Oturum süresi doldu."); }
   return res;
-}
-
-async function sheetsButonuYukle() {
-  const btn = document.getElementById("sheetsBtn");
-  try {
-    const res = await authFetch("/api/sheets/baglanti");
-    if (!res.ok) return;
-    const { url } = await res.json();
-    if (url) { btn.href = url; btn.style.display = ""; }
-  } catch {}
 }
 
 async function configCek() {

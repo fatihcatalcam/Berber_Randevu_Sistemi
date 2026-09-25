@@ -59,6 +59,11 @@
   }
   header h1 { font-size: 17px; font-weight: 700; }
   header a { color: #fff; opacity: .9; font-size: 13px; font-weight: 600; text-decoration: none; }
+  .header-sag { display: flex; align-items: center; gap: 14px; }
+  #sheetsBtn {
+    display: none; padding: 7px 12px; border: 1px solid rgba(255,255,255,.4); border-radius: 8px;
+    background: rgba(255,255,255,.12); opacity: 1;
+  }
 
   .wrap { max-width: 900px; margin: 0 auto; padding: 16px 12px; }
   .kart { background: var(--kart); border-radius: 12px; border: 1px solid var(--cizgi); box-shadow: 0 1px 4px rgba(0,0,0,.06); overflow: hidden; margin-bottom: 14px; }
@@ -107,7 +112,10 @@
 <div id="icerik" style="display:none;">
   <header>
     <h1>💰 Ciro</h1>
-    <a href="/dashboard">‹ Panele dön</a>
+    <div class="header-sag">
+      <a id="sheetsBtn" href="#" target="_blank" rel="noopener">📊 Sheets</a>
+      <a href="/dashboard">‹ Panele dön</a>
+    </div>
   </header>
 
   <div class="wrap">
@@ -195,6 +203,7 @@ async function girisYap() {
     document.getElementById("loginEkrani").style.display = "none";
     document.getElementById("icerik").style.display = "block";
     await veriYukle();
+    sheetsButonuYukle();
   } catch (e) {
     hataEl.textContent = "Sunucu hatası.";
   }
@@ -214,8 +223,18 @@ async function veriYukle() {
     ciroRender();
   } catch (e) {
     document.getElementById("ciroGovde").innerHTML =
-      `<tr><td colspan="3" class="yukleniyor">⚠️ Veriler alınamadı (${(e && e.message) || e}). Sayfayı yenileyin.</td></tr>`;
+      `<tr><td colspan="4" class="yukleniyor">⚠️ Veriler alınamadı (${(e && e.message) || e}). Sayfayı yenileyin.</td></tr>`;
   }
+}
+
+async function sheetsButonuYukle() {
+  const btn = document.getElementById("sheetsBtn");
+  try {
+    const res = await fetch("/api/sheets/baglanti", { headers: { Authorization: "Bearer " + token } });
+    if (!res.ok) return;
+    const { url } = await res.json();
+    if (url) { btn.href = url; btn.style.display = "inline-block"; }
+  } catch {}
 }
 
 function gunDegistir(delta) {
