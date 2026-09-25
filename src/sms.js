@@ -57,4 +57,11 @@ async function randevuTasindiSms(randevu, tarihStr) {
   );
 }
 
-module.exports = { otpGonder, randevuIptalSms, randevuTasindiSms };
+async function randevuHatirlatmaSms(randevu, tarihStr) {
+  return gonder(
+    randevu.telefon,
+    `Resul Tabu Saç Atölyesi: ${tarihStr} saat ${randevu.saat}'de randevunuz var, sizi bekliyoruz! 🙏`
+  );
+}
+
+module.exports = { otpGonder, randevuIptalSms, randevuTasindiSms, randevuHatirlatmaSms };

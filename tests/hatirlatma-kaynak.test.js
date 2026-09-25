@@ -9,6 +9,7 @@ const Module = require("module");
 // ---------------------------------------------------------------------------
 const whatsappCagrilari = [];
 const epostaCagrilari = [];
+const smsHatirlatmaCagrilari = [];
 let hatirlatilacaklar = [];
 const markHatirlatildiCagrilari = [];
 let dbSorguSayisi = 0; // getHatirlatilacaklar kac kez DB'ye gitti
@@ -25,7 +26,12 @@ Module._load = function (req) {
   if (req.endsWith("sheets")) {
     return { syncRandevu: async () => {}, musteriKaydet: async () => {}, updateRandevuDurum: async () => {}, isEnabled: () => false, aylikOzetYaz: async () => {} };
   }
-  if (req === "./sms" || req.endsWith("/sms")) return { otpGonder: async () => ({ hata: false }) };
+  if (req === "./sms" || req.endsWith("/sms")) {
+    return {
+      otpGonder: async () => ({ hata: false }),
+      randevuHatirlatmaSms: async (r) => { smsHatirlatmaCagrilari.push(r); return { hata: false }; },
+    };
+  }
   if (req === "./email" || req.endsWith("/email")) {
     return {
       randevuAlindiMaili: async () => null,
@@ -59,7 +65,7 @@ function otuzDkSonra() {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-test("hatirlatmaKontrol: kaynak=web icin eposta, whatsapp cagrilmaz", async (t) => {
+test("hatirlatmaKontrol: kaynak=web icin SMS (+eposta), whatsapp cagrilmaz", async (t) => {
   process.env.PORT = "3203";
   delete require.cache[require.resolve("../src/index")];
   const { server, hatirlatmaKontrol } = require("../src/index");
@@ -67,11 +73,13 @@ test("hatirlatmaKontrol: kaynak=web icin eposta, whatsapp cagrilmaz", async (t) 
   await new Promise((r) => setTimeout(r, 400));
 
   whatsappCagrilari.length = 0; epostaCagrilari.length = 0; markHatirlatildiCagrilari.length = 0;
+  smsHatirlatmaCagrilari.length = 0;
   hatirlatilacaklar = [{ id: "r1", kaynak: "web", saat: otuzDkSonra(), berber: "Resul Tabu", hizmet: "Saç Kesimi", telefon: "905550001111", email: "test@example.com" }];
 
   await hatirlatmaKontrol();
 
-  assert.strictEqual(epostaCagrilari.length, 1, "eposta modulu cagrilmali");
+  assert.strictEqual(smsHatirlatmaCagrilari.length, 1, "sms.randevuHatirlatmaSms cagrilmali");
+  assert.strictEqual(epostaCagrilari.length, 1, "eposta modulu de (ek kanal) cagrilmali");
   assert.strictEqual(whatsappCagrilari.length, 0, "whatsapp cagrilmamali");
   assert.deepStrictEqual(markHatirlatildiCagrilari, ["r1"]);
 });

@@ -854,8 +854,10 @@ async function hatirlatmaKontrol() {
       if (kalan > 0 && kalan <= 60) {
         let sonuc;
         if (r.kaynak === "web") {
-          // Web'den gelen müşteri hiç WhatsApp açmadı — e-posta ile hatırlat
-          sonuc = await eposta.randevuHatirlatmaMaili(r, gunLabel);
+          // Web'den gelen müşteri hiç WhatsApp açmadı — SMS ile hatırlat,
+          // e-posta ek/yedek kanal (varsa email alanı, best-effort).
+          eposta.randevuHatirlatmaMaili(r, gunLabel).catch(() => {});
+          sonuc = await sms.randevuHatirlatmaSms(r, gunLabel);
         } else {
           sonuc = await sendText(
             r.telefon,
