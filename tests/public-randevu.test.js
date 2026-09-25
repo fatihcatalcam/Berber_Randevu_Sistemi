@@ -13,6 +13,7 @@ const Module = require("module");
 // ---------------------------------------------------------------------------
 process.env.NETGSM_USERCODE = "test-user";
 process.env.OTP_AKTIF = "true";
+process.env.RANDEVU_ACILIS_TARIHI = "2020-01-01T00:00:00+03:00"; // lansman kapisini testte devre disi birak
 
 const otpKayitlari = [];
 const smsGonderilenler = [];

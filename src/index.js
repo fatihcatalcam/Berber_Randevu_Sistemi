@@ -41,6 +41,10 @@ const TEMPLATE_HATIRLATMA = process.env.TEMPLATE_HATIRLATMA;
 const tokens = new Map(); // token -> { role, berberId, ad, olusturulma }
 const TOKEN_OMUR_MS = 24 * 60 * 60 * 1000; // 24 saat — berberler her gün PIN girmesin
 
+// Geçici lansman kapısı — production'a geçmeden önce web'den randevu alınmasın.
+// Pazartesi 09:00'dan sonra bu kontrol kendiliğinden devre dışı kalır.
+const RANDEVU_ACILIS = new Date(process.env.RANDEVU_ACILIS_TARIHI || "2026-09-28T09:00:00+03:00");
+
 function tokenUret(bilgi) {
   const token = crypto.randomBytes(32).toString("hex");
   tokens.set(token, { ...bilgi, olusturulma: Date.now() });
@@ -367,6 +371,9 @@ app.get("/api/public/musait-saatler", ah(async (req, res) => {
 
 // Doğrulanmış telefonla randevu oluştur — "bekliyor" durumunda kaydedilir
 app.post("/api/public/randevu", ah(async (req, res) => {
+  if (Date.now() < RANDEVU_ACILIS.getTime())
+    return res.status(423).json({ hata: "Online randevu sistemi henüz açılmadı. 28 Eylül Pazartesi saat 09:00'dan itibaren aktif olacak." });
+
   const { dogrulamaToken, ad, telefon: gelenTelefon, email: musteriEmail, berberId, hizmetId, tarih, saat } = req.body;
 
   let telefon;

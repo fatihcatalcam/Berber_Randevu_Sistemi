@@ -261,6 +261,15 @@
 
 <div class="kapsayici">
 
+  <!-- Yakında açılıyor (randevu almaya kapalı dönem) -->
+  <div class="kart gizli" id="adimYakinda">
+    <div class="basari">
+      <div class="ikon">🗓️</div>
+      <h2>Yakında Açılıyor!</h2>
+      <p>Online randevu sistemimiz <strong>28 Eylül Pazartesi saat 09:00</strong>'dan itibaren hizmetinizde olacak. O saatten sonra tekrar uğrayın.</p>
+    </div>
+  </div>
+
   <!-- Adım 1: Usta -->
   <div class="kart" id="adimBerber">
     <p class="adim-baslik">1 / 5 — Usta Seçin</p>
@@ -383,6 +392,10 @@ let geriSayimTimer = null;
 let OTP_AKTIF = false;
 
 const ADIM_SIRASI = ["adimBerber", "adimHizmet", "adimTarih", "adimSaat", "adimBilgi"];
+
+// Geçici lansman kapısı — production'a geçmeden önce web'den randevu alınmasın.
+// Pazartesi 09:00'dan sonra bu blok kendiliğinden devre dışı kalır (tarih geçince).
+const RANDEVU_ACILIS = new Date("2026-09-28T09:00:00+03:00");
 
 function kacis(s) {
   const d = document.createElement("div");
@@ -846,7 +859,12 @@ async function randevuOlustur() {
   }, { passive: true });
 })();
 
-baslat();
+if (Date.now() < RANDEVU_ACILIS.getTime()) {
+  document.querySelector(".iptal-link").style.display = "none";
+  adimGoster("adimYakinda");
+} else {
+  baslat();
+}
 </script>
 </body>
 </html>

@@ -9,6 +9,7 @@ const Module = require("module");
 // Ayni suredeki OTP AÇIK senaryosu icin tests/public-randevu.test.js'e bak.
 // ---------------------------------------------------------------------------
 delete process.env.OTP_AKTIF; // her ihtimale karsi baska testten kalmis olmasin
+process.env.RANDEVU_ACILIS_TARIHI = "2020-01-01T00:00:00+03:00"; // lansman kapisini testte devre disi birak
 
 const store = [];
 
