@@ -67,7 +67,8 @@ test("musait-saatler: Resul icin dolu slotlar cikarilir, yemek arasi hic gorunme
   assert.ok(!res.body.saatler.includes("09:30"), "dolu slot listede olmamali");
   assert.ok(!res.body.saatler.includes("10:00"), "dolu slot listede olmamali");
   assert.ok(!res.body.saatler.includes("14:00"), "yemek arasi (14:00-16:00) hic gorunmemeli");
-  assert.ok(!res.body.saatler.includes("20:00"), "mesai sonrasi (20:00) gorunmemeli");
+  assert.ok(res.body.saatler.includes("20:00"), "son randevu 20:00 gorunmeli");
+  assert.ok(!res.body.saatler.includes("20:30"), "mesai sonrasi (20:30) gorunmemeli");
 });
 
 test("musait-saatler: gecersiz berber icin 400 doner", async (t) => {

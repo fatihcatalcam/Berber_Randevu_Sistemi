@@ -13,7 +13,7 @@ function tarihGunu(hedefGun) {
 const PAZARTESI = tarihGunu(1);
 const SALI      = tarihGunu(2);
 
-test("Resul: 09:00-20:00, 30dk, yemek 14:00-16:00 kapali", () => {
+test("Resul: 09:00 baslar, son randevu 20:00 (bitis 20:30), yemek 14:00-16:00 kapali", () => {
   const s = berberCalismaSaatleri("resul", PAZARTESI);
   assert.strictEqual(s[0], "09:00", "09:00'da baslamali");
   assert.ok(s.includes("13:30"), "13:30 acik olmali");
@@ -22,9 +22,9 @@ test("Resul: 09:00-20:00, 30dk, yemek 14:00-16:00 kapali", () => {
     assert.ok(!s.includes(y), `${y} yemek arasinda kapali olmali`);
   }
   assert.ok(s.includes("16:00"), "16:00 yemek sonrasi acik olmali");
-  // Son slot 19:30 (bitis 20:00, 30dk sigar); 20:00 kendisi olmaz
-  assert.strictEqual(s[s.length - 1], "19:30", "son slot 19:30 olmali");
-  assert.ok(!s.includes("20:00"));
+  // Son slot 20:00 (bitis 20:30, 30dk sigar); 20:30 kendisi olmaz
+  assert.strictEqual(s[s.length - 1], "20:00", "son slot 20:00 olmali");
+  assert.ok(!s.includes("20:30"));
 });
 
 test("Mehmet: 09:30 baslar (15dk kaymis izgara), yemek 16:15 kapali", () => {
