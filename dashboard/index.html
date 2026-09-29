@@ -84,6 +84,16 @@
   .modal-btn-yesil   { background: #d1fae5; color: #065f46; }
   .modal-btn-kirmizi { background: #fee2e2; color: #991b1b; }
   .modal-btn-gri     { background: #f3f4f6; color: var(--metin); }
+  #sabitModal .modal-kart { max-height: 90vh; overflow-y: auto; }
+  .sabit-etiket { font-size: 12px; font-weight: 700; color: var(--soluk); display: block; margin-bottom: 4px; }
+  .sabit-alan {
+    width: 100%; padding: 10px; border: 1px solid var(--cizgi); border-radius: 8px;
+    font-size: 14px; outline: none; min-height: 44px; background: #fff;
+  }
+  .sabit-satir {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 10px 12px; background: #f9fafb; border-radius: 10px; font-size: 13.5px;
+  }
 
   /* --- Context menu (desktop) --- */
   #contextMenu {
@@ -306,6 +316,7 @@
   <h1 style="margin:0;"><img src="logo.jpg" alt="Resul Tabu Saç Atölyesi" style="height:46px;display:block;background:#fff;padding:4px 12px;border-radius:10px;" /></h1>
   <div class="header-sag">
     <span id="kullaniciBilgi"></span>
+    <button onclick="sabitGoster()" class="cikis-btn">📌 Sabit Müşteriler</button>
     <button onclick="cikis()" class="cikis-btn">Çıkış</button>
     <div class="canli">
       <span class="nokta"></span>
@@ -400,6 +411,35 @@
 
   <footer id="footer">Yükleniyor...</footer>
 </div>
+</div>
+
+<!-- ========== SABİT MÜŞTERİLER MODAL ========== -->
+<div id="sabitModal" class="modal-overlay" style="display:none;">
+  <div class="modal-kart">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h3 style="font-size:16px;font-weight:700;">📌 Sabit Müşteriler</h3>
+      <button onclick="sabitKapat()" style="border:none;background:none;font-size:28px;cursor:pointer;color:var(--soluk);min-width:44px;min-height:44px;">×</button>
+    </div>
+    <p style="font-size:12.5px;color:var(--soluk);margin-bottom:10px;">Her hafta aynı gün ve saatte gelen müşteriler. Önümüzdeki 8 hafta otomatik randevu olarak eklenir.</p>
+    <div id="sabitListe" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;"></div>
+
+    <div style="border-top:1px solid var(--cizgi);padding-top:12px;display:flex;flex-direction:column;gap:10px;">
+      <strong style="font-size:13px;">Yeni sabit müşteri</strong>
+      <div id="sabitBerberWrap">
+        <label class="sabit-etiket">Berber</label>
+        <select id="sabitBerber" class="sabit-alan" onchange="sabitSaatDoldur();sabitFiyatGuncelle()"></select>
+      </div>
+      <div><label class="sabit-etiket">Ad Soyad *</label><input id="sabitAd" class="sabit-alan" type="text" placeholder="Müşteri adı"></div>
+      <div><label class="sabit-etiket">Telefon</label><input id="sabitTelefon" class="sabit-alan" type="tel" placeholder="905XXXXXXXXX (hatırlatma SMS'i için)"></div>
+      <div><label class="sabit-etiket">Hizmet</label><select id="sabitHizmet" class="sabit-alan" onchange="sabitFiyatGuncelle()"></select></div>
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;"><label class="sabit-etiket">Gün</label><select id="sabitGun" class="sabit-alan" onchange="sabitSaatDoldur()"></select></div>
+        <div style="flex:1;"><label class="sabit-etiket">Saat</label><select id="sabitSaat" class="sabit-alan"></select></div>
+      </div>
+      <div><label class="sabit-etiket">Ücret (₺)</label><input id="sabitFiyat" class="sabit-alan" type="number" inputmode="numeric" min="0"></div>
+      <button onclick="sabitKaydet()" class="modal-btn modal-btn-yesil">Kaydet</button>
+    </div>
+  </div>
 </div>
 
 <!-- ========== RANDEVU MODAL ========== -->
@@ -1118,7 +1158,7 @@ function cizelgeRender() {
             `<div style="letter-spacing:.02em;">↕ ${r._slotIdx + 1}/${r.kisiSayisi}</div>` +
             `<div style="font-size:10px;opacity:.8;">${kacis(r.ad)}</div></td>`;
         } else {
-          let etiket = r.ad;
+          let etiket = (r.sabitId ? "📌 " : "") + r.ad;
           if (r.durum === "iptal") etiket += ` — İPTAL (${r.iptalEden === "musteri" ? "müşteri" : "berber"})`;
           else if (r.kisiSayisi > 1) etiket += ` (${r.kisiSayisi} kişi)`;
           const fiyatGoster = r.gercekFiyat !== undefined ? `${r.gercekFiyat}₺ ✏️` : `${r.fiyat}₺`;
@@ -1391,6 +1431,129 @@ async function elleRandevuKaydet() {
     await veriCek();
   } catch { alert("Sunucuya bağlanılamadı."); }
 }
+
+// ============================================================
+// Sabit (haftalık) müşteriler
+// ============================================================
+const GUN_ADLARI = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+
+function sonrakiGunTarihi(gun) {
+  const d = new Date();
+  while (d.getDay() !== gun) d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+async function sabitGoster() {
+  const isAdmin = auth.role === "admin";
+  const berberSel = document.getElementById("sabitBerber");
+  const liste = isAdmin ? BERBERLER : BERBERLER.filter(b => b.id === auth.berberId);
+  berberSel.innerHTML = liste.map(b => `<option value="${b.id}">${kacis(b.ad)}</option>`).join("");
+  if (auth.berberId) berberSel.value = auth.berberId;
+  document.getElementById("sabitBerberWrap").style.display = isAdmin ? "" : "none";
+  document.getElementById("sabitHizmet").innerHTML = HIZMETLER.map(h => `<option value="${h.id}">${kacis(h.ad)}</option>`).join("");
+  document.getElementById("sabitGun").innerHTML = [1, 2, 3, 4, 5, 6].map(g => `<option value="${g}">${GUN_ADLARI[g]}</option>`).join("");
+  document.getElementById("sabitAd").value = "";
+  document.getElementById("sabitTelefon").value = "";
+  sabitSaatDoldur();
+  sabitFiyatGuncelle();
+  document.getElementById("sabitModal").style.display = "flex";
+  await sabitListeYukle();
+}
+
+function sabitKapat() { document.getElementById("sabitModal").style.display = "none"; }
+
+// Sabit randevu tek bir güne değil haftanın gününe bağlı — o güne özel açılmış
+// yemek saatleri değil, berberin normal mesai slotları listelenir (sunucuyla aynı kural).
+function sabitSaatDoldur() {
+  const berberId = document.getElementById("sabitBerber").value;
+  const gun = Number(document.getElementById("sabitGun").value);
+  const saatler = berberGunSlotlari(berberId, sonrakiGunTarihi(gun)).filter(x => !x.yemek).map(x => x.saat);
+  document.getElementById("sabitSaat").innerHTML = saatler.map(s => `<option value="${s}">${s}</option>`).join("");
+}
+
+function sabitFiyatGuncelle() {
+  const b = BERBERLER.find(x => x.id === document.getElementById("sabitBerber").value);
+  const hizmetId = document.getElementById("sabitHizmet").value;
+  document.getElementById("sabitFiyat").value = b && b.fiyat ? b.fiyat[hizmetId] ?? "" : "";
+}
+
+async function sabitListeYukle() {
+  const kutu = document.getElementById("sabitListe");
+  kutu.innerHTML = '<div style="font-size:13px;color:var(--soluk);">Yükleniyor…</div>';
+  try {
+    const res = await authFetch("/api/sabit");
+    if (!res.ok) throw new Error();
+    const kurallar = await res.json();
+    if (!kurallar.length) {
+      kutu.innerHTML = '<div style="font-size:13px;color:var(--soluk);">Henüz sabit müşteri yok.</div>';
+      return;
+    }
+    const isAdmin = auth.role === "admin";
+    kutu.innerHTML = kurallar.map(k => {
+      const hizmet = (HIZMETLER.find(h => h.id === k.hizmetId) || {}).ad || k.hizmetId;
+      const berber = (BERBERLER.find(b => b.id === k.berberId) || {}).ad || k.berberId;
+      return `<div class="sabit-satir">
+        <div>
+          <strong>${kacis(k.ad)}</strong><br>
+          <span style="color:var(--soluk);">Her ${GUN_ADLARI[k.gun]} ${k.saat} · ${kacis(hizmet)}${isAdmin ? " · " + kacis(berber) : ""}</span>
+        </div>
+        <button class="modal-btn modal-btn-kirmizi" style="min-height:36px;padding:6px 12px;font-size:13px;" onclick="sabitDurdur(${k.id}, '${kacis(k.ad).replace(/'/g, "&#39;")}')">Durdur</button>
+      </div>`;
+    }).join("");
+  } catch {
+    kutu.innerHTML = '<div style="font-size:13px;color:#991b1b;">Liste alınamadı.</div>';
+  }
+}
+
+async function sabitKaydet() {
+  const ad = document.getElementById("sabitAd").value.trim();
+  const saat = document.getElementById("sabitSaat").value;
+  const fiyat = parseInt(document.getElementById("sabitFiyat").value, 10);
+  if (!ad) { alert("Ad soyad zorunlu."); return; }
+  if (!saat) { alert("Bu gün için uygun saat yok."); return; }
+  try {
+    const res = await authFetch("/api/sabit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        berberId: document.getElementById("sabitBerber").value,
+        ad,
+        telefon: document.getElementById("sabitTelefon").value.trim(),
+        hizmetId: document.getElementById("sabitHizmet").value,
+        gun: Number(document.getElementById("sabitGun").value),
+        saat,
+        fiyat: isNaN(fiyat) ? undefined : fiyat,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.hata || "Hata oluştu."); return; }
+    let mesaj = `${data.olusturulan.length} randevu oluşturuldu.`;
+    if (data.atlanan.length) {
+      const gunler = data.atlanan.map(t => new Date(t + "T00:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long" }));
+      mesaj += `\n\nŞu tarihler dolu olduğu için atlandı: ${gunler.join(", ")}`;
+    }
+    alert(mesaj);
+    document.getElementById("sabitAd").value = "";
+    document.getElementById("sabitTelefon").value = "";
+    await sabitListeYukle();
+    await veriCek();
+  } catch { alert("Sunucuya bağlanılamadı."); }
+}
+
+async function sabitDurdur(id, ad) {
+  if (!confirm(`${ad} için sabit randevu durdurulsun mu?\n\nBugünden sonraki tüm randevuları silinir.`)) return;
+  try {
+    const res = await authFetch(`/api/sabit/${id}/durdur`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) { alert(data.hata || "Hata oluştu."); return; }
+    await sabitListeYukle();
+    await veriCek();
+  } catch { alert("Sunucuya bağlanılamadı."); }
+}
+
+document.getElementById("sabitModal").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) sabitKapat();
+});
 
 async function modalDurumDegistir(durum) {
   if (!modalRandevuId) return;

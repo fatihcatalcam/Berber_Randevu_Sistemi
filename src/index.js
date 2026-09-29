@@ -15,7 +15,12 @@ const { BERBERLER, HIZMETLER, SAATLER, SAATLER_45, ADMIN_PIN, berberCalismaSaatl
 const sheets = require("./sheets");
 const sms = require("./sms");
 const eposta = require("./email");
-const { slotGectiMi, acikSaatleriGetir } = require("./randevu-yardimci");
+const { slotGectiMi, acikSaatleriGetir, bugunStr, gunEkle, sabitTarihleri } = require("./randevu-yardimci");
+
+// Web'den gelen ve sabit (haftalık) müşteriler WhatsApp kullanmıyor — SMS/e-posta ile bildirilir.
+function smsMusterisi(r) {
+  return r.kaynak === "web" || r.kaynak === "sabit";
+}
 
 const app = express();
 // Render ters proxy arkasında gerçek istemci IP'si (req.ip) için
@@ -551,7 +556,7 @@ app.post("/api/randevular", requireAuth, ah(async (req, res) => {
 // whatsapp için mevcut sendText akışı. Hem admin panelinden hem müşterinin
 // kendi randevusunu iptal ettiği self-servis uçtan ortak kullanılır.
 function iptalBildir(kayit, tarihStr) {
-  if (kayit.kaynak === "web") {
+  if (smsMusterisi(kayit)) {
     return sms.randevuIptalSms(kayit, tarihStr);
   }
   return sendText(
@@ -584,7 +589,7 @@ app.post("/api/randevular/:id/durum", requireAuth, ah(async (req, res) => {
     weekday: "long", day: "numeric", month: "long",
   });
 
-  const webden = kayit.kaynak === "web";
+  const webden = smsMusterisi(kayit);
 
   if (durum === "onaylı") {
     if (webden) {
@@ -612,6 +617,96 @@ app.delete("/api/randevular/:id", requireAuth, ah(async (req, res) => {
   await db.deleteRandevu(id);
   res.json({ ok: true });
 }));
+
+// ---------------------------------------------------------------------------
+// Sabit (haftalık) müşteriler — kural bir kez tanımlanır, önümüzdeki 8 hafta
+// gerçek randevu olarak üretilir, günlük iş ufku ileri taşır.
+// ---------------------------------------------------------------------------
+async function sabitUret(kural) {
+  const berber = BERBERLER.find((b) => b.id === kural.berberId);
+  const hizmet = HIZMETLER.find((h) => h.id === kural.hizmetId);
+  if (!berber || !hizmet) return { olusturulan: [], atlanan: [] };
+
+  const { tarihler, bitis } = sabitTarihleri(kural);
+  const olusturulan = [], atlanan = [];
+  for (const tarih of tarihler) {
+    if (slotGectiMi(tarih, kural.saat)) { atlanan.push(tarih); continue; }
+    const dolu = await db.getBusySlots(kural.berberId, tarih);
+    if (dolu.includes(kural.saat)) { atlanan.push(tarih); continue; }
+    try {
+      const kayit = await db.add({
+        ad: kural.ad, telefon: kural.telefon || "",
+        berberId: berber.id, berber: berber.ad,
+        hizmetId: hizmet.id, hizmet: hizmet.ad,
+        tarih, saat: kural.saat,
+        fiyat: kural.fiyat ?? berber.fiyat[hizmet.id],
+        durum: "onaylı", kaynak: "sabit", sabitId: kural.id,
+      });
+      olusturulan.push(tarih);
+      sheets.syncRandevu(kayit).catch(() => {});
+    } catch (e) {
+      if (e.code !== "SLOT_DOLU") throw e;
+      atlanan.push(tarih);
+    }
+  }
+  await db.sabitSonUretilenGuncelle(kural.id, bitis);
+  return { olusturulan, atlanan };
+}
+
+app.get("/api/sabit", requireAuth, ah(async (req, res) => {
+  const berberId = req.auth.role === "admin" ? null : req.auth.berberId;
+  res.json(await db.sabitListe(berberId));
+}));
+
+app.post("/api/sabit", requireAuth, ah(async (req, res) => {
+  const { ad, telefon, hizmetId, saat, fiyat } = req.body;
+  const gun = Number(req.body.gun);
+  // Berber sadece kendi adına ekleyebilir; admin başka berber seçebilir
+  const berberId = req.auth.role === "admin" ? (req.body.berberId || req.auth.berberId) : req.auth.berberId;
+  const berber = BERBERLER.find((b) => b.id === berberId);
+  const hizmet = HIZMETLER.find((h) => h.id === hizmetId);
+
+  if (!ad || !String(ad).trim() || !saat) return res.status(400).json({ hata: "Eksik parametre." });
+  if (!berber || !hizmet) return res.status(400).json({ hata: "Geçersiz berber veya hizmet." });
+  if (!Number.isInteger(gun) || gun < 1 || gun > 6) return res.status(400).json({ hata: "Gün Pazartesi–Cumartesi arası olmalı." });
+
+  const baslangic = /^\d{4}-\d{2}-\d{2}$/.test(req.body.baslangic || "") ? req.body.baslangic : bugunStr();
+  let ilkTarih = baslangic;
+  while (new Date(ilkTarih + "T00:00:00").getDay() !== gun) ilkTarih = gunEkle(ilkTarih, 1);
+  if (!berberCalismaSaatleri(berberId, ilkTarih).includes(saat))
+    return res.status(400).json({ hata: "Seçilen saat bu berberin çalışma saatleri dışında." });
+
+  const kural = await db.sabitEkle({
+    berberId, ad: String(ad).trim(), telefon: telefon || "", hizmetId, gun, saat,
+    fiyat: typeof fiyat === "number" ? fiyat : undefined, baslangic,
+  });
+  const sonuc = await sabitUret(kural);
+  res.status(201).json({ kural, ...sonuc });
+}));
+
+app.post("/api/sabit/:id/durdur", requireAuth, ah(async (req, res) => {
+  const kural = await db.sabitGetir(req.params.id);
+  if (!kural || !kural.aktif) return res.status(404).json({ hata: "Kural bulunamadı." });
+  if (req.auth.role !== "admin" && kural.berberId !== req.auth.berberId)
+    return res.status(403).json({ hata: "Bu kural size ait değil." });
+  const silinen = await db.sabitDurdur(kural.id, bugunStr());
+  res.json({ ok: true, silinen });
+}));
+
+// Günde bir kez DB'ye gider (Neon'u gereksiz uyandırmamak için gün değişimini bellekte takip eder)
+let sonSabitGunu = null;
+async function sabitGunluk() {
+  const bugun = bugunStr();
+  if (bugun === sonSabitGunu) return;
+  try {
+    for (const kural of await db.sabitListe()) await sabitUret(kural);
+    sonSabitGunu = bugun;
+  } catch (e) {
+    console.error("Sabit randevu üretim hatası:", e.message);
+  }
+}
+setTimeout(sabitGunluk, 25000).unref();
+setInterval(sabitGunluk, 60 * 60 * 1000).unref();
 
 // ---------------------------------------------------------------------------
 // 7) Randevu fiyatı düzenle
@@ -657,7 +752,7 @@ app.patch("/api/randevular/:id/tasi", requireAuth, ah(async (req, res) => {
   const tarihStr = new Date(tarih + "T00:00:00").toLocaleDateString("tr-TR", {
     weekday: "long", day: "numeric", month: "long",
   });
-  if (guncellenen.kaynak === "web") {
+  if (smsMusterisi(guncellenen)) {
     eposta.randevuTasindiMaili(guncellenen, tarihStr).catch(() => {});
     sms.randevuTasindiSms(guncellenen, tarihStr).catch(() => {});
   } else {
@@ -858,8 +953,8 @@ async function hatirlatmaKontrol() {
       const kalan = saatToDk(r.saat) - simdiDk;
       if (kalan > 0 && kalan <= 60) {
         let sonuc;
-        if (r.kaynak === "web") {
-          // Web'den gelen müşteri hiç WhatsApp açmadı — SMS ile hatırlat,
+        if (smsMusterisi(r)) {
+          // Web/sabit müşteri WhatsApp kullanmıyor — SMS ile hatırlat,
           // e-posta ek/yedek kanal (varsa email alanı, best-effort).
           eposta.randevuHatirlatmaMaili(r, gunLabel).catch(() => {});
           sonuc = await sms.randevuHatirlatmaSms(r, gunLabel);
@@ -987,4 +1082,4 @@ const GIZLILIK_HTML = `<!DOCTYPE html>
 </body>
 </html>`;
 
-module.exports = { app, server, hatirlatmaKontrol };
+module.exports = { app, server, hatirlatmaKontrol, sabitUret };

@@ -84,6 +84,24 @@ test("hatirlatmaKontrol: kaynak=web icin SMS (+eposta), whatsapp cagrilmaz", asy
   assert.deepStrictEqual(markHatirlatildiCagrilari, ["r1"]);
 });
 
+test("hatirlatmaKontrol: kaynak=sabit (haftalik musteri) icin de SMS, whatsapp cagrilmaz", async (t) => {
+  process.env.PORT = "3203";
+  delete require.cache[require.resolve("../src/index")];
+  const { server, hatirlatmaKontrol } = require("../src/index");
+  t.after(() => new Promise((r) => server.close(r)));
+  await new Promise((r) => setTimeout(r, 400));
+
+  whatsappCagrilari.length = 0; smsHatirlatmaCagrilari.length = 0; markHatirlatildiCagrilari.length = 0;
+  surumNo++;
+  hatirlatilacaklar = [{ id: "s1", kaynak: "sabit", saat: otuzDkSonra(), berber: "Eren Tokalak", hizmet: "Saç Kesimi", telefon: "905550004444" }];
+
+  await hatirlatmaKontrol();
+
+  assert.strictEqual(smsHatirlatmaCagrilari.length, 1);
+  assert.strictEqual(whatsappCagrilari.length, 0);
+  assert.deepStrictEqual(markHatirlatildiCagrilari, ["s1"]);
+});
+
 test("hatirlatmaKontrol: kaynak=whatsapp icin WhatsApp, eposta cagrilmaz", async (t) => {
   process.env.PORT = "3203";
   delete require.cache[require.resolve("../src/index")];

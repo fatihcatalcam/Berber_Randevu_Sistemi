@@ -101,6 +101,25 @@ async function init() {
   // Randevu kaynağı: 'whatsapp' (bot) veya 'web' (site formu). Mevcut kayıtlar
   // whatsapp'tan geldiği için default doğru davranışı otomatik verir.
   await pool.query(`ALTER TABLE randevular ADD COLUMN IF NOT EXISTS kaynak TEXT DEFAULT 'whatsapp'`);
+  // Haftalık sabit müşteri kuralından üretilen randevunun kural id'si
+  await pool.query(`ALTER TABLE randevular ADD COLUMN IF NOT EXISTS sabit_id BIGINT`);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sabit_randevular (
+      id           BIGSERIAL PRIMARY KEY,
+      berber_id    TEXT NOT NULL,
+      ad           TEXT NOT NULL,
+      telefon      TEXT,
+      hizmet_id    TEXT NOT NULL,
+      gun          INTEGER NOT NULL,
+      saat         TEXT NOT NULL,
+      fiyat        INTEGER,
+      baslangic    TEXT NOT NULL,
+      son_uretilen TEXT,
+      aktif        BOOLEAN NOT NULL DEFAULT true,
+      olusturulma  BIGINT
+    )
+  `);
 
   // Web sitesi telefon doğrulama (OTP) kodları — spam/sahte randevu önleme
   await pool.query(`
@@ -174,6 +193,7 @@ function rowToRandevu(row) {
     aciklama:    row.aciklama      ?? undefined,
     email:       row.email         ?? undefined,
     kaynak:      row.kaynak        ?? "whatsapp",
+    sabitId:     row.sabit_id != null ? Number(row.sabit_id) : undefined,
     olusturulma: Number(row.olusturulma),
   };
 }
@@ -228,8 +248,16 @@ async function getMusteriGecmisi(telefon, ad) {
   return res.rows.map(rowToRandevu);
 }
 
+// Döngüde aynı milisaniyede eklenen satırlar aynı id'yi alıp PK ihlaline
+// (yanlışlıkla "slot dolu" hatasına) düşmesin diye id her zaman artar.
+let sonId = 0;
+function yeniId() {
+  sonId = Math.max(Date.now(), sonId + 1);
+  return String(sonId);
+}
+
 async function add(randevu) {
-  const id          = Date.now().toString();
+  const id          = yeniId();
   const olusturulma = Date.now();
   const durum       = randevu.durum || "bekliyor";
   const kaynak      = randevu.kaynak || "whatsapp";
@@ -237,8 +265,8 @@ async function add(randevu) {
     await pool.query(
       `INSERT INTO randevular
          (id, ad, telefon, berber_id, berber, hizmet_id, hizmet,
-          tarih, saat, fiyat, durum, kisi_sayisi, kisiler, olusturulma, email, kaynak)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+          tarih, saat, fiyat, durum, kisi_sayisi, kisiler, olusturulma, email, kaynak, sabit_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
       [
         id, randevu.ad, randevu.telefon,
         randevu.berberId, randevu.berber,
@@ -250,6 +278,7 @@ async function add(randevu) {
         olusturulma,
         randevu.email || null,
         kaynak,
+        randevu.sabitId || null,
       ]
     );
   } catch (e) {
@@ -258,6 +287,59 @@ async function add(randevu) {
   }
   degisti();
   return { ...randevu, id, olusturulma, durum, kaynak };
+}
+
+// ---------------------------------------------------------------------------
+// Haftalık sabit müşteri kuralları
+// ---------------------------------------------------------------------------
+function rowToSabit(row) {
+  return {
+    id:          Number(row.id),
+    berberId:    row.berber_id,
+    ad:          row.ad,
+    telefon:     row.telefon || "",
+    hizmetId:    row.hizmet_id,
+    gun:         row.gun,
+    saat:        row.saat,
+    fiyat:       row.fiyat ?? undefined,
+    baslangic:   row.baslangic,
+    son_uretilen: row.son_uretilen || null,
+    aktif:       row.aktif,
+  };
+}
+
+async function sabitEkle(k) {
+  const res = await pool.query(
+    `INSERT INTO sabit_randevular (berber_id, ad, telefon, hizmet_id, gun, saat, fiyat, baslangic, olusturulma)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+    [k.berberId, k.ad, k.telefon || null, k.hizmetId, k.gun, k.saat, k.fiyat ?? null, k.baslangic, Date.now()]
+  );
+  degisti();
+  return rowToSabit(res.rows[0]);
+}
+
+async function sabitListe(berberId = null) {
+  const res = berberId
+    ? await pool.query("SELECT * FROM sabit_randevular WHERE aktif AND berber_id=$1 ORDER BY gun, saat", [berberId])
+    : await pool.query("SELECT * FROM sabit_randevular WHERE aktif ORDER BY berber_id, gun, saat");
+  return res.rows.map(rowToSabit);
+}
+
+async function sabitGetir(id) {
+  const res = await pool.query("SELECT * FROM sabit_randevular WHERE id=$1", [id]);
+  return res.rows.length ? rowToSabit(res.rows[0]) : null;
+}
+
+async function sabitSonUretilenGuncelle(id, tarih) {
+  await pool.query("UPDATE sabit_randevular SET son_uretilen=$1 WHERE id=$2", [tarih, id]);
+}
+
+// Kuralı durdurur ve bugünden sonraki üretilmiş randevularını siler (slotlar boşalır)
+async function sabitDurdur(id, bugun) {
+  await pool.query("UPDATE sabit_randevular SET aktif=false WHERE id=$1", [id]);
+  const res = await pool.query("DELETE FROM randevular WHERE sabit_id=$1 AND tarih >= $2", [id, bugun]);
+  degisti();
+  return res.rowCount;
 }
 
 async function getBusySlots(berberId, tarih) {
@@ -572,4 +654,9 @@ module.exports = {
   otpDogrula,
   otpSonGonderim,
   otpBugunSayisi,
+  sabitEkle,
+  sabitListe,
+  sabitGetir,
+  sabitSonUretilenGuncelle,
+  sabitDurdur,
 };

@@ -42,4 +42,30 @@ async function acikSaatleriGetir(berberId, tarih) {
   return db.getAcikSaatlerFor(berberId, tarih).catch(() => []);
 }
 
-module.exports = { bugunStr, slotEkle, saatToDk, MIN_ONCE_DK, slotGectiMi, acikSaatleriGetir };
+function tarihStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function gunEkle(tarih, n) {
+  const d = new Date(tarih + "T00:00:00");
+  d.setDate(d.getDate() + n);
+  return tarihStr(d);
+}
+
+// Haftalık sabit kuralın üretilecek tarihleri. son_uretilen'e kadar olanlar bir
+// daha üretilmez — iptal edilen/silinen tek bir hafta böylece geri gelmez.
+function sabitTarihleri(kural, bugun = bugunStr(), ufukGun = 56) {
+  let bas = kural.baslangic > bugun ? kural.baslangic : bugun;
+  if (kural.son_uretilen) {
+    const sonraki = gunEkle(kural.son_uretilen, 1);
+    if (sonraki > bas) bas = sonraki;
+  }
+  const bit = gunEkle(bugun, ufukGun);
+  const sonuc = [];
+  for (let t = bas; t <= bit; t = gunEkle(t, 1)) {
+    if (new Date(t + "T00:00:00").getDay() === kural.gun) sonuc.push(t);
+  }
+  return { tarihler: sonuc, bitis: bit };
+}
+
+module.exports = { bugunStr, slotEkle, saatToDk, MIN_ONCE_DK, slotGectiMi, acikSaatleriGetir, gunEkle, sabitTarihleri };
