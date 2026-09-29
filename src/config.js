@@ -1,8 +1,9 @@
 // ---------------------------------------------------------------------------
 // TEK DOĞRULUK KAYNAĞI
 // Berber eklemek: BERBERLER dizisine yeni nesne ekle.
-// PIN değiştirmek: ilgili berberin pin alanını güncelle.
-// ADMIN_PIN: ortam değişkeni ADMIN_PIN ile override edilebilir.
+// PIN'ler koda yazılmaz (GitHub'a gitmesin): her berberin PIN'i PIN_<ID> ortam
+// değişkeninden okunur (ör. PIN_RESUL, PIN_MEHMETALI), admin PIN'i ADMIN_PIN'den.
+// Tanımsız PIN'le o hesaba giriş yapılamaz.
 //
 // calisma: berberin mesai düzeni.
 //   baslangic: "HH:MM"  → her gün aynı; VEYA gün bazlı { 1:"10:30", 2:"09:45", ... }
@@ -15,7 +16,8 @@
 //   Resul patron olduğu için tam ciroyu görür (taban 0, oran 1).
 // ---------------------------------------------------------------------------
 
-const ADMIN_PIN = process.env.ADMIN_PIN || "1734"; // ortam değişkeni ile override edilebilir
+const ADMIN_PIN = process.env.ADMIN_PIN || null;
+const pinOku = (id) => process.env["PIN_" + id.toUpperCase()] || null;
 
 const RESUL_FIYAT = { sac: 900, sakal: 300, kombin: 1200 };
 const EKIP_FIYAT  = { sac: 650, sakal: 250, kombin: 900 };
@@ -27,19 +29,19 @@ const EREN_BASLANGIC = { 1: "10:30", 2: "09:45", 3: "10:30", 4: "09:45", 5: "10:
 // Boş bırakılırsa o berbere bildirim gönderilmez.
 // slotDk: bir randevu diliminin süresi (Resul 30dk, diğerleri 45dk).
 const BERBERLER = [
-  { id: "resul",     ad: "Resul Tabu",     uzmanlik: "Saç & Sakal Tasarımı", pin: "2278", tel: null, admin: true, slotDk: 30, fiyat: RESUL_FIYAT, foto: "/randevu-al/fotolar/resul.jpeg",
+  { id: "resul",     ad: "Resul Tabu",     uzmanlik: "Saç & Sakal Tasarımı", pin: pinOku("resul"), tel: null, admin: true, slotDk: 30, fiyat: RESUL_FIYAT, foto: "/randevu-al/fotolar/resul.jpeg",
     calisma: { baslangic: "09:00", bitis: "20:30", yemek: "14:00", yemekDk: 120 }, net: { taban: 0, oran: 1 } },
-  { id: "eren",      ad: "Eren Tokalak",   uzmanlik: "Saç & Sakal Tasarımı", pin: "2828", tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/eren.jpeg",
+  { id: "eren",      ad: "Eren Tokalak",   uzmanlik: "Saç & Sakal Tasarımı", pin: pinOku("eren"), tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/eren.jpeg",
     calisma: { baslangic: EREN_BASLANGIC, bitis: "21:45", yemek: "16:30", yemekDk: 45 }, net: { taban: 100, oran: 0.55 } },
-  { id: "kaan",      ad: "Kaan Ekinci",    uzmanlik: "Saç & Sakal Tasarımı", pin: "3436", tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/kaan.jpeg",
+  { id: "kaan",      ad: "Kaan Ekinci",    uzmanlik: "Saç & Sakal Tasarımı", pin: pinOku("kaan"), tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/kaan.jpeg",
     calisma: { baslangic: "10:45", bitis: "22:00", yemek: "16:00", yemekDk: 45 }, net: { taban: 100, oran: 0.60 } },
-  { id: "burak",     ad: "Burak Şahin",    uzmanlik: "Saç & Sakal Tasarımı", pin: "1453", tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/burak.jpeg",
+  { id: "burak",     ad: "Burak Şahin",    uzmanlik: "Saç & Sakal Tasarımı", pin: pinOku("burak"), tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/burak.jpeg",
     calisma: { baslangic: "10:30", bitis: "21:00", yemek: "16:30", yemekDk: 45 }, net: { taban: 0, oran: 0.45 } },
-  { id: "emre",      ad: "Emre Akçam",     uzmanlik: "Saç & Sakal Tasarımı", pin: "3434", tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/emre.jpeg",
+  { id: "emre",      ad: "Emre Akçam",     uzmanlik: "Saç & Sakal Tasarımı", pin: pinOku("emre"), tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/emre.jpeg",
     calisma: { baslangic: "09:30", bitis: "20:45", yemek: "16:15", yemekDk: 45 }, net: { taban: 0, oran: 0.50 } },
-  { id: "huseyin",   ad: "Hüseyin Dincer", uzmanlik: "Saç & Sakal Tasarımı", pin: "2233", tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/huseyin.jpeg",
+  { id: "huseyin",   ad: "Hüseyin Dincer", uzmanlik: "Saç & Sakal Tasarımı", pin: pinOku("huseyin"), tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/huseyin.jpeg",
     calisma: { baslangic: "09:00", bitis: "21:00", yemek: "15:00", yemekDk: 45 }, net: { taban: 0, oran: 0.45 } },
-  { id: "mehmetali", ad: "Mehmet Ali",     uzmanlik: "Saç & Sakal Tasarımı", pin: "4773", tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/mehmetali.jpeg",
+  { id: "mehmetali", ad: "Mehmet Ali",     uzmanlik: "Saç & Sakal Tasarımı", pin: pinOku("mehmetali"), tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/mehmetali.jpeg",
     calisma: { baslangic: "09:30", bitis: "20:45", yemek: "16:15", yemekDk: 45 }, net: { taban: 0, oran: 0.45 } },
 ];
 

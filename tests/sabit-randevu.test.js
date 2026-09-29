@@ -12,7 +12,7 @@ let doluTarihler = [];   // getBusySlots bu tarihlerde 10:30'u dolu döndürür
 const orig = Module._load;
 Module._load = function (req) {
   if (req.endsWith("whatsapp")) return { sendText: async () => ({ hata: false }), sendTemplate: async () => null };
-  if (req.endsWith("sheets")) return { syncRandevu: async () => {}, musteriKaydet: async () => {}, updateRandevuDurum: async () => {}, isEnabled: () => false, aylikOzetYaz: async () => {} };
+  if (req.endsWith("sheets")) return { syncRandevu: async () => {}, clearRandevuCell: async () => {}, musteriKaydet: async () => {}, updateRandevuDurum: async () => {}, isEnabled: () => false, aylikOzetYaz: async () => {} };
   if (req === "./sms" || req.endsWith("/sms")) return { otpGonder: async () => ({ hata: false }) };
   if (req === "./email" || req.endsWith("/email")) return {};
   if (req.endsWith("/db") || req === "./db") {
@@ -25,11 +25,27 @@ Module._load = function (req) {
       sabitListe: async (berberId) => kurallar.filter((k) => k.aktif && (!berberId || k.berberId === berberId)),
       sabitGetir: async (id) => kurallar.find((k) => k.id === Number(id)) || null,
       sabitSonUretilenGuncelle: async (id, tarih) => { kurallar.find((k) => k.id === id).son_uretilen = tarih; },
+      sabitGelecekSil: async (id, bugun) => {
+        const silinen = store.filter((r) => r.sabitId === id && r.tarih > bugun);
+        store = store.filter((r) => !silinen.includes(r));
+        return silinen;
+      },
       sabitDurdur: async (id, bugun) => {
         kurallar.find((k) => k.id === id).aktif = false;
-        const once = store.length;
-        store = store.filter((r) => !(r.sabitId === id && r.tarih >= bugun));
-        return once - store.length;
+        const silinen = store.filter((r) => r.sabitId === id && r.tarih > bugun);
+        store = store.filter((r) => !silinen.includes(r));
+        return silinen;
+      },
+      sabitGuncelle: async (id, k, yenidenBasla) => {
+        const kural = kurallar.find((x) => x.id === id);
+        Object.assign(kural, k);
+        if (yenidenBasla) { kural.baslangic = yenidenBasla; kural.son_uretilen = null; }
+        return { ...kural };
+      },
+      sabitGelecekGuncelle: async (id, bugun, saat, a) => {
+        const liste = store.filter((r) => r.sabitId === id && r.tarih > bugun);
+        for (const r of liste) Object.assign(r, { ad: a.ad, telefon: a.telefon, hizmetId: a.hizmetId, hizmet: a.hizmet, fiyat: a.fiyat });
+        return liste;
       },
     };
   }
@@ -143,4 +159,31 @@ test("durdur: gelecek randevular silinir, baskasinin kurali durdurulamaz", async
   assert.strictEqual(durdur.status, 200);
   assert.strictEqual(store.length, 0, "gelecek sabit randevular silinmeli");
   assert.strictEqual((await istek("GET", "/api/sabit", null, erenToken)).body.length, 0);
+});
+
+test("duzenle: ad/ucret yerinde guncellenir, saat degisince gelecek haftalar yeni saatle uretilir", async (t) => {
+  store = []; kurallar = []; doluTarihler = [];
+  await sunucu(t);
+  const erenToken = await girisYap(BERBERLER.find((b) => b.id === "eren"));
+  const kaanToken = await girisYap(BERBERLER.find((b) => b.id === "kaan"));
+
+  const res = await istek("POST", "/api/sabit", { ad: "Ali", telefon: "0555 000 00 02", hizmetId: "sac", gun: 4, saat: "10:30" }, erenToken);
+  const id = res.body.kural.id;
+  const adet = store.length;
+  assert.strictEqual(res.body.kural.telefon, "905550000002", "telefon normalize edilmeli");
+
+  assert.strictEqual((await istek("PUT", `/api/sabit/${id}`, { ad: "X", hizmetId: "sac", gun: 4, saat: "10:30" }, kaanToken)).status, 403);
+
+  const ad = await istek("PUT", `/api/sabit/${id}`, { ad: "Ali Veli", hizmetId: "kombin", gun: 4, saat: "10:30", fiyat: 800 }, erenToken);
+  assert.strictEqual(ad.status, 200);
+  assert.strictEqual(store.length, adet, "yerinde guncelleme randevu sayisini degistirmez");
+  assert.ok(store.every((r) => r.ad === "Ali Veli" && r.hizmetId === "kombin" && r.fiyat === 800));
+
+  const saat = await istek("PUT", `/api/sabit/${id}`, { ad: "Ali Veli", hizmetId: "kombin", gun: 5, saat: "11:15", fiyat: 800 }, erenToken);
+  assert.strictEqual(saat.status, 200);
+  assert.ok(saat.body.olusturulan.length >= 7);
+  assert.ok(store.every((r) => new Date(r.tarih + "T00:00:00").getDay() === 5 && r.saat === "11:15"),
+    "eski gun/saatteki gelecek randevular silinip yenileri uretilmeli");
+
+  assert.strictEqual((await istek("PUT", `/api/sabit/${id}`, { ad: "Ali", hizmetId: "sac", gun: 5, saat: "08:00" }, erenToken)).status, 400);
 });

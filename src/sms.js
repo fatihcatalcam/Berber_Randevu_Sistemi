@@ -12,9 +12,18 @@ const axios = require("axios");
 
 const NETGSM_URL = "https://api.netgsm.com.tr/sms/send/get";
 
+// Panelde elle yazılan numaralar "0555 123 45 67" gibi gelebilir — 905XXXXXXXXX'e çevrilir.
+function numaraDuzelt(telefon) {
+  let t = String(telefon || "").replace(/\D/g, "");
+  if (t.startsWith("0")) t = t.slice(1);
+  if (!t.startsWith("90")) t = "90" + t;
+  return /^905\d{9}$/.test(t) ? t : null;
+}
+
 async function gonder(telefon, mesaj) {
   const { NETGSM_USERCODE, NETGSM_PASSWORD, NETGSM_MSGHEADER } = process.env;
-  if (!telefon) return null;
+  telefon = numaraDuzelt(telefon);
+  if (!telefon) return null; // numara yok/geçersiz — tekrar denemenin anlamı yok
   if (!NETGSM_USERCODE || !NETGSM_PASSWORD || !NETGSM_MSGHEADER) {
     console.warn("⚠️ NETGSM_* env değişkenleri tanımsız — SMS gönderilemedi.");
     return { hata: true, kod: "yapilandirma_yok" };

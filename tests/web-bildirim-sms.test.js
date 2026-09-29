@@ -130,8 +130,10 @@ test("iptal: kaynak=web icin sadece SMS gider (mail kullanilmiyor), WhatsApp git
   assert.strictEqual(whatsappCagrilari.length, 0, "whatsapp gonderilmemeli");
 });
 
-test("iptal: kaynak=whatsapp icin hala WhatsApp kullanilir, SMS/eposta gitmez", async (t) => {
+test("iptal: kaynak=whatsapp icin WHATSAPP_AKTIF=true iken WhatsApp kullanilir, SMS/eposta gitmez", async (t) => {
   sifirla();
+  process.env.WHATSAPP_AKTIF = "true";
+  t.after(() => { delete process.env.WHATSAPP_AKTIF; });
   process.env.PORT = "3204";
   delete require.cache[require.resolve("../src/index")];
   const { server } = require("../src/index");
@@ -162,7 +164,7 @@ test("tasima: kaynak=web icin SMS + eposta gider, WhatsApp gitmez", async (t) =>
     tarih: yarinTarih(), saat: "10:00", berber: "Resul Tabu", hizmet: "Saç Kesimi", durum: "onaylı" });
 
   const token = await adminToken();
-  const res = await istek("PATCH", "/api/randevular/w3/tasi", { tarih: yarinTarih(), saat: "14:00" }, token);
+  const res = await istek("PATCH", "/api/randevular/w3/tasi", { tarih: yarinTarih(), saat: "11:00" }, token);
 
   assert.strictEqual(res.status, 200);
   assert.strictEqual(smsTasindiCagrilari.length, 1, "sms.randevuTasindiSms cagrilmali");
@@ -170,8 +172,10 @@ test("tasima: kaynak=web icin SMS + eposta gider, WhatsApp gitmez", async (t) =>
   assert.strictEqual(whatsappCagrilari.length, 0, "whatsapp gonderilmemeli");
 });
 
-test("tasima: kaynak=whatsapp icin hala WhatsApp kullanilir", async (t) => {
+test("tasima: kaynak=whatsapp icin WHATSAPP_AKTIF=true iken WhatsApp kullanilir", async (t) => {
   sifirla();
+  process.env.WHATSAPP_AKTIF = "true";
+  t.after(() => { delete process.env.WHATSAPP_AKTIF; });
   process.env.PORT = "3204";
   delete require.cache[require.resolve("../src/index")];
   const { server } = require("../src/index");
@@ -182,10 +186,29 @@ test("tasima: kaynak=whatsapp icin hala WhatsApp kullanilir", async (t) => {
     tarih: yarinTarih(), saat: "10:00", berber: "Resul Tabu", hizmet: "Saç Kesimi", durum: "onaylı" });
 
   const token = await adminToken();
-  const res = await istek("PATCH", "/api/randevular/w4/tasi", { tarih: yarinTarih(), saat: "15:00" }, token);
+  const res = await istek("PATCH", "/api/randevular/w4/tasi", { tarih: yarinTarih(), saat: "12:00" }, token);
 
   assert.strictEqual(res.status, 200);
   assert.strictEqual(whatsappCagrilari.length, 1);
   assert.strictEqual(smsTasindiCagrilari.length, 0);
   assert.strictEqual(epostaTasindiCagrilari.length, 0);
+});
+
+test("iptal: WhatsApp kapaliyken elle girilmis (kaynak=whatsapp kayitli) randevuya SMS gider", async (t) => {
+  sifirla();
+  process.env.PORT = "3204";
+  delete require.cache[require.resolve("../src/index")];
+  const { server } = require("../src/index");
+  t.after(() => new Promise((r) => server.close(r)));
+  await new Promise((r) => setTimeout(r, 400));
+
+  store.push({ id: "w5", kaynak: "whatsapp", telefon: "05551230005",
+    tarih: yarinTarih(), saat: "10:00", berber: "Resul Tabu", hizmet: "Saç Kesimi", durum: "onaylı" });
+
+  const token = await adminToken();
+  const res = await istek("POST", "/api/randevular/w5/durum", { durum: "iptal" }, token);
+
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual(smsIptalCagrilari.length, 1);
+  assert.strictEqual(whatsappCagrilari.length, 0);
 });

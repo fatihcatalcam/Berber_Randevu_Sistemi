@@ -424,7 +424,7 @@
     <div id="sabitListe" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;"></div>
 
     <div style="border-top:1px solid var(--cizgi);padding-top:12px;display:flex;flex-direction:column;gap:10px;">
-      <strong style="font-size:13px;">Yeni sabit müşteri</strong>
+      <strong id="sabitFormBaslik" style="font-size:13px;">Yeni sabit müşteri</strong>
       <div id="sabitBerberWrap">
         <label class="sabit-etiket">Berber</label>
         <select id="sabitBerber" class="sabit-alan" onchange="sabitSaatDoldur();sabitFiyatGuncelle()"></select>
@@ -437,7 +437,10 @@
         <div style="flex:1;"><label class="sabit-etiket">Saat</label><select id="sabitSaat" class="sabit-alan"></select></div>
       </div>
       <div><label class="sabit-etiket">Ücret (₺)</label><input id="sabitFiyat" class="sabit-alan" type="number" inputmode="numeric" min="0"></div>
-      <button onclick="sabitKaydet()" class="modal-btn modal-btn-yesil">Kaydet</button>
+      <div style="display:flex;gap:8px;">
+        <button id="sabitVazgecBtn" onclick="sabitFormSifirla()" class="modal-btn modal-btn-gri" style="flex:1;display:none;">Vazgeç</button>
+        <button id="sabitKaydetBtn" onclick="sabitKaydet()" class="modal-btn modal-btn-yesil" style="flex:1;">Kaydet</button>
+      </div>
     </div>
   </div>
 </div>
@@ -515,11 +518,12 @@
       </div>
       <div>
         <label style="font-size:12px;font-weight:700;color:var(--soluk);display:block;margin-bottom:4px;">Ad Soyad *</label>
-        <input id="elleAd" type="text" placeholder="Müşteri adı" style="width:100%;padding:10px;border:1px solid var(--cizgi);border-radius:8px;font-size:14px;outline:none;min-height:44px;box-sizing:border-box;">
+        <input id="elleAd" type="text" placeholder="Müşteri adı" oninput="elleGelmediKontrol()" style="width:100%;padding:10px;border:1px solid var(--cizgi);border-radius:8px;font-size:14px;outline:none;min-height:44px;box-sizing:border-box;">
       </div>
       <div>
         <label style="font-size:12px;font-weight:700;color:var(--soluk);display:block;margin-bottom:4px;">Telefon (opsiyonel)</label>
-        <input id="elleTelefon" type="tel" placeholder="905XXXXXXXXX" style="width:100%;padding:10px;border:1px solid var(--cizgi);border-radius:8px;font-size:14px;outline:none;min-height:44px;box-sizing:border-box;">
+        <input id="elleTelefon" type="tel" placeholder="905XXXXXXXXX" oninput="elleGelmediKontrol()" style="width:100%;padding:10px;border:1px solid var(--cizgi);border-radius:8px;font-size:14px;outline:none;min-height:44px;box-sizing:border-box;">
+        <div id="elleGelmediUyari" style="display:none;margin-top:6px;font-size:12.5px;font-weight:700;color:#b45309;"></div>
       </div>
       <div>
         <label style="font-size:12px;font-weight:700;color:var(--soluk);display:block;margin-bottom:4px;">Hizmet</label>
@@ -793,6 +797,42 @@ async function guvenliJson(url, varsayilan) {
   } catch { return varsayilan; }
 }
 
+// ============================================================
+// Gelmeyen müşteri takibi — panelin yüklediği son ~6 aylık veride aynı müşterinin
+// "gelmedi" sayısı. Telefon varsa telefona (son 10 hane), yoksa ada göre eşleşir.
+// ============================================================
+let gelmediHaritasi = new Map();
+function musteriAnahtari(r) {
+  const tel = String(r.telefon || "").replace(/\D/g, "").slice(-10);
+  return tel.length === 10 ? "t" + tel : "a" + String(r.ad || "").trim().toLocaleLowerCase("tr");
+}
+function gelmediHaritasiKur() {
+  gelmediHaritasi = new Map();
+  for (const r of randevular) {
+    if (r.durum !== "gelmedi") continue;
+    const k = musteriAnahtari(r);
+    gelmediHaritasi.set(k, (gelmediHaritasi.get(k) || 0) + 1);
+  }
+}
+// Bu randevunun kendisi hariç, müşterinin kaç kez gelmediği
+function gelmediSayisi(r) {
+  return (gelmediHaritasi.get(musteriAnahtari(r)) || 0) - (r.durum === "gelmedi" ? 1 : 0);
+}
+function gelmediRozet(r) {
+  const n = gelmediSayisi(r);
+  return n > 0 ? ` <span title="Son 6 ayda ${n} kez gelmedi" style="color:#b45309;">⚠️${n}</span>` : "";
+}
+// Elle randevu formunda yazılan müşteri daha önce gelmediyse uyar
+function elleGelmediKontrol() {
+  const n = gelmediSayisi({
+    telefon: document.getElementById("elleTelefon").value,
+    ad: document.getElementById("elleAd").value,
+  });
+  const el = document.getElementById("elleGelmediUyari");
+  el.textContent = n > 0 ? `⚠️ Bu müşteri son 6 ayda ${n} kez randevusuna gelmedi.` : "";
+  el.style.display = n > 0 ? "block" : "none";
+}
+
 async function veriCek() {
   // 1) Randevular kritik — ayrı çek; hata olursa GÖRÜNÜR bildir, eski veriyi koru
   let yeni;
@@ -817,6 +857,7 @@ async function veriCek() {
   try {
     tespitFlash(yeni);
     randevular = yeni;
+    gelmediHaritasiKur();
     berberSecenekleriDoldur();
     takvimRender();
     cizelgeRender();
@@ -1158,11 +1199,13 @@ function cizelgeRender() {
             `<div style="letter-spacing:.02em;">↕ ${r._slotIdx + 1}/${r.kisiSayisi}</div>` +
             `<div style="font-size:10px;opacity:.8;">${kacis(r.ad)}</div></td>`;
         } else {
-          let etiket = (r.sabitId ? "📌 " : "") + r.ad;
+          const gelmedi = gelmediSayisi(r);
+          let etiket = (r.sabitId ? "📌 " : "") + (gelmedi > 0 ? "⚠️ " : "") + r.ad;
           if (r.durum === "iptal") etiket += ` — İPTAL (${r.iptalEden === "musteri" ? "müşteri" : "berber"})`;
           else if (r.kisiSayisi > 1) etiket += ` (${r.kisiSayisi} kişi)`;
           const fiyatGoster = r.gercekFiyat !== undefined ? `${r.gercekFiyat}₺ ✏️` : `${r.fiyat}₺`;
-          html += `<td class="cizelge-hucre" data-id="${r.id}" style="padding:7px 10px;border:1px solid var(--cizgi);background:${renk.bg};color:${renk.fg};font-size:12px;cursor:pointer;user-select:none;min-width:80px;">` +
+          const ipucu = gelmedi > 0 ? ` title="Son 6 ayda ${gelmedi} kez gelmedi"` : "";
+          html += `<td class="cizelge-hucre" data-id="${r.id}"${ipucu} style="padding:7px 10px;border:1px solid var(--cizgi);background:${renk.bg};color:${renk.fg};font-size:12px;cursor:pointer;user-select:none;min-width:80px;">` +
             `<div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;">${kacis(etiket)}</div>` +
             `<div style="font-size:11px;opacity:.75;white-space:nowrap;">${kacis(r.hizmet)} · ${fiyatGoster}</div></td>`;
         }
@@ -1308,10 +1351,13 @@ function hucreMenu(id) {
     ? `<s style="color:#9ca3af;">${r.fiyat}₺</s> → <strong style="color:#059669;">${r.gercekFiyat}₺</strong> ✏️`
     : `${r.fiyat}₺`;
   const notSatiri = r.aciklama ? `<br>📝 ${kacis(r.aciklama)}` : "";
+  const gelmedi = gelmediSayisi(r);
+  const gelmediSatiri = gelmedi > 0
+    ? `<br><span style="color:#b45309;font-weight:700;">⚠️ Son 6 ayda ${gelmedi} kez randevusuna gelmedi</span>` : "";
 
   document.getElementById("modalBaslik").textContent = r.ad;
   document.getElementById("modalBilgi").innerHTML =
-    `💈 ${kacis(r.berber)}<br>✂️ ${kacis(r.hizmet)}<br>📅 ${tarih} ⏰ ${r.saat}<br>💰 ${fiyatHtml}<br>📌 ${durumYazi(r.durum)}${notSatiri}`;
+    `💈 ${kacis(r.berber)}<br>✂️ ${kacis(r.hizmet)}<br>📅 ${tarih} ⏰ ${r.saat}<br>💰 ${fiyatHtml}<br>📌 ${durumYazi(r.durum)}${notSatiri}${gelmediSatiri}`;
   document.getElementById("modalOnayla").disabled  = r.durum === "onaylı";
   document.getElementById("modalIptal").disabled   = r.durum === "iptal";
   document.getElementById("modalGelmedi").disabled = r.durum === "gelmedi";
@@ -1369,6 +1415,7 @@ function elleRandevuGoster() {
   elleFiyatGuncelle();
   document.getElementById("elleAd").value = "";
   document.getElementById("elleTelefon").value = "";
+  document.getElementById("elleGelmediUyari").style.display = "none";
   document.getElementById("elleRandevuModal").style.display = "flex";
 }
 
@@ -1452,15 +1499,51 @@ async function sabitGoster() {
   document.getElementById("sabitBerberWrap").style.display = isAdmin ? "" : "none";
   document.getElementById("sabitHizmet").innerHTML = HIZMETLER.map(h => `<option value="${h.id}">${kacis(h.ad)}</option>`).join("");
   document.getElementById("sabitGun").innerHTML = [1, 2, 3, 4, 5, 6].map(g => `<option value="${g}">${GUN_ADLARI[g]}</option>`).join("");
-  document.getElementById("sabitAd").value = "";
-  document.getElementById("sabitTelefon").value = "";
-  sabitSaatDoldur();
-  sabitFiyatGuncelle();
+  sabitFormSifirla();
   document.getElementById("sabitModal").style.display = "flex";
   await sabitListeYukle();
 }
 
 function sabitKapat() { document.getElementById("sabitModal").style.display = "none"; }
+
+let sabitKurallar = [];
+let sabitDuzenlenenId = null; // null: yeni ekleme, sayı: o kural düzenleniyor
+
+function sabitFormSifirla() {
+  sabitDuzenlenenId = null;
+  document.getElementById("sabitFormBaslik").textContent = "Yeni sabit müşteri";
+  document.getElementById("sabitKaydetBtn").textContent = "Kaydet";
+  document.getElementById("sabitVazgecBtn").style.display = "none";
+  document.getElementById("sabitBerber").disabled = false;
+  if (auth.berberId) document.getElementById("sabitBerber").value = auth.berberId;
+  document.getElementById("sabitAd").value = "";
+  document.getElementById("sabitTelefon").value = "";
+  document.getElementById("sabitHizmet").selectedIndex = 0;
+  document.getElementById("sabitGun").selectedIndex = 0;
+  sabitSaatDoldur();
+  sabitFiyatGuncelle();
+}
+
+function sabitDuzenle(id) {
+  const k = sabitKurallar.find(x => x.id === id);
+  if (!k) return;
+  sabitDuzenlenenId = id;
+  document.getElementById("sabitFormBaslik").textContent = `Düzenle: ${k.ad}`;
+  document.getElementById("sabitKaydetBtn").textContent = "Değişiklikleri Kaydet";
+  document.getElementById("sabitVazgecBtn").style.display = "";
+  const berberSel = document.getElementById("sabitBerber");
+  berberSel.value = k.berberId;
+  berberSel.disabled = true; // kural başka berbere taşınamaz
+  document.getElementById("sabitAd").value = k.ad;
+  document.getElementById("sabitTelefon").value = k.telefon || "";
+  document.getElementById("sabitHizmet").value = k.hizmetId;
+  document.getElementById("sabitGun").value = String(k.gun);
+  sabitSaatDoldur();
+  document.getElementById("sabitSaat").value = k.saat;
+  sabitFiyatGuncelle();
+  if (k.fiyat != null) document.getElementById("sabitFiyat").value = k.fiyat;
+  document.getElementById("sabitAd").scrollIntoView({ behavior: "smooth", block: "center" });
+}
 
 // Sabit randevu tek bir güne değil haftanın gününe bağlı — o güne özel açılmış
 // yemek saatleri değil, berberin normal mesai slotları listelenir (sunucuyla aynı kural).
@@ -1483,7 +1566,7 @@ async function sabitListeYukle() {
   try {
     const res = await authFetch("/api/sabit");
     if (!res.ok) throw new Error();
-    const kurallar = await res.json();
+    const kurallar = sabitKurallar = await res.json();
     if (!kurallar.length) {
       kutu.innerHTML = '<div style="font-size:13px;color:var(--soluk);">Henüz sabit müşteri yok.</div>';
       return;
@@ -1497,7 +1580,10 @@ async function sabitListeYukle() {
           <strong>${kacis(k.ad)}</strong><br>
           <span style="color:var(--soluk);">Her ${GUN_ADLARI[k.gun]} ${k.saat} · ${kacis(hizmet)}${isAdmin ? " · " + kacis(berber) : ""}</span>
         </div>
-        <button class="modal-btn modal-btn-kirmizi" style="min-height:36px;padding:6px 12px;font-size:13px;" onclick="sabitDurdur(${k.id}, '${kacis(k.ad).replace(/'/g, "&#39;")}')">Durdur</button>
+        <div style="display:flex;gap:6px;">
+          <button class="modal-btn modal-btn-gri" style="min-height:36px;padding:6px 12px;font-size:13px;" onclick="sabitDuzenle(${k.id})">Düzenle</button>
+          <button class="modal-btn modal-btn-kirmizi" style="min-height:36px;padding:6px 12px;font-size:13px;" onclick="sabitDurdur(${k.id}, '${kacis(k.ad).replace(/'/g, "&#39;")}')">Durdur</button>
+        </div>
       </div>`;
     }).join("");
   } catch {
@@ -1512,8 +1598,9 @@ async function sabitKaydet() {
   if (!ad) { alert("Ad soyad zorunlu."); return; }
   if (!saat) { alert("Bu gün için uygun saat yok."); return; }
   try {
-    const res = await authFetch("/api/sabit", {
-      method: "POST",
+    const duzenleme = sabitDuzenlenenId != null;
+    const res = await authFetch(duzenleme ? `/api/sabit/${sabitDuzenlenenId}` : "/api/sabit", {
+      method: duzenleme ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         berberId: document.getElementById("sabitBerber").value,
@@ -1527,25 +1614,29 @@ async function sabitKaydet() {
     });
     const data = await res.json();
     if (!res.ok) { alert(data.hata || "Hata oluştu."); return; }
-    let mesaj = `${data.olusturulan.length} randevu oluşturuldu.`;
+    let mesaj = !duzenleme
+      ? `${data.olusturulan.length} randevu oluşturuldu.`
+      : data.yenidenUretildi
+        ? `Eski gün/saatteki gelecek randevular kaldırıldı, ${data.olusturulan.length} randevu yeni gün/saatle oluşturuldu.`
+        : `${data.guncellenen} gelecek randevu güncellendi.`;
     if (data.atlanan.length) {
       const gunler = data.atlanan.map(t => new Date(t + "T00:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long" }));
       mesaj += `\n\nŞu tarihler dolu olduğu için atlandı: ${gunler.join(", ")}`;
     }
     alert(mesaj);
-    document.getElementById("sabitAd").value = "";
-    document.getElementById("sabitTelefon").value = "";
+    sabitFormSifirla();
     await sabitListeYukle();
     await veriCek();
   } catch { alert("Sunucuya bağlanılamadı."); }
 }
 
 async function sabitDurdur(id, ad) {
-  if (!confirm(`${ad} için sabit randevu durdurulsun mu?\n\nBugünden sonraki tüm randevuları silinir.`)) return;
+  if (!confirm(`${ad} için sabit randevu durdurulsun mu?\n\nHenüz gelmemiş tüm randevuları silinir.`)) return;
   try {
     const res = await authFetch(`/api/sabit/${id}/durdur`, { method: "POST" });
     const data = await res.json();
     if (!res.ok) { alert(data.hata || "Hata oluştu."); return; }
+    if (sabitDuzenlenenId === id) sabitFormSifirla();
     await sabitListeYukle();
     await veriCek();
   } catch { alert("Sunucuya bağlanılamadı."); }
@@ -1780,7 +1871,7 @@ function renderDesktop(liste, isAdmin) {
     const tr = document.createElement("tr");
     if (flashIdler.has(r.id)) tr.className = "flash";
     tr.innerHTML = `
-      <td><strong>${kacis(r.ad)}</strong></td>
+      <td><strong>${kacis(r.ad)}</strong>${gelmediRozet(r)}</td>
       <td style="color:var(--soluk)">${kacis(r.telefon)}</td>
       <td class="berber-col" style="${isAdmin ? "" : "display:none"}">${kacis(r.berber)}</td>
       <td>${kacis(r.hizmet)}</td>
@@ -1813,7 +1904,7 @@ function renderMobil(liste, isAdmin) {
     return `
       <div class="m-kart${flashIdler.has(r.id) ? " flash" : ""}">
         <div class="m-kart-ust">
-          <strong class="m-kart-ad">${kacis(r.ad)}</strong>
+          <strong class="m-kart-ad">${kacis(r.ad)}${gelmediRozet(r)}</strong>
           <span class="badge ${r.durum}">${durumYazi(r.durum)}</span>
         </div>
         <div class="m-kart-bilgi">${berberStr}✂️ ${kacis(r.hizmet)}</div>

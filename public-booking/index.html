@@ -474,6 +474,7 @@ function berberListesiniDoldur() {
 
 function berberSec(id) {
   secim.berberId = id; secim.hizmetId = null; secim.tarih = null; secim.saat = null;
+  acikGunleriAl();
   hizmetListesiniDoldur();
   adimGoster("adimHizmet");
 }
@@ -498,27 +499,39 @@ function hizmetSec(id) {
 }
 
 // ============================================================
-// Adım 3: Tarih listesi (önümüzdeki 7 gün, Pazar hariç)
+// Adım 3: Tarih listesi (önümüzdeki 7 gün, Pazar hariç — özel açılan günler dahil)
 // ============================================================
-function gelecekTarihleriUret(kacGun) {
+// Özel açılan Pazar/bayram günleri. Sayfayı açan herkes için değil, usta seçilince
+// (randevuya niyetli ziyaretçi) bir kez çekilir — veritabanı boşuna uyanmasın.
+let acikGunlerSozu = null;
+function acikGunleriAl() {
+  if (!acikGunlerSozu) {
+    acikGunlerSozu = fetch("/api/public/acik-gunler", { cache: "no-store" })
+      .then((r) => r.json()).then((d) => d.tarihler || []).catch(() => []);
+  }
+  return acikGunlerSozu;
+}
+
+function gelecekTarihleriUret(kacGun, acikGunler = []) {
   const sonuc = [];
   const bugun = new Date();
   for (let i = 0; sonuc.length < kacGun && i < 21; i++) {
     const d = new Date(bugun);
     d.setDate(bugun.getDate() + i);
-    if (d.getDay() === 0) continue; // Pazar
-    const etiket = d.toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
     const yil = d.getFullYear();
     const ay  = String(d.getMonth() + 1).padStart(2, "0");
     const gun = String(d.getDate()).padStart(2, "0");
-    sonuc.push({ etiket, deger: `${yil}-${ay}-${gun}` });
+    const deger = `${yil}-${ay}-${gun}`;
+    if (d.getDay() === 0 && !acikGunler.includes(deger)) continue; // Pazar — özel açılmadıysa
+    const etiket = d.toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
+    sonuc.push({ etiket, deger });
   }
   return sonuc;
 }
 
-function tarihListesiniDoldur() {
+async function tarihListesiniDoldur() {
   const kutu = document.getElementById("tarihListe");
-  const tarihler = gelecekTarihleriUret(7);
+  const tarihler = gelecekTarihleriUret(7, await acikGunleriAl());
   kutu.innerHTML = tarihler.map((t) => `
     <button class="secim-btn" onclick="tarihSec('${t.deger}')"><span>📅 ${kacis(t.etiket)}</span></button>`).join("");
 }

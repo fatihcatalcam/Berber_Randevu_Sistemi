@@ -1,5 +1,5 @@
 const { Pool } = require("pg");
-const { SAATLER, berberSlotDk, berberSaatleri } = require("./config");
+const { berberSlotDk, berberGunSlotlari } = require("./config");
 
 // Saat string'ine dakika ekler: "10:00" + 30 → "10:30"
 function slotEkle(saat, dk) {
@@ -334,12 +334,47 @@ async function sabitSonUretilenGuncelle(id, tarih) {
   await pool.query("UPDATE sabit_randevular SET son_uretilen=$1 WHERE id=$2", [tarih, id]);
 }
 
-// Kuralı durdurur ve bugünden sonraki üretilmiş randevularını siler (slotlar boşalır)
-async function sabitDurdur(id, bugun) {
-  await pool.query("UPDATE sabit_randevular SET aktif=false WHERE id=$1", [id]);
-  const res = await pool.query("DELETE FROM randevular WHERE sabit_id=$1 AND tarih >= $2", [id, bugun]);
+// Kuralın henüz gelmemiş randevuları: yarın ve sonrası + bugünün saati geçmemişleri.
+// Bugün saati geçmiş (yapılmış, ciroya girmiş) randevuya dokunulmaz.
+const SABIT_GELECEK = "sabit_id=$1 AND (tarih > $2 OR (tarih = $2 AND saat > $3))";
+
+async function sabitGelecekSil(id, bugun, simdiSaat) {
+  const res = await pool.query(`DELETE FROM randevular WHERE ${SABIT_GELECEK} RETURNING *`, [id, bugun, simdiSaat]);
   degisti();
-  return res.rowCount;
+  return res.rows.map(rowToRandevu);
+}
+
+// Kuralı durdurur ve gelecek randevularını siler (slotlar boşalır). Silinenleri döner.
+async function sabitDurdur(id, bugun, simdiSaat) {
+  await pool.query("UPDATE sabit_randevular SET aktif=false WHERE id=$1", [id]);
+  return sabitGelecekSil(id, bugun, simdiSaat);
+}
+
+// Kuralın bilgilerini değiştirir. yenidenBasla verilirse (gün/saat değişti)
+// üretim o tarihten sıfırdan başlar.
+async function sabitGuncelle(id, k, yenidenBasla = null) {
+  const res = await pool.query(
+    `UPDATE sabit_randevular
+     SET ad=$2, telefon=$3, hizmet_id=$4, gun=$5, saat=$6, fiyat=$7,
+         baslangic=COALESCE($8, baslangic),
+         son_uretilen=CASE WHEN $8::text IS NULL THEN son_uretilen ELSE NULL END
+     WHERE id=$1 RETURNING *`,
+    [id, k.ad, k.telefon || null, k.hizmetId, k.gun, k.saat, k.fiyat ?? null, yenidenBasla]
+  );
+  degisti();
+  return res.rows.length ? rowToSabit(res.rows[0]) : null;
+}
+
+// Gün/saat aynı kaldıysa gelecek randevular yerinde güncellenir (iptal edilmiş
+// haftalar iptal kalır, berberin elle yaptığı taşımalar korunur).
+async function sabitGelecekGuncelle(id, bugun, simdiSaat, a) {
+  const res = await pool.query(
+    `UPDATE randevular SET ad=$4, telefon=$5, hizmet_id=$6, hizmet=$7, fiyat=$8
+     WHERE ${SABIT_GELECEK} RETURNING *`,
+    [id, bugun, simdiSaat, a.ad, a.telefon || "", a.hizmetId, a.hizmet, a.fiyat]
+  );
+  degisti();
+  return res.rows.map(rowToRandevu);
 }
 
 async function getBusySlots(berberId, tarih) {
@@ -357,8 +392,9 @@ async function getBusySlots(berberId, tarih) {
       [berberId, tarih]
     ),
   ]);
-  // Gün tamamen kapalıysa tüm slotlar dolu sayılır
-  if (r3.rows.length) return [...berberSaatleri(berberId)];
+  // Gün tamamen kapalıysa o günün tüm slotları dolu sayılır. Sabit 09:00
+  // ızgarası yetmez: 09:30/10:45'te başlayan berberlerin saatleri ona denk gelmiyor.
+  if (r3.rows.length) return berberGunSlotlari(berberId, tarih).map((x) => x.saat);
   const step = berberSlotDk(berberId);
   const dolu = new Set(r2.rows.map((r) => r.saat));
   for (const row of r1.rows) {
@@ -386,12 +422,19 @@ async function getRandevularByTelefon(telefon) {
 }
 
 async function updateStatus(id, durum, iptalEden = null) {
-  const res = await pool.query(
-    `UPDATE randevular
-     SET durum=$1, iptal_eden=COALESCE($2, iptal_eden)
-     WHERE id=$3 RETURNING *`,
-    [durum, iptalEden, id]
-  );
+  let res;
+  try {
+    res = await pool.query(
+      `UPDATE randevular
+       SET durum=$1, iptal_eden=COALESCE($2, iptal_eden)
+       WHERE id=$3 RETURNING *`,
+      [durum, iptalEden, id]
+    );
+  } catch (e) {
+    // İptal edilmiş randevu geri açılırken o saat bu arada başkasına verilmiş olabilir
+    if (e.code === "23505") throw new SlotDoluError();
+    throw e;
+  }
   degisti();
   return res.rows.length ? rowToRandevu(res.rows[0]) : null;
 }
@@ -421,10 +464,16 @@ async function updateAciklama(id, aciklama) {
 }
 
 async function updateTarihSaat(id, tarih, saat) {
-  const res = await pool.query(
-    "UPDATE randevular SET tarih=$1, saat=$2, hatirlatildi=false WHERE id=$3 RETURNING *",
-    [tarih, saat, id]
-  );
+  let res;
+  try {
+    res = await pool.query(
+      "UPDATE randevular SET tarih=$1, saat=$2, hatirlatildi=false WHERE id=$3 RETURNING *",
+      [tarih, saat, id]
+    );
+  } catch (e) {
+    if (e.code === "23505") throw new SlotDoluError(); // kontrolden sonra aynı saat doldu
+    throw e;
+  }
   degisti();
   return res.rows.length ? rowToRandevu(res.rows[0]) : null;
 }
@@ -466,7 +515,8 @@ async function getKapaliSaatler() {
   };
   for (const row of res.rows) ekle(row.berber_id, row.tarih, row.saat);
   // Kapalı günleri o berberin tüm saatlerine genişlet (panelde her hücre kilitli görünür)
-  for (const row of gun.rows) for (const s of berberSaatleri(row.berber_id)) ekle(row.berber_id, row.tarih, s);
+  for (const row of gun.rows)
+    for (const { saat } of berberGunSlotlari(row.berber_id, row.tarih)) ekle(row.berber_id, row.tarih, saat);
   return data;
 }
 
@@ -659,4 +709,7 @@ module.exports = {
   sabitGetir,
   sabitSonUretilenGuncelle,
   sabitDurdur,
+  sabitGuncelle,
+  sabitGelecekGuncelle,
+  sabitGelecekSil,
 };

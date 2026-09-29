@@ -3,8 +3,8 @@ const assert = require("node:assert");
 const Module = require("module");
 
 // ---------------------------------------------------------------------------
-// hatirlatmaKontrol(): kaynak==="web" ise e-posta, kaynak==="whatsapp"/tanimsiz
-// ise WhatsApp mesaji gonderilmeli. hatirlatmaKontrol export edilmis (module.exports)
+// hatirlatmaKontrol(): varsayilan olarak herkes SMS alir; WhatsApp yalnizca
+// WHATSAPP_AKTIF=true iken bottan gelen (kaynak whatsapp/tanimsiz) kayitlara gider. hatirlatmaKontrol export edilmis (module.exports)
 // oldugu icin dogrudan cagirip zamanlayiciyi (5dk) beklemeye gerek yok.
 // ---------------------------------------------------------------------------
 const whatsappCagrilari = [];
@@ -103,6 +103,8 @@ test("hatirlatmaKontrol: kaynak=sabit (haftalik musteri) icin de SMS, whatsapp c
 });
 
 test("hatirlatmaKontrol: kaynak=whatsapp icin WhatsApp, eposta cagrilmaz", async (t) => {
+  process.env.WHATSAPP_AKTIF = "true";
+  t.after(() => { delete process.env.WHATSAPP_AKTIF; });
   process.env.PORT = "3203";
   delete require.cache[require.resolve("../src/index")];
   const { server, hatirlatmaKontrol } = require("../src/index");
@@ -120,6 +122,8 @@ test("hatirlatmaKontrol: kaynak=whatsapp icin WhatsApp, eposta cagrilmaz", async
 });
 
 test("hatirlatmaKontrol: kaynak tanimsiz (eski kayit) icin de WhatsApp kullanilir", async (t) => {
+  process.env.WHATSAPP_AKTIF = "true";
+  t.after(() => { delete process.env.WHATSAPP_AKTIF; });
   process.env.PORT = "3203";
   delete require.cache[require.resolve("../src/index")];
   const { server, hatirlatmaKontrol } = require("../src/index");
@@ -133,6 +137,24 @@ test("hatirlatmaKontrol: kaynak tanimsiz (eski kayit) icin de WhatsApp kullanili
 
   assert.strictEqual(whatsappCagrilari.length, 1);
   assert.strictEqual(epostaCagrilari.length, 0);
+});
+
+test("hatirlatmaKontrol: WhatsApp kapaliyken elle girilen (kaynak=whatsapp kayitli) randevu da SMS alir", async (t) => {
+  process.env.PORT = "3203";
+  delete require.cache[require.resolve("../src/index")];
+  const { server, hatirlatmaKontrol } = require("../src/index");
+  t.after(() => new Promise((r) => server.close(r)));
+  await new Promise((r) => setTimeout(r, 400));
+
+  whatsappCagrilari.length = 0; smsHatirlatmaCagrilari.length = 0; markHatirlatildiCagrilari.length = 0;
+  surumNo++;
+  hatirlatilacaklar = [{ id: "p1", kaynak: "whatsapp", saat: otuzDkSonra(), berber: "Kaan Ekinci", hizmet: "Saç Kesimi", telefon: "05550007777" }];
+
+  await hatirlatmaKontrol();
+
+  assert.strictEqual(smsHatirlatmaCagrilari.length, 1);
+  assert.strictEqual(whatsappCagrilari.length, 0);
+  assert.deepStrictEqual(markHatirlatildiCagrilari, ["p1"]);
 });
 
 test("hatirlatmaKontrol: yazma olmadikca DB'ye tekrar gitmez (Neon uyuyabilsin)", async (t) => {
@@ -158,6 +180,8 @@ test("hatirlatmaKontrol: yazma olmadikca DB'ye tekrar gitmez (Neon uyuyabilsin)"
 });
 
 test("hatirlatmaKontrol: gonderilen hatirlatma onbellekten dusulur, tekrar gonderilmez", async (t) => {
+  process.env.WHATSAPP_AKTIF = "true";
+  t.after(() => { delete process.env.WHATSAPP_AKTIF; });
   process.env.PORT = "3203";
   delete require.cache[require.resolve("../src/index")];
   const { server, hatirlatmaKontrol } = require("../src/index");

@@ -17,9 +17,11 @@ const sms = require("./sms");
 const eposta = require("./email");
 const { slotGectiMi, acikSaatleriGetir, bugunStr, gunEkle, sabitTarihleri } = require("./randevu-yardimci");
 
-// Web'den gelen ve sabit (haftalık) müşteriler WhatsApp kullanmıyor — SMS/e-posta ile bildirilir.
+// Müşteri bildirimleri SMS ile gider. WhatsApp artık kullanılmıyor; eski bot
+// akışı ancak WHATSAPP_AKTIF=true verilirse, bottan gelen randevular için devreye girer.
+// (Elle girilen eski randevular da kaynak='whatsapp' kayıtlı; bu yüzden kaynağa değil anahtara bakılır.)
 function smsMusterisi(r) {
-  return r.kaynak === "web" || r.kaynak === "sabit";
+  return process.env.WHATSAPP_AKTIF !== "true" || (r.kaynak || "whatsapp") !== "whatsapp";
 }
 
 const app = express();
@@ -266,7 +268,7 @@ app.post("/api/auth", (req, res) => {
   }
   const { berberId, pin, admin } = req.body;
   if (admin) {
-    if (pin === ADMIN_PIN) {
+    if (ADMIN_PIN && pin === ADMIN_PIN) {
       girisDenemeleri.delete(ip);
       const token = tokenUret({ role: "admin", berberId: null, ad: "Admin" });
       return res.json({ ok: true, role: "admin", token });
@@ -276,7 +278,7 @@ app.post("/api/auth", (req, res) => {
   }
   const berber = BERBERLER.find((b) => b.id === berberId);
   if (!berber)          return res.status(404).json({ ok: false, hata: "Berber bulunamadı." });
-  if (berber.pin !== pin) {
+  if (!berber.pin || berber.pin !== pin) { // PIN_<ID> tanımsızsa hesap kapalı
     girisHatasiKaydet(ip);
     return res.status(401).json({ ok: false, hata: "Yanlış PIN." });
   }
@@ -364,11 +366,25 @@ app.post("/api/public/otp-dogrula", ah(async (req, res) => {
   res.json({ ok: true, dogrulamaToken: token });
 }));
 
+// Pazar normalde kapalı; admin "tüm günü aç" dediyse (acik_gunler) açılır.
+async function gunAcikMi(tarih) {
+  if (new Date(tarih + "T00:00:00").getDay() !== 0) return true;
+  return (await db.getAcikGunler()).includes(tarih);
+}
+
+// Web sitesinin tarih listesinde gösterilecek özel açık günler (Pazar/bayram istisnası)
+app.get("/api/public/acik-gunler", ah(async (req, res) => {
+  const bugun = bugunStr();
+  const tarihler = (await db.getAcikGunler()).filter((t) => t >= bugun).sort();
+  res.json({ tarihler });
+}));
+
 // Bir berberin belirli tarihteki boş saatleri (herkese açık, sadece okuma)
 app.get("/api/public/musait-saatler", ah(async (req, res) => {
   const { berberId, tarih } = req.query;
   const berber = BERBERLER.find((b) => b.id === berberId);
   if (!berber || !tarih) return res.status(400).json({ hata: "Eksik/geçersiz parametre." });
+  if (!(await gunAcikMi(tarih))) return res.json({ saatler: [] });
 
   const [dolu, acikSaatler] = await Promise.all([
     db.getBusySlots(berberId, tarih),
@@ -415,6 +431,7 @@ app.post("/api/public/randevu", ah(async (req, res) => {
   if (slotGectiMi(tarih, saat)) {
     return res.status(400).json({ hata: "Seçilen saat artık geçmiş. Lütfen başka bir saat seçin." });
   }
+  if (!(await gunAcikMi(tarih))) return res.status(400).json({ hata: "Seçilen gün kapalı." });
 
   const acikSaatler = await acikSaatleriGetir(berberId, tarih);
   const calisilanSaatler = berberCalismaSaatleri(berberId, tarih, acikSaatler);
@@ -536,12 +553,13 @@ app.post("/api/randevular", requireAuth, ah(async (req, res) => {
 
   try {
     const kayit = await db.add({
-      ad, telefon: telefon || "",
+      ad, telefon: telefon ? (telefonNormalize(telefon) || telefon) : "",
       berberId, berber: berber.ad,
       hizmetId, hizmet: hizmet.ad,
       tarih, saat,
       fiyat: typeof fiyat === "number" ? fiyat : berber.fiyat[hizmetId],
       durum: "onaylı", // elle eklenen randevu direkt onaylı
+      kaynak: "panel",
     });
     sheets.syncRandevu(kayit).catch(() => {});
     sheets.musteriKaydet(kayit).catch(() => {});
@@ -577,10 +595,17 @@ app.post("/api/randevular/:id/durum", requireAuth, ah(async (req, res) => {
   if (!["onaylı", "iptal", "gelmedi"].includes(durum))
     return res.status(400).json({ hata: "Geçersiz durum." });
 
-  const kayit = await db.updateStatus(
-    id, durum,
-    iptalEden || (durum === "iptal" ? "berber" : undefined)
-  );
+  let kayit;
+  try {
+    kayit = await db.updateStatus(
+      id, durum,
+      iptalEden || (durum === "iptal" ? "berber" : undefined)
+    );
+  } catch (e) {
+    if (e.code === "SLOT_DOLU")
+      return res.status(409).json({ hata: "Bu saat bu arada başka bir randevuya verilmiş, geri açılamaz." });
+    throw e;
+  }
   if (!kayit) return res.status(404).json({ hata: "Randevu bulunamadı." });
 
   sheets.updateRandevuDurum(kayit).catch(() => {});
@@ -658,39 +683,100 @@ app.get("/api/sabit", requireAuth, ah(async (req, res) => {
   res.json(await db.sabitListe(berberId));
 }));
 
-app.post("/api/sabit", requireAuth, ah(async (req, res) => {
-  const { ad, telefon, hizmetId, saat, fiyat } = req.body;
-  const gun = Number(req.body.gun);
-  // Berber sadece kendi adına ekleyebilir; admin başka berber seçebilir
-  const berberId = req.auth.role === "admin" ? (req.body.berberId || req.auth.berberId) : req.auth.berberId;
+// Şu anki saat "HH:MM" — bugünün saati geçmiş sabit randevularına dokunulmasın diye
+function simdiSaat() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+// Ekleme ve düzenleme için ortak doğrulama. Hata varsa { hata } döner.
+function sabitGirdisi(body, berberId, baslangic) {
+  const { ad, telefon, hizmetId, saat, fiyat } = body;
+  const gun = Number(body.gun);
   const berber = BERBERLER.find((b) => b.id === berberId);
   const hizmet = HIZMETLER.find((h) => h.id === hizmetId);
 
-  if (!ad || !String(ad).trim() || !saat) return res.status(400).json({ hata: "Eksik parametre." });
-  if (!berber || !hizmet) return res.status(400).json({ hata: "Geçersiz berber veya hizmet." });
-  if (!Number.isInteger(gun) || gun < 1 || gun > 6) return res.status(400).json({ hata: "Gün Pazartesi–Cumartesi arası olmalı." });
+  if (!ad || !String(ad).trim() || !saat) return { hata: "Eksik parametre." };
+  if (!berber || !hizmet) return { hata: "Geçersiz berber veya hizmet." };
+  if (!Number.isInteger(gun) || gun < 1 || gun > 6) return { hata: "Gün Pazartesi–Cumartesi arası olmalı." };
 
-  const baslangic = /^\d{4}-\d{2}-\d{2}$/.test(req.body.baslangic || "") ? req.body.baslangic : bugunStr();
   let ilkTarih = baslangic;
   while (new Date(ilkTarih + "T00:00:00").getDay() !== gun) ilkTarih = gunEkle(ilkTarih, 1);
   if (!berberCalismaSaatleri(berberId, ilkTarih).includes(saat))
-    return res.status(400).json({ hata: "Seçilen saat bu berberin çalışma saatleri dışında." });
+    return { hata: "Seçilen saat bu berberin çalışma saatleri dışında." };
 
-  const kural = await db.sabitEkle({
-    berberId, ad: String(ad).trim(), telefon: telefon || "", hizmetId, gun, saat,
-    fiyat: typeof fiyat === "number" ? fiyat : undefined, baslangic,
-  });
+  return {
+    ad: String(ad).trim(),
+    telefon: telefon ? (telefonNormalize(telefon) || String(telefon).trim()) : "",
+    hizmetId, gun, saat,
+    fiyat: typeof fiyat === "number" ? fiyat : undefined,
+  };
+}
+
+// Kural sahibi berber ya da admin değilse null
+async function sabitKuralYetkili(req, res) {
+  const kural = await db.sabitGetir(req.params.id);
+  if (!kural || !kural.aktif) { res.status(404).json({ hata: "Kural bulunamadı." }); return null; }
+  if (req.auth.role !== "admin" && kural.berberId !== req.auth.berberId) {
+    res.status(403).json({ hata: "Bu kural size ait değil." });
+    return null;
+  }
+  return kural;
+}
+
+// Silinen sabit randevuların Sheets hücrelerini de boşalt
+function sheetsTemizle(silinenler) {
+  for (const r of silinenler)
+    sheets.clearRandevuCell(r.berberId, r.tarih, r.saat, r.kisiSayisi || 1).catch(() => {});
+}
+
+app.post("/api/sabit", requireAuth, ah(async (req, res) => {
+  // Berber sadece kendi adına ekleyebilir; admin başka berber seçebilir
+  const berberId = req.auth.role === "admin" ? (req.body.berberId || req.auth.berberId) : req.auth.berberId;
+  const baslangic = /^\d{4}-\d{2}-\d{2}$/.test(req.body.baslangic || "") ? req.body.baslangic : bugunStr();
+  const girdi = sabitGirdisi(req.body, berberId, baslangic);
+  if (girdi.hata) return res.status(400).json({ hata: girdi.hata });
+
+  const kural = await db.sabitEkle({ berberId, ...girdi, baslangic });
   const sonuc = await sabitUret(kural);
   res.status(201).json({ kural, ...sonuc });
 }));
 
+// Kuralı düzenle. Gün/saat değişirse gelecek haftalar silinip yeni gün/saatle
+// yeniden üretilir; sadece ad/telefon/hizmet/ücret değişirse yerinde güncellenir.
+app.put("/api/sabit/:id", requireAuth, ah(async (req, res) => {
+  const kural = await sabitKuralYetkili(req, res);
+  if (!kural) return;
+  const bugun = bugunStr();
+  const girdi = sabitGirdisi(req.body, kural.berberId, bugun);
+  if (girdi.hata) return res.status(400).json({ hata: girdi.hata });
+
+  const saatDegisti = girdi.gun !== kural.gun || girdi.saat !== kural.saat;
+  if (saatDegisti) {
+    sheetsTemizle(await db.sabitGelecekSil(kural.id, bugun, simdiSaat()));
+    // Bu haftanın randevusu bugün zaten yapıldıysa yenisi bugün tekrar açılmasın
+    const bugunYapildi = new Date(bugun + "T00:00:00").getDay() === kural.gun && kural.saat <= simdiSaat();
+    const yeni = await db.sabitGuncelle(kural.id, girdi, bugunYapildi ? gunEkle(bugun, 1) : bugun);
+    const sonuc = await sabitUret(yeni);
+    return res.json({ kural: yeni, ...sonuc, yenidenUretildi: true });
+  }
+
+  const yeni = await db.sabitGuncelle(kural.id, girdi);
+  const berber = BERBERLER.find((b) => b.id === kural.berberId);
+  const hizmet = HIZMETLER.find((h) => h.id === girdi.hizmetId);
+  const guncellenenler = await db.sabitGelecekGuncelle(kural.id, bugun, simdiSaat(), {
+    ...girdi, hizmet: hizmet.ad, fiyat: girdi.fiyat ?? berber.fiyat[hizmet.id],
+  });
+  for (const r of guncellenenler) sheets.syncRandevu(r).catch(() => {});
+  res.json({ kural: yeni, olusturulan: [], atlanan: [], guncellenen: guncellenenler.length });
+}));
+
 app.post("/api/sabit/:id/durdur", requireAuth, ah(async (req, res) => {
-  const kural = await db.sabitGetir(req.params.id);
-  if (!kural || !kural.aktif) return res.status(404).json({ hata: "Kural bulunamadı." });
-  if (req.auth.role !== "admin" && kural.berberId !== req.auth.berberId)
-    return res.status(403).json({ hata: "Bu kural size ait değil." });
-  const silinen = await db.sabitDurdur(kural.id, bugunStr());
-  res.json({ ok: true, silinen });
+  const kural = await sabitKuralYetkili(req, res);
+  if (!kural) return;
+  const silinenler = await db.sabitDurdur(kural.id, bugunStr(), simdiSaat());
+  sheetsTemizle(silinenler);
+  res.json({ ok: true, silinen: silinenler.length });
 }));
 
 // Günde bir kez DB'ye gider (Neon'u gereksiz uyandırmamak için gün değişimini bellekte takip eder)
@@ -733,17 +819,28 @@ app.patch("/api/randevular/:id/tasi", requireAuth, ah(async (req, res) => {
   const kayit = await db.getById(id);
   if (!kayit) return res.status(404).json({ hata: "Randevu bulunamadı." });
 
+  const acikSaatler = await acikSaatleriGetir(kayit.berberId, tarih);
+  if (!berberCalismaSaatleri(kayit.berberId, tarih, acikSaatler).includes(saat))
+    return res.status(400).json({ hata: "Seçilen saat çalışma saatleri dışında." });
+
+  // Kapalı gün/saat de dolu sayılır (getBusySlots)
   const dolu = await db.getBusySlots(kayit.berberId, tarih);
   // Aynı randevunun eski slotunu meşgul saymamak için çıkar
   const doluFiltered = dolu.filter(
     (s) => !(tarih === kayit.tarih && s === kayit.saat)
   );
   if (doluFiltered.includes(saat))
-    return res.status(409).json({ hata: "Seçilen saat dolu." });
+    return res.status(409).json({ hata: "Seçilen saat dolu ya da kapalı." });
 
   const eskiTarih = kayit.tarih;
   const eskiSaat  = kayit.saat;
-  const guncellenen = await db.updateTarihSaat(id, tarih, saat);
+  let guncellenen;
+  try {
+    guncellenen = await db.updateTarihSaat(id, tarih, saat);
+  } catch (e) {
+    if (e.code === "SLOT_DOLU") return res.status(409).json({ hata: "Seçilen saat dolu." });
+    throw e;
+  }
   if (!guncellenen) return res.status(404).json({ hata: "Güncelleme başarısız." });
 
   sheets.clearRandevuCell(kayit.berberId, eskiTarih, eskiSaat, kayit.kisiSayisi || 1).catch(() => {});
