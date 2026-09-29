@@ -266,7 +266,7 @@
     <div class="basari">
       <div class="ikon">🗓️</div>
       <h2>Yakında Açılıyor!</h2>
-      <p>Online randevu sistemimiz <strong>28 Eylül Pazartesi saat 09:00</strong>'dan itibaren hizmetinizde olacak. O saatten sonra tekrar uğrayın.</p>
+      <p>Online randevu sistemimiz <strong>çok yakında</strong> hizmetinizde olacak. Lütfen daha sonra tekrar uğrayın.</p>
     </div>
   </div>
 
@@ -393,10 +393,6 @@ let OTP_AKTIF = false;
 
 const ADIM_SIRASI = ["adimBerber", "adimHizmet", "adimTarih", "adimSaat", "adimBilgi"];
 
-// Geçici lansman kapısı — production'a geçmeden önce web'den randevu alınmasın.
-// Pazartesi 09:00'dan sonra bu blok kendiliğinden devre dışı kalır (tarih geçince).
-const RANDEVU_ACILIS = new Date("2026-09-28T09:00:00+03:00");
-
 function kacis(s) {
   const d = document.createElement("div");
   d.textContent = s == null ? "" : String(s);
@@ -450,6 +446,11 @@ async function baslat() {
   try {
     const res = await fetch("/api/config", { cache: "no-store" });
     const c = await res.json();
+    if (c.randevuKapali) {
+      document.querySelector(".iptal-link").style.display = "none";
+      adimGoster("adimYakinda");
+      return;
+    }
     BERBERLER = c.berberler; HIZMETLER = c.hizmetler;
     OTP_AKTIF = !!c.otpAktif;
     document.getElementById("kodGonderBtn").textContent = OTP_AKTIF ? "Doğrulama Kodu Gönder" : "Randevu Al";
@@ -859,12 +860,7 @@ async function randevuOlustur() {
   }, { passive: true });
 })();
 
-if (Date.now() < RANDEVU_ACILIS.getTime()) {
-  document.querySelector(".iptal-link").style.display = "none";
-  adimGoster("adimYakinda");
-} else {
-  baslat();
-}
+baslat();
 </script>
 </body>
 </html>

@@ -41,9 +41,14 @@ const TEMPLATE_HATIRLATMA = process.env.TEMPLATE_HATIRLATMA;
 const tokens = new Map(); // token -> { role, berberId, ad, olusturulma }
 const TOKEN_OMUR_MS = 24 * 60 * 60 * 1000; // 24 saat — berberler her gün PIN girmesin
 
-// Geçici lansman kapısı — production'a geçmeden önce web'den randevu alınmasın.
-// Pazartesi 09:00'dan sonra bu kontrol kendiliğinden devre dışı kalır.
+// Lansman kapısı — production'a geçmeden önce web'den randevu alınmasın.
+// RANDEVU_KAPALI=true verilirse tarihe bakılmaksızın kapalı kalır (admin
+// manuel olarak açana kadar); yoksa RANDEVU_ACILIS_TARIHI geçince kendiliğinden açılır.
 const RANDEVU_ACILIS = new Date(process.env.RANDEVU_ACILIS_TARIHI || "2026-09-28T09:00:00+03:00");
+function randevuKapaliMi() {
+  if (process.env.RANDEVU_KAPALI === "true") return true;
+  return Date.now() < RANDEVU_ACILIS.getTime();
+}
 
 function tokenUret(bilgi) {
   const token = crypto.randomBytes(32).toString("hex");
@@ -281,7 +286,7 @@ app.post("/api/auth", (req, res) => {
 // ---------------------------------------------------------------------------
 app.get("/api/config", (req, res) => {
   const berberler = BERBERLER.map(({ pin, ...rest }) => rest);
-  res.json({ berberler, hizmetler: HIZMETLER, saatler: SAATLER, saatler45: SAATLER_45, otpAktif: OTP_AKTIF });
+  res.json({ berberler, hizmetler: HIZMETLER, saatler: SAATLER, saatler45: SAATLER_45, otpAktif: OTP_AKTIF, randevuKapali: randevuKapaliMi() });
 });
 
 // ---------------------------------------------------------------------------
@@ -371,8 +376,8 @@ app.get("/api/public/musait-saatler", ah(async (req, res) => {
 
 // Doğrulanmış telefonla randevu oluştur — "bekliyor" durumunda kaydedilir
 app.post("/api/public/randevu", ah(async (req, res) => {
-  if (Date.now() < RANDEVU_ACILIS.getTime())
-    return res.status(423).json({ hata: "Online randevu sistemi henüz açılmadı. 28 Eylül Pazartesi saat 09:00'dan itibaren aktif olacak." });
+  if (randevuKapaliMi())
+    return res.status(423).json({ hata: "Online randevu sistemi henüz açılmadı." });
 
   const { dogrulamaToken, ad, telefon: gelenTelefon, email: musteriEmail, berberId, hizmetId, tarih, saat } = req.body;
 
