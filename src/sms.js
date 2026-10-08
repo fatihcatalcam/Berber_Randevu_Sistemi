@@ -36,6 +36,7 @@ async function gonder(telefon, mesaj) {
         gsmno:     telefon,
         message:   mesaj,
         msgheader: NETGSM_MSGHEADER,
+        dil:       "TR", // Türkçe karakterler (ş, ğ, ı...) bozulmadan gitsin
       },
     });
     const yanit = String(res.data || "").trim();
@@ -69,7 +70,7 @@ async function randevuTasindiSms(randevu, tarihStr) {
 async function randevuHatirlatmaSms(randevu, tarihStr) {
   return gonder(
     randevu.telefon,
-    `Resul Tabu Saç Atölyesi: ${tarihStr} saat ${randevu.saat}'de randevunuz var, sizi bekliyoruz! 🙏`
+    `Resul Tabu Saç Atölyesi: ${tarihStr} saat ${randevu.saat}'de randevunuz var, sizi bekliyoruz.`
   );
 }
 
