@@ -639,13 +639,6 @@ function berberCalismaSaatleri(berberId, tarih) {
     .map((x) => x.saat);
 }
 
-// Berberin günlük net gelir hesabı: (ciro - taban) * oran — sunucudaki berberNet ile aynı
-function berberNet(berberId, ciro) {
-  const b = BERBERLER.find((x) => x.id === berberId);
-  const n = (b && b.net) || { taban: 0, oran: 1 };
-  const net = (ciro - n.taban) * n.oran;
-  return net > 0 ? Math.round(net) : 0;
-}
 let seciliTarih = todayStr();
 let takvimAy = new Date();
 let filtreDurum = "hepsi", filtreBerber = "hepsi", arama = "";
@@ -1820,10 +1813,11 @@ function istatistikGuncelle() {
     ciroKart.style.cursor = "pointer";
     ciroKart.onclick = () => { location.href = "/dashboard/ciro.html"; };
   } else if (auth) {
+    // Berber o günkü işlerinin toplamını görür (yüzde/taban hesabı panelde yok)
     const ciro = gun.filter((r) => r.durum === "onaylı")
       .reduce((s, r) => s + (r.gercekFiyat ?? r.fiyat ?? 0), 0);
-    document.getElementById("s-ciro").textContent = berberNet(auth.berberId, ciro).toLocaleString("tr-TR") + "₺";
-    document.getElementById("s-ciro-etiket").textContent = "Günlük Net";
+    document.getElementById("s-ciro").textContent = ciro.toLocaleString("tr-TR") + "₺";
+    document.getElementById("s-ciro-etiket").textContent = "Günlük Ciro";
     ciroKart.style.cursor = "default";
     ciroKart.onclick = null;
   }
