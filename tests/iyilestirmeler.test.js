@@ -24,6 +24,7 @@ Module._load = function (req) {
       init: async () => {}, getHatirlatilacaklar: async () => [], degisimSurumu: () => "t:0",
       getAcikGunler: async () => acikGunler, getAcikSaatlerFor: async () => [],
       getBusySlots: async () => [],
+      getRecentAndUpcoming: async () => store,
       add: async (r) => { const k = { ...r, id: "r" + store.length }; store.push(k); return k; },
       getById: async (id) => store.find((r) => r.id === id) || null,
       updateStatus: async (id, durum) => {
@@ -132,4 +133,18 @@ test("web randevusu en fazla 2 hafta sonrasina alinabilir", async (t) => {
   const govde = (tarih) => ({ ad: "C", telefon: "05550000012", berberId: "kaan", hizmetId: "sac", tarih, saat: "11:30" });
   assert.strictEqual((await istek("POST", "/api/public/randevu", govde(sinirDisi))).status, 400);
   assert.strictEqual((await istek("POST", "/api/public/randevu", govde(sinirIci))).status, 201);
+});
+
+test("ciro sifresi ayri: sadece randevu listesini okur, admin PIN'i ciroyu acmaz", async (t) => {
+  store = [];
+  await sunucu(t);
+  assert.strictEqual((await istek("POST", "/api/auth", { ciro: true, pin: process.env.ADMIN_PIN })).status, 401);
+  const giris = await istek("POST", "/api/auth", { ciro: true, pin: process.env.CIRO_PIN });
+  assert.strictEqual(giris.status, 200);
+  assert.strictEqual(giris.body.role, "ciro");
+  const token = giris.body.token;
+
+  assert.strictEqual((await istek("GET", "/api/randevular", null, token)).status, 200);
+  assert.strictEqual((await istek("GET", "/api/sabit", null, token)).status, 403);
+  assert.strictEqual((await istek("POST", "/api/randevular", { ad: "X", berberId: "eren", hizmetId: "sac", tarih: "2030-01-02", saat: "09:45" }, token)).status, 403);
 });

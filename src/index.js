@@ -11,7 +11,7 @@ const crypto = require("crypto");
 const db = require("./db");
 const { handleMessage } = require("./bot");
 const { sendText, sendTemplate } = require("./whatsapp");
-const { BERBERLER, HIZMETLER, SAATLER, SAATLER_45, ADMIN_PIN, berberCalismaSaatleri } = require("./config");
+const { BERBERLER, HIZMETLER, SAATLER, SAATLER_45, ADMIN_PIN, CIRO_PIN, berberCalismaSaatleri } = require("./config");
 const sheets = require("./sheets");
 const sms = require("./sms");
 const eposta = require("./email");
@@ -193,6 +193,9 @@ function requireAuth(req, res, next) {
     if (token) tokens.delete(token);
     return res.status(401).json({ hata: "Yetkisiz. Lütfen tekrar giriş yapın." });
   }
+  // Ciro şifresiyle açılan oturum sadece randevu listesini okuyabilir
+  if (bilgi.role === "ciro" && !(req.method === "GET" && req.path === "/api/randevular"))
+    return res.status(403).json({ hata: "Bu işlem için yetkiniz yok." });
   req.auth = bilgi;
   next();
 }
@@ -272,7 +275,15 @@ app.post("/api/auth", (req, res) => {
   if (girisEngelli(ip)) {
     return res.status(429).json({ ok: false, hata: "Çok fazla yanlış deneme. 15 dakika sonra tekrar deneyin." });
   }
-  const { berberId, pin, admin } = req.body;
+  const { berberId, pin, admin, ciro } = req.body;
+  if (ciro) {
+    if (CIRO_PIN && pin === CIRO_PIN) {
+      girisDenemeleri.delete(ip);
+      return res.json({ ok: true, role: "ciro", token: tokenUret({ role: "ciro", berberId: null, ad: "Ciro" }) });
+    }
+    girisHatasiKaydet(ip);
+    return res.status(401).json({ ok: false, hata: "Yanlış şifre." });
+  }
   if (admin) {
     if (ADMIN_PIN && pin === ADMIN_PIN) {
       girisDenemeleri.delete(ip);
@@ -963,6 +974,11 @@ app.use("/dashboard", express.static(path.join(__dirname, "..", "dashboard"), {
     if (filePath.endsWith(".html")) res.set("Cache-Control", "no-cache");
   },
 }));
+// Ciro sayfası kısa adresi — panelde artık butonu yok, doğrudan bu adresten girilir
+app.get("/dashboard/ciro", (req, res) => {
+  res.set("Cache-Control", "no-cache");
+  res.sendFile(path.join(__dirname, "..", "dashboard", "ciro.html"));
+});
 app.get("/dashboard", (req, res) => {
   res.set("Cache-Control", "no-cache");
   res.sendFile(path.join(__dirname, "..", "dashboard", "index.html"));

@@ -1196,11 +1196,13 @@ function cizelgeRender() {
           let etiket = (r.sabitId ? "📌 " : "") + (gelmedi > 0 ? "⚠️ " : "") + r.ad;
           if (r.durum === "iptal") etiket += ` — İPTAL (${r.iptalEden === "musteri" ? "müşteri" : "berber"})`;
           else if (r.kisiSayisi > 1) etiket += ` (${r.kisiSayisi} kişi)`;
-          const fiyatGoster = r.gercekFiyat !== undefined ? `${r.gercekFiyat}₺ ✏️` : `${r.fiyat}₺`;
+          // Resul Tabu'nun hücrelerinde fiyat yazmaz (admin görünümünde de kendi girişinde de)
+          const fiyatGoster = r.berberId === "resul" ? ""
+            : " · " + (r.gercekFiyat !== undefined ? `${r.gercekFiyat}₺ ✏️` : `${r.fiyat}₺`);
           const ipucu = gelmedi > 0 ? ` title="Son 6 ayda ${gelmedi} kez gelmedi"` : "";
           html += `<td class="cizelge-hucre" data-id="${r.id}"${ipucu} style="padding:7px 10px;border:1px solid var(--cizgi);background:${renk.bg};color:${renk.fg};font-size:12px;cursor:pointer;user-select:none;min-width:80px;">` +
             `<div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;">${kacis(etiket)}</div>` +
-            `<div style="font-size:11px;opacity:.75;white-space:nowrap;">${kacis(r.hizmet)} · ${fiyatGoster}</div></td>`;
+            `<div style="font-size:11px;opacity:.75;white-space:nowrap;">${kacis(r.hizmet)}${fiyatGoster}</div></td>`;
         }
       } else if (slot.yemek && !acikSaatMi(b.id, seciliTarih, saat)) {
         // Yemek arası — çift tık/sağ tık ile açılabilir (berber tokken kullansın)
@@ -1804,15 +1806,9 @@ function istatistikGuncelle() {
   document.getElementById("s-bekleyen").textContent = gun.filter((r) => r.durum === "bekliyor").length;
   const ciroKart = document.getElementById("s-ciro-kart");
   const isAdmin = auth && auth.role === "admin";
-  if (isAdmin) {
-    // Ciro rakamlari artik ana panelde gosterilmiyor — ayri, sifre isteyen
-    // bir sayfada (bkz. ciro.html). Panel oturumu 24 saat acik kaldigi icin
-    // parayla ilgili rakamlar tek tikla gorunmesin diye ekstra sifre sorulur.
-    document.getElementById("s-ciro").textContent = "🔒";
-    document.getElementById("s-ciro-etiket").textContent = "Ciro — görüntüle";
-    ciroKart.style.cursor = "pointer";
-    ciroKart.onclick = () => { location.href = "/dashboard/ciro.html"; };
-  } else if (auth) {
+  // Admin ciroyu panelde görmez; ciro ayrı şifreli sayfada (/dashboard/ciro), panelde butonu yok
+  ciroKart.style.display = isAdmin ? "none" : "";
+  if (!isAdmin && auth) {
     // Berber o günkü işlerinin toplamını görür (yüzde/taban hesabı panelde yok)
     const ciro = gun.filter((r) => r.durum === "onaylı")
       .reduce((s, r) => s + (r.gercekFiyat ?? r.fiyat ?? 0), 0);

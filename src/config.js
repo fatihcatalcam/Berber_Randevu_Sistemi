@@ -17,6 +17,7 @@
 // ---------------------------------------------------------------------------
 
 const ADMIN_PIN = process.env.ADMIN_PIN || null;
+const CIRO_PIN  = process.env.CIRO_PIN || null; // sadece ciro sayfası (/dashboard/ciro)
 const pinOku = (id) => process.env["PIN_" + id.toUpperCase()] || null;
 
 const RESUL_FIYAT = { sac: 900, sakal: 300, kombin: 1200 };
@@ -155,5 +156,5 @@ function gelecekTarihler(kacGun = 7, acikGunler = []) {
 module.exports = {
   BERBERLER, HIZMETLER, SAATLER, SAATLER_45,
   berberSlotDk, berberSaatleri, berberCalismaSaatleri, berberGunSlotlari,
-  berberBaslangicSaati, berberNet, gelecekTarihler, ADMIN_PIN,
+  berberBaslangicSaati, berberNet, gelecekTarihler, ADMIN_PIN, CIRO_PIN,
 };

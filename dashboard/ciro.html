@@ -101,7 +101,7 @@
   <div class="login-kart">
     <div class="kilit">🔒</div>
     <h2>Ciro Görüntüleme</h2>
-    <div class="alt">Devam etmek için admin şifresini girin</div>
+    <div class="alt">Devam etmek için ciro şifresini girin</div>
     <input type="password" id="pinInput" inputmode="numeric" maxlength="6" placeholder="••••">
     <div id="pinHata"></div>
     <button class="btn" onclick="girisYap()">Giriş</button>
@@ -192,10 +192,10 @@ async function girisYap() {
   try {
     const res = await fetch("/api/auth", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ admin: true, pin }),
+      body: JSON.stringify({ ciro: true, pin }),
     });
     const data = await res.json();
-    if (!data.ok || data.role !== "admin") {
+    if (!data.ok || data.role !== "ciro") {
       hataEl.textContent = data.hata || "Yanlış şifre.";
       return;
     }
