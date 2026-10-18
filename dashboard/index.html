@@ -369,7 +369,7 @@
 
   <!-- Filtre -->
   <div class="filtre">
-    <input type="text" id="arama" placeholder="🔍 Ad veya telefon ara..." />
+    <input type="text" id="arama" placeholder="🔍 Ad veya telefon ara (tüm tarihler)..." />
     <div class="durum-btnlar">
       <button class="durum-btn aktif" data-durum="hepsi">Hepsi</button>
       <button class="durum-btn" data-durum="bekliyor">Bek.</button>
@@ -1842,6 +1842,9 @@ function istatistikGuncelle() {
 function render() {
   istatistikGuncelle();
   let liste = gorRunumRandevular().slice();
+  // Arama yoksa liste çizelgede seçili günü gösterir; ad/telefon yazılınca tüm tarihlerde arar
+  const gunGorunumu = !arama.trim();
+  if (gunGorunumu) liste = liste.filter((r) => r.tarih === seciliTarih);
   if (filtreDurum !== "hepsi") liste = liste.filter((r) => r.durum === filtreDurum);
   if (filtreBerber !== "hepsi") liste = liste.filter((r) => r.berber === filtreBerber);
   if (arama.trim()) {
@@ -1849,6 +1852,8 @@ function render() {
     liste = liste.filter((r) => (r.ad||"").toLowerCase().includes(a) || (r.telefon||"").includes(a));
   }
   liste.sort((x, y) => {
+    // Gün görünümünde varsayılan sıra saat (sabah → akşam)
+    if (gunGorunumu && siralama.kol === "tarih") return (x.saat || "").localeCompare(y.saat || "");
     let vx = x[siralama.kol] ?? "", vy = y[siralama.kol] ?? "";
     if (vx < vy) return siralama.yon === "asc" ? -1 : 1;
     if (vx > vy) return siralama.yon === "asc" ?  1 : -1;
