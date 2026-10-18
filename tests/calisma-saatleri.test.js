@@ -44,6 +44,13 @@ test("Kaan: 10:45 baslar, oncesi kapali", () => {
   }
 });
 
+test("Kaan: 30 dk yemek arasi (16:00), sonraki randevu 16:30, son randevu 21:00", () => {
+  const s = berberCalismaSaatleri("kaan", PAZARTESI);
+  assert.ok(s.includes("15:15") && !s.includes("16:00"), "15:15 son ogle oncesi, 16:00 yemek");
+  assert.deepStrictEqual(s.slice(s.indexOf("16:30")), ["16:30", "17:15", "18:00", "18:45", "19:30", "20:15", "21:00"]);
+  assert.ok(!s.includes("16:45") && !s.includes("21:15"), "eski izgara saatleri kalmamali");
+});
+
 test("Eren: gun bazli baslangic (Pzt 10:30, Sal 09:45)", () => {
   assert.strictEqual(berberBaslangicSaati("eren", PAZARTESI), "10:30");
   assert.strictEqual(berberBaslangicSaati("eren", SALI), "09:45");

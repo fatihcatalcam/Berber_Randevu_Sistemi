@@ -4,4 +4,3 @@
   process.env["PIN_" + id.toUpperCase()] ||= String(5000 + i);
 });
 process.env.ADMIN_PIN ||= "4999";
-process.env.CIRO_PIN ||= "4998";

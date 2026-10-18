@@ -17,7 +17,7 @@
 // ---------------------------------------------------------------------------
 
 const ADMIN_PIN = process.env.ADMIN_PIN || null;
-const CIRO_PIN  = process.env.CIRO_PIN || null; // sadece ciro sayfası (/dashboard/ciro)
+const CIRO_PIN  = "3131"; // sadece ciro sayfası (/dashboard/ciro) — isteğe göre koda sabit
 const pinOku = (id) => process.env["PIN_" + id.toUpperCase()] || null;
 
 const RESUL_FIYAT = { sac: 900, sakal: 300, kombin: 1200 };
@@ -35,7 +35,7 @@ const BERBERLER = [
   { id: "eren",      ad: "Eren Tokalak",   uzmanlik: "Saç & Sakal Tasarımı", pin: pinOku("eren"), tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/eren.jpeg",
     calisma: { baslangic: EREN_BASLANGIC, bitis: "21:45", yemek: "16:30", yemekDk: 45 }, net: { taban: 100, oran: 0.55 } },
   { id: "kaan",      ad: "Kaan Ekinci",    uzmanlik: "Saç & Sakal Tasarımı", pin: pinOku("kaan"), tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/kaan.jpeg",
-    calisma: { baslangic: "10:45", bitis: "22:00", yemek: "16:00", yemekDk: 45 }, net: { taban: 100, oran: 0.60 } },
+    calisma: { baslangic: "10:45", bitis: "21:45", yemek: "16:00", yemekDk: 30 }, net: { taban: 100, oran: 0.60 } },
   { id: "burak",     ad: "Burak Şahin",    uzmanlik: "Saç & Sakal Tasarımı", pin: pinOku("burak"), tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/burak.jpeg",
     calisma: { baslangic: "10:30", bitis: "21:00", yemek: "16:30", yemekDk: 45 }, net: { taban: 0, oran: 0.45 } },
   { id: "emre",      ad: "Emre Akçam",     uzmanlik: "Saç & Sakal Tasarımı", pin: pinOku("emre"), tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/emre.jpeg",
@@ -108,10 +108,15 @@ function berberGunSlotlari(berberId, tarih) {
   const yBit = yBas != null ? yBas + (c.yemekDk || 45) : null;
 
   const slots = [];
-  for (let t = bas; t + step <= bit; t += step) {
+  let t = bas;
+  while (t + step <= bit) {
     // Yemek aralığıyla çakışıyor mu? ([t, t+step) ∩ [yBas, yBit) ≠ ∅)
     const yemek = yBas != null && t < yBit && t + step > yBas;
     slots.push({ saat: dkToSaat(t), yemek });
+    t += step;
+    // Yemek arası slottan kısaysa (Kaan: 30 dk ara, 45 dk slot) ızgara aranın
+    // bitişinden yeniden başlar: 16:00 yemek → sonraki randevu 16:30
+    if (yemek && t > yBit) t = yBit;
   }
   return slots;
 }

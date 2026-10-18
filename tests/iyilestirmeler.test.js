@@ -139,7 +139,7 @@ test("ciro sifresi ayri: sadece randevu listesini okur, admin PIN'i ciroyu acmaz
   store = [];
   await sunucu(t);
   assert.strictEqual((await istek("POST", "/api/auth", { ciro: true, pin: process.env.ADMIN_PIN })).status, 401);
-  const giris = await istek("POST", "/api/auth", { ciro: true, pin: process.env.CIRO_PIN });
+  const giris = await istek("POST", "/api/auth", { ciro: true, pin: require("../src/config").CIRO_PIN });
   assert.strictEqual(giris.status, 200);
   assert.strictEqual(giris.body.role, "ciro");
   const token = giris.body.token;

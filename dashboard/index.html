@@ -619,9 +619,12 @@ function berberGunSlotlari(berberId, tarih) {
   const yBas = c.yemek ? _saatToDk(c.yemek) : null;
   const yBit = yBas != null ? yBas + (c.yemekDk || 45) : null;
   const out = [];
-  for (let t = bas; t + step <= bit; t += step) {
+  let t = bas;
+  while (t + step <= bit) {
     const yemek = yBas != null && t < yBit && t + step > yBas;
     out.push({ saat: _dkToSaat(t), yemek });
+    t += step;
+    if (yemek && t > yBit) t = yBit; // kısa yemek arası: ızgara aranın bitişinden devam (sunucuyla aynı)
   }
   return out;
 }
@@ -1196,8 +1199,7 @@ function cizelgeRender() {
           let etiket = (r.sabitId ? "📌 " : "") + (gelmedi > 0 ? "⚠️ " : "") + r.ad;
           if (r.durum === "iptal") etiket += ` — İPTAL (${r.iptalEden === "musteri" ? "müşteri" : "berber"})`;
           else if (r.kisiSayisi > 1) etiket += ` (${r.kisiSayisi} kişi)`;
-          // Resul Tabu'nun hücrelerinde fiyat yazmaz (admin görünümünde de kendi girişinde de)
-          const fiyatGoster = r.berberId === "resul" ? ""
+          const fiyatGoster = fiyatGizliMi(r) ? ""
             : " · " + (r.gercekFiyat !== undefined ? `${r.gercekFiyat}₺ ✏️` : `${r.fiyat}₺`);
           const ipucu = gelmedi > 0 ? ` title="Son 6 ayda ${gelmedi} kez gelmedi"` : "";
           html += `<td class="cizelge-hucre" data-id="${r.id}"${ipucu} style="padding:7px 10px;border:1px solid var(--cizgi);background:${renk.bg};color:${renk.fg};font-size:12px;cursor:pointer;user-select:none;min-width:80px;">` +
@@ -1220,7 +1222,22 @@ function cizelgeRender() {
     html += "</tr>";
   }
   html += "</tbody></table>";
+
+  // Mesai/yemek düzeni değişince eski saatte kalan randevular çizelgede satır
+  // bulamaz — kaybolmasınlar diye üstte listelenir (tıklayınca taşınabilir).
+  const saatDisi = gunRand.filter((r) => r.durum !== "iptal" && slotMap[r.berberId] &&
+    !slotMap[r.berberId].some((x) => x.saat === r.saat));
+  if (saatDisi.length) {
+    html = `<div style="margin-bottom:10px;padding:10px 12px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:13px;">` +
+      `<strong>⚠️ Çizelgede saati olmayan randevular — taşıyın:</strong> ` +
+      saatDisi.map((r) => `<a href="#" class="saat-disi" data-id="${r.id}" style="color:#92400e;font-weight:700;">` +
+        `${kacis(r.berber)} ${r.saat} · ${kacis(r.ad)}</a>`).join(", ") +
+      `</div>` + html;
+  }
   document.getElementById("cizelge").innerHTML = html;
+  document.querySelectorAll(".saat-disi").forEach((a) => {
+    a.addEventListener("click", (e) => { e.preventDefault(); hucreMenu(a.dataset.id); });
+  });
 
   document.querySelectorAll(".cizelge-hucre").forEach((td) => {
     td.addEventListener("click", () => hucreMenu(td.dataset.id));
@@ -1848,6 +1865,10 @@ function render() {
     `${liste.length} görünür / ${gorRunumRandevular().length} kişiye ait / ${randevular.length} sunucu • ${kim} • ${ts}`;
 }
 
+// Resul Tabu'nun randevularında fiyat çizelgede ve listede yazmaz (admin
+// görünümünde de kendi girişinde de); ücret detay penceresinden düzenlenebilir.
+function fiyatGizliMi(r) { return r.berberId === "resul"; }
+
 function renderDesktop(liste, isAdmin) {
   const govde = document.getElementById("govde");
   const bos   = document.getElementById("bos");
@@ -1855,7 +1876,7 @@ function renderDesktop(liste, isAdmin) {
   if (liste.length === 0) { bos.style.display = "block"; return; }
   bos.style.display = "none";
   liste.forEach((r) => {
-    const fiyatHtml = r.gercekFiyat !== undefined
+    const fiyatHtml = fiyatGizliMi(r) ? "" : r.gercekFiyat !== undefined
       ? `<span style="text-decoration:line-through;color:#9ca3af;font-size:12px;">${r.fiyat}₺</span> <strong style="color:#059669;">${r.gercekFiyat}₺</strong>`
       : `${r.fiyat}₺`;
     const tr = document.createElement("tr");
@@ -1887,7 +1908,7 @@ function renderMobil(liste, isAdmin) {
   }
   mBos.style.display = "none";
   mGovde.innerHTML = liste.map((r) => {
-    const fiyatHtml = r.gercekFiyat !== undefined
+    const fiyatHtml = fiyatGizliMi(r) ? "" : r.gercekFiyat !== undefined
       ? `<s style="color:#9ca3af">${r.fiyat}₺</s> <b style="color:#059669">${r.gercekFiyat}₺</b>`
       : `${r.fiyat}₺`;
     const berberStr = isAdmin ? `💈 ${kacis(r.berber)} · ` : "";
@@ -1898,7 +1919,7 @@ function renderMobil(liste, isAdmin) {
           <span class="badge ${r.durum}">${durumYazi(r.durum)}</span>
         </div>
         <div class="m-kart-bilgi">${berberStr}✂️ ${kacis(r.hizmet)}</div>
-        <div class="m-kart-bilgi">📅 ${tarihFormat(r.tarih)} · ⏰ ${r.saat} · 💰 ${fiyatHtml}</div>
+        <div class="m-kart-bilgi">📅 ${tarihFormat(r.tarih)} · ⏰ ${r.saat}${fiyatHtml ? " · 💰 " + fiyatHtml : ""}</div>
         <div class="m-kart-aksiyon">
           <button class="m-btn m-btn-yesil" ${r.durum==="onaylı"?"disabled":""} onclick="durumDegistir('${r.id}','onaylı')">✅ Onayla</button>
           <button class="m-btn m-btn-kirmizi" ${r.durum==="iptal"?"disabled":""} onclick="durumDegistir('${r.id}','iptal')">❌ İptal</button>
