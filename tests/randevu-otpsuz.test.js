@@ -12,6 +12,7 @@ delete process.env.OTP_AKTIF; // her ihtimale karsi baska testten kalmis olmasin
 process.env.RANDEVU_ACILIS_TARIHI = "2020-01-01T00:00:00+03:00"; // lansman kapisini testte devre disi birak
 
 const store = [];
+const onaySmsleri = [];
 
 const orig = Module._load;
 Module._load = function (req) {
@@ -19,7 +20,7 @@ Module._load = function (req) {
   if (req.endsWith("sheets")) {
     return { syncRandevu: async () => {}, musteriKaydet: async () => {}, updateRandevuDurum: async () => {}, isEnabled: () => false, aylikOzetYaz: async () => {} };
   }
-  if (req === "./sms" || req.endsWith("/sms")) return { otpGonder: async () => ({ hata: false }) };
+  if (req === "./sms" || req.endsWith("/sms")) return { otpGonder: async () => ({ hata: false }), randevuOnaySms: async (r, tarihStr) => { onaySmsleri.push({ r, tarihStr }); return { hata: false }; } };
   if (req === "./email" || req.endsWith("/email")) {
     return { randevuAlindiMaili: async () => null, randevuOnayMaili: async () => null, randevuIptalMaili: async () => null, randevuHatirlatmaMaili: async () => null };
   }
@@ -80,6 +81,9 @@ test("OTP kapaliyken: telefon dogrudan (token olmadan) kabul edilir, randevu olu
   assert.strictEqual(res.body.telefon, "905551234567", "telefon normalize edilmis olmali");
   assert.strictEqual(res.body.kaynak, "web");
   assert.strictEqual(res.body.durum, "onaylı", "berber onayi kalkti, dogrudan onayli olusmali");
+  assert.strictEqual(onaySmsleri.length, 1, "web randevusunda onay SMS'i gitmeli");
+  assert.strictEqual(onaySmsleri[0].r.telefon, "905551234567");
+  assert.ok(onaySmsleri[0].tarihStr, "tarih metni verilmeli");
 });
 
 test("OTP kapaliyken: gecersiz telefon formati 400 doner", async (t) => {

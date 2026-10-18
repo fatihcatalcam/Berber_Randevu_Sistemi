@@ -456,12 +456,11 @@ app.post("/api/public/randevu", ah(async (req, res) => {
 
     sheets.syncRandevu(kayit).catch(() => {});
     sheets.musteriKaydet(kayit).catch(() => {});
-    if (kayit.email) {
-      const tarihStr = new Date(kayit.tarih + "T00:00:00").toLocaleDateString("tr-TR", {
-        weekday: "long", day: "numeric", month: "long",
-      });
-      eposta.randevuOnayMaili(kayit, tarihStr).catch(() => {});
-    }
+    const tarihStr = new Date(kayit.tarih + "T00:00:00").toLocaleDateString("tr-TR", {
+      weekday: "long", day: "numeric", month: "long",
+    });
+    sms.randevuOnaySms(kayit, tarihStr).catch(() => {});
+    if (kayit.email) eposta.randevuOnayMaili(kayit, tarihStr).catch(() => {});
     res.status(201).json(kayit);
   } catch (e) {
     if (e.code === "SLOT_DOLU") return res.status(409).json({ hata: "Seçilen saat dolu." });

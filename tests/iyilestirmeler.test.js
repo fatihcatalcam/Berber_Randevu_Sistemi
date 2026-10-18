@@ -17,7 +17,7 @@ const orig = Module._load;
 Module._load = function (req) {
   if (req.endsWith("whatsapp")) return { sendText: async () => ({ hata: false }), sendTemplate: async () => null };
   if (req.endsWith("sheets")) return { syncRandevu: async () => {}, clearRandevuCell: async () => {}, musteriKaydet: async () => {}, updateRandevuDurum: async () => {}, isEnabled: () => false, aylikOzetYaz: async () => {} };
-  if (req === "./sms" || req.endsWith("/sms")) return { otpGonder: async () => ({ hata: false }), randevuIptalSms: async () => ({ hata: false }), randevuTasindiSms: async () => ({ hata: false }) };
+  if (req === "./sms" || req.endsWith("/sms")) return { otpGonder: async () => ({ hata: false }), randevuOnaySms: async () => ({ hata: false }), randevuIptalSms: async () => ({ hata: false }), randevuTasindiSms: async () => ({ hata: false }) };
   if (req === "./email" || req.endsWith("/email")) return { randevuOnayMaili: async () => null, randevuTasindiMaili: async () => null };
   if (req.endsWith("/db") || req === "./db") {
     return {

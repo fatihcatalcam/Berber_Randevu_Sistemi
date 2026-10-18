@@ -53,6 +53,15 @@ async function otpGonder(telefon, kod) {
   return gonder(telefon, `Resul Tabu Saç Atölyesi doğrulama kodunuz: ${kod}`);
 }
 
+// Web'den alınan randevunun onayı — en uzun tarih/usta/hizmet ile bile 155
+// karakterin altında kalır (tek SMS).
+async function randevuOnaySms(randevu, tarihStr) {
+  return gonder(
+    randevu.telefon,
+    `Resul Tabu Saç Atölyesi: Randevunuz alındı. ${tarihStr} ${randevu.saat}, ${randevu.berber}, ${randevu.hizmet}. İptal için: randevu.resultabu.com`
+  );
+}
+
 async function randevuIptalSms(randevu, tarihStr) {
   return gonder(
     randevu.telefon,
@@ -74,4 +83,4 @@ async function randevuHatirlatmaSms(randevu, tarihStr) {
   );
 }
 
-module.exports = { otpGonder, randevuIptalSms, randevuTasindiSms, randevuHatirlatmaSms };
+module.exports = { otpGonder, randevuOnaySms, randevuIptalSms, randevuTasindiSms, randevuHatirlatmaSms };

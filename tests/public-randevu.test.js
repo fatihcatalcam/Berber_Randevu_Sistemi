@@ -34,6 +34,7 @@ Module._load = function (req) {
   if (req === "./sms" || req.endsWith("/sms")) {
     return {
       otpGonder: async (telefon, kod) => { smsGonderilenler.push({ telefon, kod }); return { hata: false }; },
+      randevuOnaySms: async () => ({ hata: false }),
     };
   }
   if (req === "./email" || req.endsWith("/email")) {
