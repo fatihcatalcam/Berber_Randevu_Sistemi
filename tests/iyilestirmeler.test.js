@@ -117,3 +117,19 @@ test("tasima: mesai disi 400; iptali geri alirken saat dolmussa 409 (500 degil)"
   t.after(() => { updateStatusHatasi = null; });
   assert.strictEqual((await istek("POST", "/api/randevular/x1/durum", { durum: "onaylı" }, token)).status, 409);
 });
+
+test("web randevusu en fazla 2 hafta sonrasina alinabilir", async (t) => {
+  store = []; acikGunler = [];
+  await sunucu(t);
+  const pazarDegil = (t0) => { let x = t0; while (new Date(x + "T00:00:00").getDay() === 0) x = gunEkle(x, -1); return x; };
+  const sinirIci = pazarDegil(gunEkle(bugunStr(), 13));
+  const sinirDisi = gunEkle(bugunStr(), 14);
+
+  assert.strictEqual((await istek("GET", "/api/config")).body.randevuUfukGun, 14);
+  assert.ok((await istek("GET", `/api/public/musait-saatler?berberId=eren&tarih=${sinirIci}`)).body.saatler.length > 0);
+  assert.deepStrictEqual((await istek("GET", `/api/public/musait-saatler?berberId=eren&tarih=${sinirDisi}`)).body.saatler, []);
+
+  const govde = (tarih) => ({ ad: "C", telefon: "05550000012", berberId: "kaan", hizmetId: "sac", tarih, saat: "11:30" });
+  assert.strictEqual((await istek("POST", "/api/public/randevu", govde(sinirDisi))).status, 400);
+  assert.strictEqual((await istek("POST", "/api/public/randevu", govde(sinirIci))).status, 201);
+});

@@ -52,6 +52,12 @@ const TOKEN_OMUR_MS = 24 * 60 * 60 * 1000; // 24 saat — berberler her gün PIN
 // RANDEVU_KAPALI=true verilirse tarihe bakılmaksızın kapalı kalır (admin
 // manuel olarak açana kadar); yoksa RANDEVU_ACILIS_TARIHI geçince kendiliğinden açılır.
 const RANDEVU_ACILIS = new Date(process.env.RANDEVU_ACILIS_TARIHI || "2026-09-28T09:00:00+03:00");
+// Web'den en fazla kaç gün sonrasına randevu alınabilir (bugün dahil 14 takvim günü)
+const RANDEVU_UFUK_GUN = 14;
+function ufukIcindeMi(tarih) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(tarih || "") && tarih < gunEkle(bugunStr(), RANDEVU_UFUK_GUN);
+}
+
 function randevuKapaliMi() {
   if (process.env.RANDEVU_KAPALI === "true") return true;
   return Date.now() < RANDEVU_ACILIS.getTime();
@@ -293,7 +299,7 @@ app.post("/api/auth", (req, res) => {
 // ---------------------------------------------------------------------------
 app.get("/api/config", (req, res) => {
   const berberler = BERBERLER.map(({ pin, ...rest }) => rest);
-  res.json({ berberler, hizmetler: HIZMETLER, saatler: SAATLER, saatler45: SAATLER_45, otpAktif: OTP_AKTIF, randevuKapali: randevuKapaliMi() });
+  res.json({ berberler, hizmetler: HIZMETLER, saatler: SAATLER, saatler45: SAATLER_45, otpAktif: OTP_AKTIF, randevuKapali: randevuKapaliMi(), randevuUfukGun: RANDEVU_UFUK_GUN });
 });
 
 // ---------------------------------------------------------------------------
@@ -384,7 +390,7 @@ app.get("/api/public/musait-saatler", ah(async (req, res) => {
   const { berberId, tarih } = req.query;
   const berber = BERBERLER.find((b) => b.id === berberId);
   if (!berber || !tarih) return res.status(400).json({ hata: "Eksik/geçersiz parametre." });
-  if (!(await gunAcikMi(tarih))) return res.json({ saatler: [] });
+  if (!ufukIcindeMi(tarih) || !(await gunAcikMi(tarih))) return res.json({ saatler: [] });
 
   const [dolu, acikSaatler] = await Promise.all([
     db.getBusySlots(berberId, tarih),
@@ -431,6 +437,7 @@ app.post("/api/public/randevu", ah(async (req, res) => {
   if (slotGectiMi(tarih, saat)) {
     return res.status(400).json({ hata: "Seçilen saat artık geçmiş. Lütfen başka bir saat seçin." });
   }
+  if (!ufukIcindeMi(tarih)) return res.status(400).json({ hata: `En fazla ${RANDEVU_UFUK_GUN / 7} hafta sonrasına randevu alınabilir.` });
   if (!(await gunAcikMi(tarih))) return res.status(400).json({ hata: "Seçilen gün kapalı." });
 
   const acikSaatler = await acikSaatleriGetir(berberId, tarih);

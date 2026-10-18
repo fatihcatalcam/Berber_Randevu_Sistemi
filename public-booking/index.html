@@ -310,9 +310,6 @@
       <label for="inTelefon">Telefon *</label>
       <input type="tel" id="inTelefon" placeholder="05XX XXX XX XX">
 
-      <label for="inEmail">E-posta (opsiyonel)</label>
-      <input type="email" id="inEmail" placeholder="Randevu onayı için e-posta">
-
       <button class="btn" id="kodGonderBtn" onclick="bilgiDevam()">Randevu Al</button>
       <div class="hata" id="bilgiHata"></div>
     </div>
@@ -452,6 +449,7 @@ async function baslat() {
       return;
     }
     BERBERLER = c.berberler; HIZMETLER = c.hizmetler;
+    RANDEVU_UFUK_GUN = c.randevuUfukGun || 14;
     OTP_AKTIF = !!c.otpAktif;
     document.getElementById("kodGonderBtn").textContent = OTP_AKTIF ? "Doğrulama Kodu Gönder" : "Randevu Al";
     berberListesiniDoldur();
@@ -499,11 +497,12 @@ function hizmetSec(id) {
 }
 
 // ============================================================
-// Adım 3: Tarih listesi (önümüzdeki 7 gün, Pazar hariç — özel açılan günler dahil)
+// Adım 3: Tarih listesi (önümüzdeki 2 hafta, Pazar hariç; özel açılan günler dahil)
 // ============================================================
 // Özel açılan Pazar/bayram günleri. Sayfayı açan herkes için değil, usta seçilince
 // (randevuya niyetli ziyaretçi) bir kez çekilir — veritabanı boşuna uyanmasın.
 let acikGunlerSozu = null;
+let RANDEVU_UFUK_GUN = 14;
 function acikGunleriAl() {
   if (!acikGunlerSozu) {
     acikGunlerSozu = fetch("/api/public/acik-gunler", { cache: "no-store" })
@@ -512,10 +511,11 @@ function acikGunleriAl() {
   return acikGunlerSozu;
 }
 
-function gelecekTarihleriUret(kacGun, acikGunler = []) {
+// Bugünden itibaren gunSayisi takvim günü (sunucu da aynı sınırı uygular)
+function gelecekTarihleriUret(gunSayisi, acikGunler = []) {
   const sonuc = [];
   const bugun = new Date();
-  for (let i = 0; sonuc.length < kacGun && i < 21; i++) {
+  for (let i = 0; i < gunSayisi; i++) {
     const d = new Date(bugun);
     d.setDate(bugun.getDate() + i);
     const yil = d.getFullYear();
@@ -531,7 +531,7 @@ function gelecekTarihleriUret(kacGun, acikGunler = []) {
 
 async function tarihListesiniDoldur() {
   const kutu = document.getElementById("tarihListe");
-  const tarihler = gelecekTarihleriUret(7, await acikGunleriAl());
+  const tarihler = gelecekTarihleriUret(RANDEVU_UFUK_GUN, await acikGunleriAl());
   kutu.innerHTML = tarihler.map((t) => `
     <button class="secim-btn" onclick="tarihSec('${t.deger}')"><span>📅 ${kacis(t.etiket)}</span></button>`).join("");
 }
@@ -838,7 +838,6 @@ async function randevuOlustur() {
         dogrulamaToken,
         telefon: OTP_AKTIF ? undefined : telefonGoruntu(),
         ad: document.getElementById("inAd").value.trim(),
-        email: document.getElementById("inEmail").value.trim() || undefined,
         berberId: secim.berberId, hizmetId: secim.hizmetId,
         tarih: secim.tarih, saat: secim.saat,
       }),
