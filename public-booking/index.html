@@ -79,7 +79,18 @@
   .ust-marka:active { opacity: .7; }
   .ust .cizgi-vurgu { width: 42px; height: 4px; border-radius: 3px; background: var(--mavi); margin: 10px auto 0; }
   .ust p { margin: 6px 0 0; font-size: 13.5px; color: var(--soluk); }
-  .iptal-link { margin-top: 8px !important; font-size: 12.5px !important; color: var(--mavi) !important; text-decoration: underline; cursor: pointer; }
+  /* İptal: altı çizili yazı yerine gerçek bir düğme — ama randevu almanın önüne
+     geçmesin diye beyaz zeminli, ince çerçeveli ikincil (yan) düğme */
+  .iptal-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    margin-top: 12px; min-height: 38px; padding: 8px 16px;
+    background: #fff; border: 1px solid var(--cizgi); border-radius: 999px;
+    color: var(--soluk); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    box-shadow: 0 1px 2px rgba(15,23,42,.05); -webkit-tap-highlight-color: transparent;
+    transition: transform .15s var(--yay), border-color .15s, color .15s;
+  }
+  .iptal-btn:active { transform: scale(.97); }
+  .ust.kompakt .iptal-btn { display: none; }
 
   /* Adım göstergesi — numaralı, çizgiyle bağlı halkalar. Kaydırınca da
      bağlam kaybolmasın diye camsı (translucent) bir üst şerit olarak sabitlenir. */
@@ -290,6 +301,7 @@
     .saat-btn:hover { border-color: #bfd4fb; background: var(--mavi-acik); }
     .btn:hover:not(:disabled) { box-shadow: 0 10px 22px -6px rgba(37,99,235,.6); }
     .geri-btn:hover { border-color: #bfd4fb; background: #dbeafe; }
+    .iptal-btn:hover { border-color: #fecaca; color: #b91c1c; }
   }
 
   /* Liste/ızgara öğeleri aynı anda değil, hafif art arda (stagger) belirir —
@@ -393,10 +405,7 @@
     .yan-adim.aktif .yan-deger { color: var(--mavi); }
     .yan-degis { margin-left: auto; color: var(--mavi); font-size: 12.5px; font-weight: 700; opacity: 0; transition: opacity .15s; }
     .yan-adim.tamam:hover .yan-degis, .yan-adim.tamam:focus-visible .yan-degis { opacity: 1; }
-    .yan-iptal {
-      display: block; width: 100%; margin-top: 12px; padding: 10px; background: none; border: none;
-      font-family: inherit; font-size: 12.5px; color: var(--mavi); text-decoration: underline; cursor: pointer;
-    }
+    .yan-iptal { display: flex; width: 100%; margin-top: 14px; }
 
     .usta-grid { grid-template-columns: repeat(4, 1fr); }
 
@@ -436,7 +445,7 @@
       <h1>Resul Tabu Saç Atölyesi</h1>
     </a>
     <p>Birkaç adımda randevunuzu oluşturun</p>
-    <p class="iptal-link" onclick="iptalBaslat()">Randevunuzu iptal etmek mi istiyorsunuz?</p>
+    <button class="iptal-btn" onclick="iptalBaslat()">Randevumu iptal et</button>
   </div>
 </div>
 <div class="ilerleme-sarici">
@@ -457,7 +466,7 @@
     <p class="yan-alt">Birkaç adımda randevunuzu oluşturun</p>
   </a>
   <ol class="yan-adimlar" id="yanAdimlar"></ol>
-  <button class="yan-iptal iptal-link-yan" onclick="iptalBaslat()">Randevunuzu iptal etmek mi istiyorsunuz?</button>
+  <button class="iptal-btn yan-iptal" onclick="iptalBaslat()">Randevumu iptal et</button>
 </aside>
 <div class="kapsayici">
 
@@ -776,7 +785,7 @@ async function baslat() {
     const res = await fetch("/api/config", { cache: "no-store" });
     const c = await res.json();
     if (c.randevuKapali) {
-      document.querySelectorAll(".iptal-link, .iptal-link-yan").forEach((el) => (el.style.display = "none"));
+      document.querySelectorAll(".iptal-btn").forEach((el) => (el.style.display = "none"));
       adimGoster("adimYakinda", "ileri", true);
       return;
     }
