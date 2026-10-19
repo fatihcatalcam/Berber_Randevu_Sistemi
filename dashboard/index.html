@@ -149,7 +149,8 @@
   .wrap { max-width: 1200px; margin: 0 auto; padding: 16px 12px; }
 
   /* --- Stat kartlar --- */
-  .istatistik { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 14px; }
+  /* 3 kart: Randevu · Kalan · Ciro (berber) / İptal (admin) */
+  .istatistik { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
   .kart { background: var(--kart); border-radius: 12px; padding: 14px 12px; box-shadow: 0 1px 4px rgba(0,0,0,.06); border: 1px solid var(--cizgi); }
   .kart .sayi { font-size: 24px; font-weight: 800; line-height: 1; }
   .kart .etiket { font-size: 11px; color: var(--soluk); margin-top: 6px; font-weight: 600; }
@@ -157,7 +158,7 @@
   .kart.onayli .sayi  { color: #059669; }
   .kart.bekliyor .sayi { color: #ca8a04; }
   .kart.iptal .sayi   { color: #dc2626; }
-  .kart.bekleyen .sayi { color: #2563eb; }
+  .kart.kalan .sayi   { color: #2563eb; }
   .kart.ciro .sayi    { color: #7c3aed; font-size: 18px; }
 
   /* --- Filtre --- */
@@ -251,12 +252,10 @@
 
   /* --- Responsive --- */
   @media (max-width: 860px) {
-    .istatistik { grid-template-columns: repeat(3, 1fr); }
     header { flex-direction: column; gap: 8px; text-align: center; }
     .header-sag { justify-content: center; }
   }
   @media (max-width: 540px) {
-    .istatistik { grid-template-columns: repeat(3, 1fr); }
     .kart .sayi { font-size: 20px; }
     .kart.ciro .sayi { font-size: 15px; }
     .kart .etiket { font-size: 10px; }
@@ -273,13 +272,95 @@
     #cizelgeIpucuMobil { display: inline !important; }
     .cizelge-kont td { padding: 6px 8px !important; font-size: 11px !important; }
     .cizelge-kont th { padding: 6px 8px !important; font-size: 11px !important; }
-    .istatistik { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .istatistik { gap: 6px; margin-bottom: 10px; }
+    .istatistik .kart { padding: 10px; }
   }
   @media (max-width: 380px) {
     .login-kart { padding: 24px 14px; }
     #berberKartGrid { gap: 8px; }
-    .istatistik { grid-template-columns: repeat(2, 1fr); }
   }
+
+  /* --- Üst menü (telefonda ☰ altında Sabit Müşteriler + Çıkış) --- */
+  .menu-sarici { position: relative; display: none; }
+  .menu-btn { font-size: 17px; padding: 6px 12px; line-height: 1; }
+  .ust-menu {
+    position: absolute; right: 0; top: calc(100% + 8px); z-index: 600; min-width: 210px;
+    background: #fff; border-radius: 14px; padding: 6px; color: var(--metin);
+    box-shadow: 0 12px 32px rgba(0,0,0,.22), 0 0 0 1px rgba(0,0,0,.05);
+    transform-origin: top right; animation: menuGiris .16s cubic-bezier(.32,.72,0,1);
+  }
+  .ust-menu[hidden] { display: none; }
+  .ust-menu button {
+    display: flex; align-items: center; gap: 10px; width: 100%; min-height: 46px; padding: 10px 12px;
+    background: none; border: none; border-radius: 10px; font: inherit; font-size: 15px; font-weight: 600;
+    color: inherit; text-align: left; cursor: pointer;
+  }
+  .ust-menu button:active { background: #f3f4f6; }
+  @keyframes menuGiris { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: scale(1); } }
+  @media (max-width: 640px) {
+    .header-eylem { display: none !important; }
+    .menu-sarici { display: block; }
+  }
+
+  /* --- Takvim çizelgenin içinde; telefonda tarih düğmesine basınca açılır --- */
+  .takvim-alan { padding: 2px 0 12px; margin-bottom: 12px; border-bottom: 1px solid var(--cizgi); }
+  .takvim-ac-btn { display: none; }
+  @media (max-width: 640px) {
+    .takvim-alan { display: none; }
+    .takvim-alan.acik { display: block; animation: menuGiris .18s cubic-bezier(.32,.72,0,1); transform-origin: top center; }
+    .takvim-ac-btn { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: var(--metin); }
+  }
+
+  /* --- Şu an / geçmiş / sıradaki (sadece bugün) --- */
+  .cizelge-kont td.gecmis { opacity: .42; }
+  .cizelge-kont td.simdi { box-shadow: inset 4px 0 0 #ef4444; }
+  .cizelge-kont td.siradaki { box-shadow: inset 0 0 0 2px #2563eb; }
+  .cizelge-kont td.simdi-saat { color: #dc2626 !important; }
+  .siradaki { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .siradaki.bos { color: var(--soluk); font-size: 13px; font-weight: 600; padding: 8px 2px; }
+  .siradaki-oge {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; text-align: left;
+    padding: 9px 12px; border: 1px solid #bfdbfe; background: #eff6ff; border-radius: 12px;
+    font: inherit; font-size: 13px; color: #1e3a8a; cursor: pointer; min-height: 44px;
+  }
+  .siradaki-oge.simdi { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
+  .siradaki-oge strong { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  .siradaki-oge .ne { opacity: .75; font-size: 12px; }
+  .siradaki-oge:active { transform: scale(.98); }
+
+  /* --- Bildirim (tarayıcının alert'i yerine) --- */
+  .bildirim {
+    position: fixed; left: 50%; bottom: max(18px, calc(12px + env(safe-area-inset-bottom, 0px)));
+    z-index: 900; max-width: min(92vw, 420px); padding: 12px 16px; border-radius: 14px;
+    background: rgba(17,24,39,.95); color: #fff; font-size: 14px; font-weight: 600; line-height: 1.45;
+    white-space: pre-line; box-shadow: 0 12px 30px rgba(0,0,0,.28);
+    opacity: 0; pointer-events: none; transform: translate(-50%, 16px);
+    transition: opacity .2s ease, transform .25s cubic-bezier(.32,.72,0,1);
+  }
+  .bildirim.goster { opacity: 1; transform: translate(-50%, 0); }
+  .bildirim.hata { box-shadow: inset 4px 0 0 #f87171, 0 12px 30px rgba(0,0,0,.28); }
+  .bildirim.ok   { box-shadow: inset 4px 0 0 #4ade80, 0 12px 30px rgba(0,0,0,.28); }
+
+  /* --- Onay penceresi (tarayıcının confirm'i yerine) --- */
+  .onay-kart h3 { font-size: 16px; font-weight: 700; margin: 0 0 6px; line-height: 1.35; }
+  .onay-kart p { font-size: 14px; color: var(--soluk); margin: 0 0 16px; line-height: 1.5; }
+  .onay-btnlar { display: flex; gap: 8px; }
+  .onay-btnlar .modal-btn { flex: 1; }
+
+  /* --- Telefonda alttan açılan pencere: tutamaç + aşağı çekince kapanma --- */
+  .tutamac { display: none; }
+  @media (max-width: 540px) {
+    .tutamac { display: block; width: 40px; height: 5px; border-radius: 3px; background: #d1d5db; margin: -8px auto 12px; }
+    .modal-overlay { animation: perdeGiris .2s ease; }
+    .modal-overlay > .modal-kart { animation: sayfaGiris .34s cubic-bezier(.32,.72,0,1); will-change: transform; }
+  }
+  @keyframes perdeGiris { from { background: rgba(0,0,0,0); } }
+  @keyframes sayfaGiris { from { transform: translateY(100%); } }
+  @media (prefers-reduced-motion: reduce) {
+    .modal-overlay, .modal-overlay > .modal-kart, .ust-menu, .takvim-alan.acik { animation: none !important; }
+    .bildirim { transition: opacity .15s ease; }
+  }
+  .tel-link { color: inherit; font-weight: 700; text-decoration: none; border-bottom: 1px dashed currentColor; }
 </style>
 </head>
 <body>
@@ -316,11 +397,20 @@
   <h1 style="margin:0;"><img src="logo.jpg" alt="Resul Tabu Saç Atölyesi" style="height:46px;display:block;background:#fff;padding:4px 12px;border-radius:10px;" /></h1>
   <div class="header-sag">
     <span id="kullaniciBilgi"></span>
-    <button onclick="sabitGoster()" class="cikis-btn">📌 Sabit Müşteriler</button>
-    <button onclick="cikis()" class="cikis-btn">Çıkış</button>
+    <span class="header-eylem" style="display:contents;">
+      <button onclick="sabitGoster()" class="cikis-btn">📌 Sabit Müşteriler</button>
+      <button onclick="cikis()" class="cikis-btn">Çıkış</button>
+    </span>
     <div class="canli">
       <span class="nokta"></span>
-      <span id="saat">--:--:--</span>
+      <span id="saat">--:--</span>
+    </div>
+    <div class="menu-sarici">
+      <button class="cikis-btn menu-btn" id="menuBtn" onclick="menuAcKapat(event)" aria-label="Menü" aria-haspopup="true" aria-expanded="false">☰</button>
+      <div class="ust-menu" id="ustMenu" hidden>
+        <button onclick="menuKapat();sabitGoster()">📌 Sabit Müşteriler</button>
+        <button onclick="menuKapat();cikis()">↩️ Çıkış</button>
+      </div>
     </div>
   </div>
 </header>
@@ -329,22 +419,10 @@
 
   <!-- İstatistik -->
   <div class="istatistik">
-    <div class="kart toplam">   <div class="sayi" id="s-toplam">0</div>   <div class="etiket">Toplam</div></div>
-    <div class="kart onayli">   <div class="sayi" id="s-onayli">0</div>   <div class="etiket">Onaylı</div></div>
-    <div class="kart bekliyor"> <div class="sayi" id="s-bekliyor">0</div> <div class="etiket">Bekliyor</div></div>
-    <div class="kart iptal">    <div class="sayi" id="s-iptal">0</div>    <div class="etiket">İptal</div></div>
-    <div class="kart bekleyen"> <div class="sayi" id="s-bekleyen">0</div> <div class="etiket">Onay Bek.</div></div>
+    <div class="kart toplam"> <div class="sayi" id="s-toplam">0</div> <div class="etiket" id="s-toplam-etiket">Randevu</div></div>
+    <div class="kart kalan">  <div class="sayi" id="s-kalan">0</div>  <div class="etiket">Kalan</div></div>
+    <div class="kart iptal" id="s-iptal-kart"> <div class="sayi" id="s-iptal">0</div> <div class="etiket">İptal</div></div>
     <div class="kart ciro" id="s-ciro-kart"> <div class="sayi" id="s-ciro">0₺</div>   <div class="etiket" id="s-ciro-etiket">Ciro</div></div>
-  </div>
-
-  <!-- Takvim (sadece admin gün değiştirebilir) -->
-  <div class="kart" id="takvimKart" style="padding:12px;margin-bottom:12px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-      <button id="ayOnceki" class="durum-btn" style="min-width:44px;min-height:44px;padding:0;font-size:20px;">‹</button>
-      <strong id="ayBaslik" style="font-size:15px;"></strong>
-      <button id="aySonraki" class="durum-btn" style="min-width:44px;min-height:44px;padding:0;font-size:20px;">›</button>
-    </div>
-    <div id="takvimGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"></div>
   </div>
 
   <!-- Günlük çizelge -->
@@ -359,10 +437,20 @@
     <!-- Gün navigasyonu -->
     <div id="gunNav" style="display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:10px;flex-wrap:wrap;">
       <button id="gunOnceki" class="durum-btn" style="min-width:44px;min-height:44px;padding:0;font-size:18px;">‹</button>
+      <button id="takvimAcBtn" class="durum-btn takvim-ac-btn" onclick="takvimAcKapat()" aria-expanded="false">📅</button>
       <button id="bugunBtn" class="durum-btn" style="padding:8px 16px;">Bugün</button>
       <button id="gunSonraki" class="durum-btn" style="min-width:44px;min-height:44px;padding:0;font-size:18px;">›</button>
       <button id="tumGunuAcBtn" class="durum-btn" style="padding:8px 14px;font-size:13px;background:#047857;color:#fff;border-color:#047857;" onclick="tumGunuAc()">🔓 Tüm Günü Aç</button>
       <button id="elleRandevuBtn" class="durum-btn" style="padding:8px 14px;font-size:13px;background:#1d4ed8;color:#fff;border-color:#1d4ed8;" onclick="elleRandevuGoster()">+ Randevu Ekle</button>
+    </div>
+    <!-- Takvim: bilgisayarda hep açık; telefonda tarih düğmesine basınca açılır -->
+    <div class="takvim-alan" id="takvimKart">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <button id="ayOnceki" class="durum-btn" style="min-width:44px;min-height:44px;padding:0;font-size:20px;">‹</button>
+        <strong id="ayBaslik" style="font-size:15px;"></strong>
+        <button id="aySonraki" class="durum-btn" style="min-width:44px;min-height:44px;padding:0;font-size:20px;">›</button>
+      </div>
+      <div id="takvimGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"></div>
     </div>
     <div class="cizelge-kont"><div id="cizelge"></div></div>
   </div>
@@ -372,7 +460,6 @@
     <input type="text" id="arama" placeholder="🔍 Ad veya telefon ara..." />
     <div class="durum-btnlar">
       <button class="durum-btn aktif" data-durum="hepsi">Hepsi</button>
-      <button class="durum-btn" data-durum="bekliyor">Bek.</button>
       <button class="durum-btn" data-durum="onaylı">Onaylı</button>
       <button class="durum-btn" data-durum="iptal">İptal</button>
       <button class="durum-btn" data-durum="gelmedi">Gelmedi</button>
@@ -411,6 +498,19 @@
 
   <footer id="footer">Yükleniyor...</footer>
 </div>
+</div>
+
+<!-- ========== BİLDİRİM + ONAY ========== -->
+<div id="bildirim" class="bildirim" role="status" aria-live="polite"></div>
+<div id="onayModal" class="modal-overlay" style="display:none;z-index:700;">
+  <div class="modal-kart onay-kart" role="alertdialog" aria-labelledby="onayBaslik" aria-describedby="onayAciklama">
+    <h3 id="onayBaslik"></h3>
+    <p id="onayAciklama"></p>
+    <div class="onay-btnlar">
+      <button class="modal-btn modal-btn-gri" id="onayHayir" onclick="onayCevap(false)">Vazgeç</button>
+      <button class="modal-btn modal-btn-kirmizi" id="onayEvet" onclick="onayCevap(true)">Evet</button>
+    </div>
+  </div>
 </div>
 
 <!-- ========== SABİT MÜŞTERİLER MODAL ========== -->
@@ -881,23 +981,148 @@ async function surumKontrol() {
   } catch {}
 }
 
+// ============================================================
+// Bildirim (alert yerine) ve onay penceresi (confirm yerine)
+// ============================================================
+let bildirimZamani = null;
+function bildir(mesaj, tip = "hata") {
+  const el = document.getElementById("bildirim");
+  el.textContent = mesaj;
+  el.className = "bildirim " + tip;
+  el.offsetHeight; // geçişi yeniden tetikle
+  el.classList.add("goster");
+  clearTimeout(bildirimZamani);
+  bildirimZamani = setTimeout(() => el.classList.remove("goster"), Math.min(9000, 2600 + String(mesaj).length * 40));
+}
+
+let onayCozum = null;
+// Sadece geri alınamayan / toplu işlemler için. true/false döner.
+function onayIste(baslik, aciklama, evetYazi = "Evet", tehlikeli = true) {
+  document.getElementById("onayBaslik").textContent = baslik;
+  document.getElementById("onayAciklama").textContent = aciklama || "";
+  const evet = document.getElementById("onayEvet");
+  evet.textContent = evetYazi;
+  evet.className = "modal-btn " + (tehlikeli ? "modal-btn-kirmizi" : "modal-btn-yesil");
+  document.getElementById("onayModal").style.display = "flex";
+  setTimeout(() => document.getElementById("onayHayir").focus(), 0);
+  return new Promise((coz) => { onayCozum = coz; });
+}
+function onayCevap(evet) {
+  document.getElementById("onayModal").style.display = "none";
+  if (onayCozum) { const c = onayCozum; onayCozum = null; c(evet); }
+}
+document.getElementById("onayModal").addEventListener("click", (e) => { if (e.target === e.currentTarget) onayCevap(false); });
+
+// ============================================================
+// Üst menü (telefonda ☰)
+// ============================================================
+function menuAcKapat(e) {
+  e.stopPropagation();
+  const m = document.getElementById("ustMenu");
+  m.hidden = !m.hidden;
+  document.getElementById("menuBtn").setAttribute("aria-expanded", String(!m.hidden));
+}
+function menuKapat() {
+  document.getElementById("ustMenu").hidden = true;
+  document.getElementById("menuBtn").setAttribute("aria-expanded", "false");
+}
+document.addEventListener("click", (e) => { if (!e.target.closest(".menu-sarici")) menuKapat(); });
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  menuKapat();
+  if (document.getElementById("onayModal").style.display !== "none") onayCevap(false);
+});
+
+// Telefonda takvim, çizelgedeki tarih düğmesine basınca açılır/kapanır
+function takvimAcKapat() {
+  const t = document.getElementById("takvimKart");
+  t.classList.toggle("acik");
+  document.getElementById("takvimAcBtn").setAttribute("aria-expanded", String(t.classList.contains("acik")));
+  cizelgeRender();
+}
+
+// "905551112233" → "0555 111 22 33"
+function telGoster(t) {
+  const d = String(t || "").replace(/\D/g, "");
+  const yerel = d.startsWith("90") ? "0" + d.slice(2) : d;
+  return yerel.length === 11 ? `${yerel.slice(0, 4)} ${yerel.slice(4, 7)} ${yerel.slice(7, 9)} ${yerel.slice(9)}` : String(t);
+}
+
+// ============================================================
+// Telefonda alttan açılan pencereler: üstteki tutamaçtan/başlıktan aşağı çekince
+// parmağı takip eder; yeterince çekilir ya da hızla fırlatılırsa kapanır,
+// yoksa yerine yaylanarak döner.
+// ============================================================
+(function () {
+  const kapatanlar = {
+    randevuModal: () => modalKapat(), sabitModal: () => sabitKapat(),
+    elleRandevuModal: () => elleRandevuKapat(), onayModal: () => onayCevap(false),
+  };
+  const YAY = "transform .32s cubic-bezier(.32,.72,0,1)";
+  document.querySelectorAll(".modal-overlay > .modal-kart").forEach((kart) => {
+    const perde = kart.parentElement;
+    const kapat = kapatanlar[perde.id];
+    if (!kapat) return;
+    const tut = document.createElement("div");
+    tut.className = "tutamac";
+    kart.prepend(tut);
+    let y0 = 0, dy = 0, surukle = false, aday = false, izler = [];
+    kart.addEventListener("touchstart", (e) => {
+      if (window.innerWidth > 540 || e.touches.length !== 1) return;
+      if (e.target.closest("input, select, textarea")) return;
+      // Kaydırılabilir içerik en üstte değilse önce içerik kaysın
+      aday = kart.scrollTop <= 0;
+      y0 = e.touches[0].clientY; dy = 0; surukle = false; izler = [{ y: y0, t: e.timeStamp }];
+    }, { passive: true });
+    kart.addEventListener("touchmove", (e) => {
+      if (!aday) return;
+      const y = e.touches[0].clientY;
+      dy = y - y0;
+      if (!surukle) {
+        if (dy > 8) { surukle = true; kart.style.transition = "none"; }
+        else if (dy < -8) { aday = false; return; }
+        else return;
+      }
+      e.preventDefault();
+      izler.push({ y, t: e.timeStamp }); if (izler.length > 5) izler.shift();
+      kart.style.transform = `translateY(${Math.max(0, dy)}px)`;
+      perde.style.backgroundColor = `rgba(0,0,0,${0.45 * Math.max(0, 1 - dy / kart.offsetHeight)})`;
+    }, { passive: false });
+    kart.addEventListener("touchend", () => {
+      if (!surukle) { aday = false; return; }
+      surukle = false; aday = false;
+      const ilk = izler[0], son = izler[izler.length - 1];
+      const hiz = son && ilk && son.t > ilk.t ? (son.y - ilk.y) / (son.t - ilk.t) : 0; // px/ms
+      kart.style.transition = YAY;
+      if (dy > kart.offsetHeight * 0.3 || hiz > 0.6) {
+        kart.style.transform = "translateY(100%)";
+        perde.style.transition = "background-color .25s"; perde.style.backgroundColor = "rgba(0,0,0,0)";
+        setTimeout(() => { kapat(); kart.style.transform = ""; kart.style.transition = ""; perde.style.backgroundColor = ""; perde.style.transition = ""; }, 260);
+      } else {
+        kart.style.transform = "";
+        perde.style.backgroundColor = "";
+      }
+    });
+  });
+})();
+
 async function durumDegistir(id, durum) {
   try {
     const res = await authFetch(`/api/randevular/${id}/durum`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ durum }),
     });
-    if (!res.ok) { alert("İşlem başarısız oldu."); return; }
+    if (!res.ok) { bildir("İşlem başarısız oldu."); return; }
     await veriCek();
-  } catch { alert("Sunucu hatası."); }
+  } catch { bildir("Sunucu hatası."); }
 }
 
 async function randevuSil(id) {
   try {
     const res = await authFetch(`/api/randevular/${id}`, { method: "DELETE" });
-    if (!res.ok) { alert("Silme başarısız oldu."); return; }
+    if (!res.ok) { bildir("Silme başarısız oldu."); return; }
     await veriCek();
-  } catch { alert("Sunucu hatası."); }
+  } catch { bildir("Sunucu hatası."); }
 }
 
 async function saatToggle(kapali) {
@@ -908,7 +1133,7 @@ async function saatToggle(kapali) {
       body: JSON.stringify({ berberId: ctxBerberId, tarih: ctxTarih, saat: ctxSaat, kapali }),
     });
     await veriCek();
-  } catch { alert("Sunucu hatası."); }
+  } catch { bildir("Sunucu hatası."); }
 }
 
 // Yemek arasını o gün için randevuya aç / geri al (berber tokken kullanabilir)
@@ -919,38 +1144,38 @@ async function yemekToggle(acik) {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ berberId: ctxBerberId, tarih: ctxTarih, saat: ctxSaat, acik }),
     });
-    if (!res.ok) { alert("İşlem başarısız oldu."); return; }
+    if (!res.ok) { bildir("İşlem başarısız oldu."); return; }
     await veriCek();
-  } catch { alert("Sunucu hatası."); }
+  } catch { bildir("Sunucu hatası."); }
 }
 
 async function gunToggle(kapali) {
   document.getElementById("contextMenu").style.display = "none";
   const berberAd = (BERBERLER.find(b => b.id === ctxBerberId) || {}).ad || "berber";
   const gunStr = new Date(ctxTarih + "T00:00:00").toLocaleDateString("tr-TR", { day:"numeric", month:"long" });
-  if (kapali && !confirm(`${berberAd} için ${gunStr} günü tamamen kapatılsın mı?\n\nMevcut randevular silinmez, sadece yeni randevu alınamaz.`)) return;
+  if (kapali && !(await onayIste(`${berberAd} için ${gunStr} günü kapatılsın mı?`, "Mevcut randevular silinmez, sadece yeni randevu alınamaz.", "Günü kapat"))) return;
   try {
     await authFetch("/api/kapali-gun", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ berberId: ctxBerberId, tarih: ctxTarih, kapali }),
     });
     await veriCek();
-  } catch { alert("Sunucu hatası."); }
+  } catch { bildir("Sunucu hatası."); }
 }
 
 // Seçili günü herkes için tamamen aç (Pazar/bayram veya kapatılmış gün) — sadece admin
 async function tumGunuAc() {
   const gunStr = new Date(seciliTarih + "T00:00:00").toLocaleDateString("tr-TR", { weekday:"long", day:"numeric", month:"long" });
-  if (!confirm(`${gunStr} günü TÜM berberler için açılsın mı?\n\nBu gündeki tüm "gün/saat kapalı" işaretleri kaldırılır ve (Pazar/bayram ise) randevuya açılır.`)) return;
+  if (!(await onayIste(`${gunStr} günü tüm berberler için açılsın mı?`, "Bu gündeki bütün kapalı gün/saat işaretleri kaldırılır; Pazar veya bayramsa randevuya açılır.", "Günü aç", false))) return;
   try {
     const res = await authFetch("/api/gun-ac", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tarih: seciliTarih }),
     });
-    if (!res.ok) { alert("Açılamadı (yetki veya sunucu hatası)."); return; }
+    if (!res.ok) { bildir("Açılamadı (yetki veya sunucu hatası)."); return; }
     await veriCek();
-    alert(`${gunStr} günü açıldı.`);
-  } catch { alert("Sunucu hatası."); }
+    bildir(`${gunStr} günü açıldı.`, "ok");
+  } catch { bildir("Sunucu hatası."); }
 }
 
 // ============================================================
@@ -1105,6 +1330,8 @@ function takvimRender() {
     }
     hucre.addEventListener("click", () => {
       seciliTarih = deger;
+      document.getElementById("takvimKart").classList.remove("acik"); // telefonda gün seçilince takvim kapanır
+      document.getElementById("takvimAcBtn").setAttribute("aria-expanded", "false");
       takvimRender(); cizelgeRender(); render();
     });
     grid.appendChild(hucre);
@@ -1128,6 +1355,23 @@ function cizelgeRender() {
     }) + " — Günlük Çizelge";
 
   const gunRand = randevular.filter((r) => r.tarih === seciliTarih);
+  // "Şu an" ve "sıradaki" sadece bugün için anlamlı
+  const bugunMu = seciliTarih === todayStr();
+  const simdiTarih = new Date();
+  const simdiDk = simdiTarih.getHours() * 60 + simdiTarih.getMinutes();
+  const zamanSinifi = (saat, berberId, r) => {
+    if (!bugunMu) return "";
+    const bas = _saatToDk(saat), bit = bas + berberSlotDk(berberId);
+    if (r && siradakiIdler.has(r.id) && bas > simdiDk) return " siradaki";
+    if (bit <= simdiDk) return " gecmis";
+    if (bas <= simdiDk) return " simdi";
+    return "";
+  };
+  const takvimBtn = document.getElementById("takvimAcBtn");
+  if (takvimBtn) {
+    const acik = document.getElementById("takvimKart").classList.contains("acik");
+    takvimBtn.textContent = "📅 " + new Date(seciliTarih + "T00:00:00").toLocaleDateString("tr-TR", { weekday: "short", day: "numeric", month: "short" }) + (acik ? " ▴" : " ▾");
+  }
   const harita = {};
   gunRand.forEach((r) => {
     const adim = berberSlotDk(r.berberId);
@@ -1155,11 +1399,41 @@ function cizelgeRender() {
     let gj = gi + 1;
     while (gj < gorulenBerberler.length && imza(gorulenBerberler[gj]) === key) { grup.push(gorulenBerberler[gj]); gj++; }
     const slotlar = slotMap[grup[0].id];
-    kolonlar.push({ tip: "saat", saatler: slotlar.map((x) => x.saat), baslik: "Saat" });
+    kolonlar.push({ tip: "saat", saatler: slotlar.map((x) => x.saat), baslik: "Saat", adim: berberSlotDk(grup[0].id) });
     grup.forEach((b) => kolonlar.push({ tip: "berber", berber: b, slotlar }));
     gi = gj;
   }
   const maxSatir = Math.max(0, ...gorulenBerberler.map((b) => slotMap[b.id].length));
+
+  // Sıradaki (ya da şu an süren) randevu — her görünen berber için bir tane
+  const siradakiIdler = new Set();
+  let siradakiHtml = "";
+  if (bugunMu) {
+    const tekBerber = gorulenBerberler.length === 1;
+    const ogeler = [];
+    const oge = (b, r, simdiMi) => {
+      const fark = _saatToDk(r.saat) - simdiDk;
+      const ne = simdiMi ? "devam ediyor" : fark < 60 ? `${fark} dk sonra` : `${Math.floor(fark / 60)} sa${fark % 60 ? " " + (fark % 60) + " dk" : ""} sonra`;
+      const kim = tekBerber ? "" : `${kacis(b.ad.split(" ")[0])} · `;
+      const hizmet = tekBerber ? ` · ${kacis(r.hizmet)}` : "";
+      return `<button class="siradaki-oge${simdiMi ? " simdi" : ""}" data-id="${r.id}">` +
+        `<strong>${simdiMi ? "Şu an" : "Sıradaki"}</strong><span>${kim}<b>${r.saat}</b> ${kacis(r.ad)}${hizmet}</span>` +
+        `<span class="ne">${ne}</span></button>`;
+    };
+    gorulenBerberler.forEach((b) => {
+      const adim = berberSlotDk(b.id);
+      const gunun = gunRand
+        .filter((r) => r.berberId === b.id && r.durum !== "iptal" && r.durum !== "gelmedi")
+        .sort((x, y) => x.saat.localeCompare(y.saat));
+      const suAn = gunun.find((r) => _saatToDk(r.saat) <= simdiDk && simdiDk < _saatToDk(r.saat) + adim * (r.kisiSayisi > 1 ? r.kisiSayisi : 1));
+      const sonraki = gunun.find((r) => _saatToDk(r.saat) > simdiDk);
+      if (sonraki) siradakiIdler.add(sonraki.id);
+      // Berberin kendi ekranında: şu an + sıradaki; admin'de her berberin sıradakisi (şu an çizelgede kırmızı)
+      if (tekBerber && suAn) ogeler.push(oge(b, suAn, true));
+      if (sonraki) ogeler.push(oge(b, sonraki, false));
+    });
+    siradakiHtml = ogeler.length ? `<div class="siradaki">${ogeler.join("")}</div>` : `<div class="siradaki bos">Bugün kalan randevu yok.</div>`;
+  }
 
   const saatHucreStil = "padding:7px 10px;border:1px solid var(--cizgi);font-weight:700;font-size:12px;white-space:nowrap;background:#f9fafb;";
 
@@ -1177,7 +1451,8 @@ function cizelgeRender() {
       if (k.tip === "saat") {
         const s = k.saatler[ri] || "";
         const cls = (ki === 0) ? "cizelge-saat-td" : "";
-        html += `<td class="${cls}" style="${saatHucreStil}">${s}</td>`;
+        const simdiSaat = bugunMu && s && _saatToDk(s) <= simdiDk && simdiDk < _saatToDk(s) + (k.adim || 30);
+        html += `<td class="${cls}${simdiSaat ? " simdi-saat" : ""}" style="${saatHucreStil}">${s}</td>`;
         return;
       }
       const b = k.berber;
@@ -1187,11 +1462,12 @@ function cizelgeRender() {
       const key = saat + "|" + b.id;
       const r = harita[key];
       const kapali = !!(kapaliSaatler[b.id] && kapaliSaatler[b.id][seciliTarih] && kapaliSaatler[b.id][seciliTarih].includes(saat));
+      const zk = zamanSinifi(saat, b.id, r);
 
       if (r) {
         const renk = DURUM_RENK[r.durum] || DURUM_RENK.bekliyor;
         if (r._devam) {
-          html += `<td class="cizelge-hucre" data-id="${r.id}" style="padding:7px 10px;border:1px solid var(--cizgi);background:${renk.bg};color:${renk.fg};font-size:11px;cursor:pointer;user-select:none;min-width:80px;opacity:0.72;text-align:center;">` +
+          html += `<td class="cizelge-hucre${zk}" data-id="${r.id}" style="padding:7px 10px;border:1px solid var(--cizgi);background:${renk.bg};color:${renk.fg};font-size:11px;cursor:pointer;user-select:none;min-width:80px;opacity:0.72;text-align:center;">` +
             `<div style="letter-spacing:.02em;">↕ ${r._slotIdx + 1}/${r.kisiSayisi}</div>` +
             `<div style="font-size:10px;opacity:.8;">${kacis(r.ad)}</div></td>`;
         } else {
@@ -1202,21 +1478,21 @@ function cizelgeRender() {
           const fiyatGoster = fiyatGizliMi(r) ? ""
             : " · " + (r.gercekFiyat !== undefined ? `${r.gercekFiyat}₺ ✏️` : `${r.fiyat}₺`);
           const ipucu = gelmedi > 0 ? ` title="Son 6 ayda ${gelmedi} kez gelmedi"` : "";
-          html += `<td class="cizelge-hucre" data-id="${r.id}"${ipucu} style="padding:7px 10px;border:1px solid var(--cizgi);background:${renk.bg};color:${renk.fg};font-size:12px;cursor:pointer;user-select:none;min-width:80px;">` +
+          html += `<td class="cizelge-hucre${zk}" data-id="${r.id}"${ipucu} style="padding:7px 10px;border:1px solid var(--cizgi);background:${renk.bg};color:${renk.fg};font-size:12px;cursor:pointer;user-select:none;min-width:80px;">` +
             `<div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;">${kacis(etiket)}</div>` +
             `<div style="font-size:11px;opacity:.75;white-space:nowrap;">${kacis(r.hizmet)}${fiyatGoster}</div></td>`;
         }
       } else if (slot.yemek && !acikSaatMi(b.id, seciliTarih, saat)) {
         // Yemek arası — çift tık/sağ tık ile açılabilir (berber tokken kullansın)
-        html += `<td class="cizelge-yemek" data-berber="${b.id}" data-saat="${saat}" title="Yemek arası — açmak için çift tıkla" style="padding:7px 10px;border:1px solid var(--cizgi);background:#fef3c7;color:#92400e;text-align:center;font-size:11px;cursor:pointer;user-select:none;min-width:60px;">🍽️</td>`;
+        html += `<td class="cizelge-yemek${zk}" data-berber="${b.id}" data-saat="${saat}" title="Yemek arası — açmak için çift tıkla" style="padding:7px 10px;border:1px solid var(--cizgi);background:#fef3c7;color:#92400e;text-align:center;font-size:11px;cursor:pointer;user-select:none;min-width:60px;">🍽️</td>`;
       } else if (kapali) {
-        html += `<td class="cizelge-kapali" data-berber="${b.id}" data-saat="${saat}" style="padding:7px 10px;border:1px solid var(--cizgi);background:#f3f4f6;color:#9ca3af;text-align:center;cursor:pointer;user-select:none;min-width:60px;">🔒</td>`;
+        html += `<td class="cizelge-kapali${zk}" data-berber="${b.id}" data-saat="${saat}" style="padding:7px 10px;border:1px solid var(--cizgi);background:#f3f4f6;color:#9ca3af;text-align:center;cursor:pointer;user-select:none;min-width:60px;">🔒</td>`;
       } else {
         // Yemek slotu açılmışsa işaretle (geri alınabilsin)
         const yemekAcik = slot.yemek ? ' data-yemekacik="1"' : "";
         const ipucu = slot.yemek ? ' title="Yemek saati açıldı — geri almak için çift tıkla"' : "";
         const isaret = slot.yemek ? '<span style="font-size:10px;color:#d97706;">🍽️↑</span>' : "";
-        html += `<td class="cizelge-bos" data-berber="${b.id}" data-saat="${saat}"${yemekAcik}${ipucu} style="padding:7px 10px;border:1px solid var(--cizgi);cursor:pointer;user-select:none;min-width:60px;">${isaret}</td>`;
+        html += `<td class="cizelge-bos${zk}" data-berber="${b.id}" data-saat="${saat}"${yemekAcik}${ipucu} style="padding:7px 10px;border:1px solid var(--cizgi);cursor:pointer;user-select:none;min-width:60px;">${isaret}</td>`;
       }
     });
     html += "</tr>";
@@ -1234,7 +1510,9 @@ function cizelgeRender() {
         `${kacis(r.berber)} ${r.saat} · ${kacis(r.ad)}</a>`).join(", ") +
       `</div>` + html;
   }
+  if (siradakiHtml) html = siradakiHtml + html;
   document.getElementById("cizelge").innerHTML = html;
+  document.querySelectorAll(".siradaki-oge").forEach((b) => b.addEventListener("click", () => hucreMenu(b.dataset.id)));
   document.querySelectorAll(".saat-disi").forEach((a) => {
     a.addEventListener("click", (e) => { e.preventDefault(); hucreMenu(a.dataset.id); });
   });
@@ -1369,6 +1647,7 @@ function hucreMenu(id) {
 
   document.getElementById("modalBaslik").textContent = r.ad;
   document.getElementById("modalBilgi").innerHTML =
+    (r.telefon ? `📞 <a class="tel-link" href="tel:+${String(r.telefon).replace(/\D/g, "")}">${kacis(telGoster(r.telefon))}</a><br>` : "") +
     `💈 ${kacis(r.berber)}<br>✂️ ${kacis(r.hizmet)}<br>📅 ${tarih} ⏰ ${r.saat}<br>💰 ${fiyatHtml}<br>📌 ${durumYazi(r.durum)}${notSatiri}${gelmediSatiri}`;
   document.getElementById("modalOnayla").disabled  = r.durum === "onaylı";
   document.getElementById("modalIptal").disabled   = r.durum === "iptal";
@@ -1475,8 +1754,8 @@ async function elleRandevuKaydet() {
   const saat     = document.getElementById("elleSaat").value;
   const fiyat    = parseInt(document.getElementById("elleFiyat").value, 10);
 
-  if (!ad) { alert("Ad soyad zorunlu."); return; }
-  if (!saat || saat === "") { alert("Boş saat yok, başka gün veya berber seçin."); return; }
+  if (!ad) { bildir("Ad soyad zorunlu."); return; }
+  if (!saat || saat === "") { bildir("Boş saat yok, başka gün veya berber seçin."); return; }
 
   try {
     const res = await authFetch("/api/randevular", {
@@ -1485,10 +1764,10 @@ async function elleRandevuKaydet() {
       body: JSON.stringify({ ad, telefon, berberId, hizmetId, tarih, saat, fiyat: isNaN(fiyat) ? undefined : fiyat }),
     });
     const data = await res.json();
-    if (!res.ok) { alert(data.hata || "Hata oluştu."); return; }
+    if (!res.ok) { bildir(data.hata || "Hata oluştu."); return; }
     elleRandevuKapat();
     await veriCek();
-  } catch { alert("Sunucuya bağlanılamadı."); }
+  } catch { bildir("Sunucuya bağlanılamadı."); }
 }
 
 // ============================================================
@@ -1607,8 +1886,8 @@ async function sabitKaydet() {
   const ad = document.getElementById("sabitAd").value.trim();
   const saat = document.getElementById("sabitSaat").value;
   const fiyat = parseInt(document.getElementById("sabitFiyat").value, 10);
-  if (!ad) { alert("Ad soyad zorunlu."); return; }
-  if (!saat) { alert("Bu gün için uygun saat yok."); return; }
+  if (!ad) { bildir("Ad soyad zorunlu."); return; }
+  if (!saat) { bildir("Bu gün için uygun saat yok."); return; }
   try {
     const duzenleme = sabitDuzenlenenId != null;
     const res = await authFetch(duzenleme ? `/api/sabit/${sabitDuzenlenenId}` : "/api/sabit", {
@@ -1625,7 +1904,7 @@ async function sabitKaydet() {
       }),
     });
     const data = await res.json();
-    if (!res.ok) { alert(data.hata || "Hata oluştu."); return; }
+    if (!res.ok) { bildir(data.hata || "Hata oluştu."); return; }
     let mesaj = !duzenleme
       ? `${data.olusturulan.length} randevu oluşturuldu.`
       : data.yenidenUretildi
@@ -1635,23 +1914,23 @@ async function sabitKaydet() {
       const gunler = data.atlanan.map(t => new Date(t + "T00:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long" }));
       mesaj += `\n\nŞu tarihler dolu olduğu için atlandı: ${gunler.join(", ")}`;
     }
-    alert(mesaj);
+    bildir(mesaj, "ok");
     sabitFormSifirla();
     await sabitListeYukle();
     await veriCek();
-  } catch { alert("Sunucuya bağlanılamadı."); }
+  } catch { bildir("Sunucuya bağlanılamadı."); }
 }
 
 async function sabitDurdur(id, ad) {
-  if (!confirm(`${ad} için sabit randevu durdurulsun mu?\n\nHenüz gelmemiş tüm randevuları silinir.`)) return;
+  if (!(await onayIste(`${ad} için sabit randevu durdurulsun mu?`, "Henüz gelmemiş tüm randevuları silinir.", "Durdur"))) return;
   try {
     const res = await authFetch(`/api/sabit/${id}/durdur`, { method: "POST" });
     const data = await res.json();
-    if (!res.ok) { alert(data.hata || "Hata oluştu."); return; }
+    if (!res.ok) { bildir(data.hata || "Hata oluştu."); return; }
     if (sabitDuzenlenenId === id) sabitFormSifirla();
     await sabitListeYukle();
     await veriCek();
-  } catch { alert("Sunucuya bağlanılamadı."); }
+  } catch { bildir("Sunucuya bağlanılamadı."); }
 }
 
 document.getElementById("sabitModal").addEventListener("click", (e) => {
@@ -1668,7 +1947,7 @@ async function modalSilOnayla() {
   if (!modalRandevuId) return;
   const r = randevular.find(x => x.id === modalRandevuId);
   if (!r) return;
-  if (!confirm(`${r.ad} için ${r.saat} randevusu kalıcı olarak silinsin mi?\n\nBu işlem geri alınamaz.`)) return;
+  if (!(await onayIste(`${r.ad} · ${r.saat} randevusu silinsin mi?`, "Bu işlem geri alınamaz.", "Sil"))) return;
   modalKapat();
   await randevuSil(modalRandevuId);
 }
@@ -1777,9 +2056,9 @@ async function tasiKaydet() {
       body: JSON.stringify({ tarih, saat }),
     });
     const data = await res.json();
-    if (!res.ok) { alert(data.hata || "Hata."); return; }
+    if (!res.ok) { bildir(data.hata || "Hata."); return; }
     modalKapat(); await veriCek();
-  } catch { alert("Sunucu hatası."); }
+  } catch { bildir("Sunucu hatası."); }
 }
 
 async function notKaydet() {
@@ -1790,12 +2069,12 @@ async function notKaydet() {
       body: JSON.stringify({ aciklama }),
     });
     modalKapat(); await veriCek();
-  } catch { alert("Sunucu hatası."); }
+  } catch { bildir("Sunucu hatası."); }
 }
 
 async function fiyatKaydetModal() {
   const val = document.getElementById("fiyatInput").value;
-  if (val === "" || isNaN(Number(val)) || Number(val) < 0) { alert("Geçerli bir fiyat girin."); return; }
+  if (val === "" || isNaN(Number(val)) || Number(val) < 0) { bildir("Geçerli bir fiyat girin."); return; }
   try {
     await authFetch(`/api/randevular/${modalRandevuId}/fiyat`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -1803,7 +2082,7 @@ async function fiyatKaydetModal() {
     });
     modalKapat();
     await veriCek();
-  } catch { alert("Sunucu hatası."); }
+  } catch { bildir("Sunucu hatası."); }
 }
 
 document.getElementById("randevuModal").addEventListener("click", (e) => {
@@ -1816,15 +2095,21 @@ document.getElementById("randevuModal").addEventListener("click", (e) => {
 function istatistikGuncelle() {
   const gorRunum = gorRunumRandevular();
   const gun = gorRunum.filter((r) => r.tarih === seciliTarih);
-  document.getElementById("s-toplam").textContent   = gun.length;
-  document.getElementById("s-onayli").textContent   = gun.filter((r) => r.durum === "onaylı").length;
-  document.getElementById("s-bekliyor").textContent = gun.filter((r) => r.durum === "bekliyor").length;
-  document.getElementById("s-iptal").textContent    = gun.filter((r) => r.durum === "iptal").length;
-  document.getElementById("s-bekleyen").textContent = gun.filter((r) => r.durum === "bekliyor").length;
+  const aktifler = gun.filter((r) => r.durum !== "iptal");
+  const bugun = todayStr();
+  const simdi = new Date(), simdiDk = simdi.getHours() * 60 + simdi.getMinutes();
+  // Kalan: bugünse saati henüz gelmemiş, ilerideki günse hepsi, geçmiş günse 0
+  const kalan = seciliTarih < bugun ? 0 : aktifler.filter((r) =>
+    r.durum !== "gelmedi" && (seciliTarih > bugun || _saatToDk(r.saat) > simdiDk)).length;
+  document.getElementById("s-toplam").textContent = aktifler.length;
+  document.getElementById("s-toplam-etiket").textContent = seciliTarih === bugun ? "Bugün" : "Randevu";
+  document.getElementById("s-kalan").textContent = kalan;
+  document.getElementById("s-iptal").textContent = gun.filter((r) => r.durum === "iptal").length;
   const ciroKart = document.getElementById("s-ciro-kart");
   const isAdmin = auth && auth.role === "admin";
-  // Admin ciroyu panelde görmez; ciro ayrı şifreli sayfada (/dashboard/ciro), panelde butonu yok
+  // Admin ciroyu panelde görmez (ayrı şifreli sayfa /dashboard/ciro) — onun yerine iptal sayısı
   ciroKart.style.display = isAdmin ? "none" : "";
+  document.getElementById("s-iptal-kart").style.display = isAdmin ? "" : "none";
   if (!isAdmin && auth) {
     // Berber o günkü işlerinin toplamını görür (yüzde/taban hesabı panelde yok)
     const ciro = gun.filter((r) => r.durum === "onaylı")
@@ -1932,9 +2217,17 @@ function renderMobil(liste, isAdmin) {
 // ============================================================
 // Canlı saat
 // ============================================================
+let sonDakika = null;
 function saatGuncelle() {
+  const simdi = new Date();
   const el = document.getElementById("saat");
-  if (el) el.textContent = new Date().toLocaleTimeString("tr-TR");
+  if (el) el.textContent = simdi.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+  const dk = simdi.getHours() * 60 + simdi.getMinutes();
+  if (sonDakika !== null && dk !== sonDakika && seciliTarih === todayStr() &&
+      document.getElementById("anaPanel").style.display !== "none") {
+    cizelgeRender(); istatistikGuncelle();
+  }
+  sonDakika = dk;
 }
 setInterval(saatGuncelle, 1000);
 saatGuncelle();
