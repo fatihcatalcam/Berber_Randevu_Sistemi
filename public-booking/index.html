@@ -333,6 +333,15 @@
     .yan-logo { display: block; width: 150px; height: 106px; object-fit: contain; margin: 0 auto 14px; border-radius: 18px; box-shadow: 0 0 0 1px var(--cizgi), 0 8px 20px -8px rgba(37,99,235,.18); }
     .yan-baslik { margin: 0; text-align: center; font-size: 19px; font-weight: 800; letter-spacing: -.02em; line-height: 1.2; }
     .yan-alt { margin: 6px 0 18px; text-align: center; color: var(--soluk); font-size: 13.5px; }
+    /* Logo + ad: tıklanınca en başa (usta seçimi) döner — sitelerde alışılmış "logo = başa dön" */
+    .yan-marka {
+      display: block; margin: -8px -8px 10px; padding: 8px 8px 2px; border-radius: 20px;
+      color: inherit; text-decoration: none; transition: background-color .15s, transform .15s var(--yay);
+    }
+    .yan-marka:hover { background: var(--mavi-acik); }
+    .yan-marka:active { transform: scale(.98); }
+    .yan-marka:focus-visible { outline: 2px solid var(--mavi); outline-offset: 2px; }
+    .yan-marka .yan-alt { margin-bottom: 8px; }
     .yan-adimlar { list-style: none; margin: 0; padding: 8px 0 0; border-top: 1px solid var(--cizgi); }
     .yan-adim {
       display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 10px; margin: 2px 0;
@@ -415,9 +424,11 @@
 
 <div class="sayfa">
 <aside class="yan-panel" aria-label="Randevu özeti">
-  <img class="yan-logo" src="/dashboard/logo.jpg" alt="Resul Tabu Saç Atölyesi">
-  <h2 class="yan-baslik">Resul Tabu Saç Atölyesi</h2>
-  <p class="yan-alt">Birkaç adımda randevunuzu oluşturun</p>
+  <a class="yan-marka" href="/randevu-al" onclick="basaDon(event)" title="Başa dön">
+    <img class="yan-logo" src="/dashboard/logo.jpg" alt="Resul Tabu Saç Atölyesi">
+    <h2 class="yan-baslik">Resul Tabu Saç Atölyesi</h2>
+    <p class="yan-alt">Birkaç adımda randevunuzu oluşturun</p>
+  </a>
   <ol class="yan-adimlar" id="yanAdimlar"></ol>
   <button class="yan-iptal iptal-link-yan" onclick="iptalBaslat()">Randevunuzu iptal etmek mi istiyorsunuz?</button>
 </aside>
@@ -596,6 +607,14 @@ function adimaDon(n) {
   if (idx === -1 || n >= idx) return;
   if (history.state && history.state.adim === aktifAdim) history.go(n - idx);
   else adimGoster(ADIM_SIRASI[n], "geri");
+}
+
+// Logoya basınca en başa dön; randevu adımlarındaysak geçmişte geri gidilir (telefonun geri tuşuyla tutarlı)
+function basaDon(e) {
+  e.preventDefault();
+  if (aktifAdim === "adimYakinda" || aktifAdim === "adimBerber") return;
+  if (ADIM_SIRASI.indexOf(aktifAdim) > 0) adimaDon(0);
+  else adimGoster("adimBerber", "geri");
 }
 
 // Önceki adımlarda seçilenler (usta · hizmet · tarih) basılabilir çipler olarak gösterilir
