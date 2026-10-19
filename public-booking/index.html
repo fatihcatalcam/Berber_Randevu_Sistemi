@@ -48,7 +48,7 @@
   .ust {
     position: relative; overflow: hidden;
     background: linear-gradient(180deg, #eaf1ff 0%, var(--bg) 100%);
-    padding: 40px 16px 26px; text-align: center;
+    padding: 22px 16px 16px; text-align: center;
   }
   .ust::before {
     content: ""; position: absolute; top: -90px; left: 50%; transform: translateX(-50%);
@@ -59,7 +59,8 @@
   /* 2. adımdan itibaren üst kısım tek satıra iner — telefonda seçenekler kaydırmadan görünsün */
   .ust.kompakt { padding: 12px 16px 10px; }
   .ust.kompakt::before { display: none; }
-  .ust.kompakt .ust-icerik { display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .ust.kompakt .ust-icerik { display: flex; align-items: center; justify-content: center; }
+  .ust.kompakt .ust-marka { display: flex; align-items: center; gap: 10px; }
   .ust.kompakt .etiket, .ust.kompakt .cizgi-vurgu, .ust.kompakt p { display: none; }
   .ust.kompakt img { width: 54px; height: 38px; padding: 3px 5px; border-radius: 11px; margin: 0; box-shadow: 0 0 0 1px var(--cizgi); }
   .ust.kompakt h1 { font-size: 16px; }
@@ -70,12 +71,14 @@
     margin-bottom: 16px;
   }
   .ust img {
-    display: block; width: 124px; height: 88px; object-fit: contain; border-radius: 20px; background: #fff; padding: 6px 10px;
-    box-shadow: 0 8px 24px rgba(37,99,235,.18), 0 0 0 1px var(--cizgi); margin: 0 auto 14px;
+    display: block; width: 108px; height: 76px; object-fit: contain; border-radius: 18px; background: #fff; padding: 5px 8px;
+    box-shadow: 0 8px 24px rgba(37,99,235,.18), 0 0 0 1px var(--cizgi); margin: 0 auto 10px;
   }
   .ust h1 { font-size: 21px; margin: 0; font-weight: 800; letter-spacing: -.02em; color: var(--lacivert); }
+  .ust-marka { display: block; color: inherit; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+  .ust-marka:active { opacity: .7; }
   .ust .cizgi-vurgu { width: 42px; height: 4px; border-radius: 3px; background: var(--mavi); margin: 10px auto 0; }
-  .ust p { margin: 10px 0 0; font-size: 13.5px; color: var(--soluk); }
+  .ust p { margin: 6px 0 0; font-size: 13.5px; color: var(--soluk); }
   .iptal-link { margin-top: 8px !important; font-size: 12.5px !important; color: var(--mavi) !important; text-decoration: underline; cursor: pointer; }
 
   /* Adım göstergesi — numaralı, çizgiyle bağlı halkalar. Kaydırınca da
@@ -156,24 +159,23 @@
   .secim-btn .fiyat { color: var(--mavi-koyu); font-weight: 800; white-space: nowrap; }
 
   /* Usta kartları (fotoğraflı) */
-  .usta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .usta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
   .usta-kart {
-    border: 1.5px solid var(--cizgi); border-radius: 18px; padding: 12px 10px 14px;
+    border: 1.5px solid var(--cizgi); border-radius: 16px; padding: 7px 7px 10px;
     background: #fff; cursor: pointer; text-align: center; transition: border-color .15s, background .15s, transform .25s var(--yay), box-shadow .25s var(--yay);
   }
   .usta-kart:active { transform: scale(.97); }
   .usta-kart.secili { border-color: var(--mavi); background: var(--mavi-acik); box-shadow: 0 0 0 3px var(--mavi-halka); }
   .usta-foto {
-    width: 100%; aspect-ratio: 1/1; border-radius: 14px; object-fit: cover;
-    background: linear-gradient(135deg,#e2e8f0,#f1f5f9); margin-bottom: 10px; display: block;
+    width: 100%; aspect-ratio: 1/1; border-radius: 11px; object-fit: cover; object-position: center 30%;
+    background: linear-gradient(135deg,#e2e8f0,#f1f5f9); margin-bottom: 8px; display: block;
   }
   .usta-avatar-yer {
     width: 100%; aspect-ratio: 1/1; border-radius: 14px; margin-bottom: 10px;
     display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 700;
     background: linear-gradient(135deg,var(--mavi),var(--mavi-koyu)); color: #fff;
   }
-  .usta-ad { font-size: 13.5px; font-weight: 700; line-height: 1.25; color: var(--lacivert); }
-  .usta-uzmanlik { font-size: 11px; color: var(--soluk); margin-top: 2px; }
+  .usta-ad { font-size: 12.5px; font-weight: 700; line-height: 1.25; color: var(--lacivert); }
 
   .saat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
   .saat-btn {
@@ -182,6 +184,11 @@
     transition: border-color .15s, background .15s, transform .15s var(--yay);
   }
   .saat-btn:active { transform: scale(.96); }
+  .saat-grup {
+    grid-column: 1 / -1; margin: 6px 0 -2px; font-size: 12px; font-weight: 800;
+    color: var(--soluk); letter-spacing: .02em;
+  }
+  .saat-grup:first-child { margin-top: 0; }
   .saat-btn.secili { border-color: var(--mavi); background: var(--mavi-acik); color: var(--mavi-koyu); }
 
   label { display: block; font-size: 13px; font-weight: 700; color: var(--soluk); margin: 14px 0 6px; }
@@ -191,6 +198,9 @@
     font: 15px "Inter", sans-serif; color: var(--lacivert); outline: none; box-sizing: border-box; transition: border-color .15s, box-shadow .15s;
   }
   input:focus { border-color: var(--mavi); box-shadow: 0 0 0 4px var(--mavi-halka); }
+  input.hatali { border-color: #fca5a5; }
+  input.hatali:focus { box-shadow: 0 0 0 4px #fee2e2; }
+  #kayitliBilgi a { color: var(--mavi); font-weight: 600; }
   .kod-input { text-align: center; letter-spacing: .4em; font-size: 24px; font-weight: 800; padding-left: 18px; }
 
   .btn {
@@ -254,6 +264,21 @@
   .basari h2 { margin: 0 0 8px; color: var(--lacivert); font-size: 20px; font-weight: 800; letter-spacing: -.015em; line-height: 1.2; }
   .basari p { color: var(--soluk); font-size: 13.5px; margin: 0 0 18px; }
 
+  .basari-sms { margin: 14px 0 0 !important; font-size: 13px !important; }
+  .basari-eylem { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+  .eylem-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 12px 4px;
+    background: var(--mavi-acik); border: 1px solid var(--mavi-halka); border-radius: 14px;
+    color: var(--mavi-koyu); font-family: inherit; font-size: 13px; font-weight: 700; text-decoration: none; cursor: pointer;
+    transition: transform .15s var(--yay), background-color .15s; -webkit-tap-highlight-color: transparent;
+  }
+  .eylem-btn:active { transform: scale(.95); }
+  .eylem-ikon { font-size: 20px; line-height: 1; }
+  .basari-adres { margin: 12px 0 0 !important; font-size: 12px !important; line-height: 1.45; }
+  .yeni-randevu {
+    margin-top: 12px; background: none; border: none; padding: 8px; font-family: inherit;
+    color: var(--mavi); font-size: 13.5px; font-weight: 700; cursor: pointer; text-decoration: underline;
+  }
   .yukleniyor { text-align: center; color: var(--soluk); padding: 24px; font-size: 14px; }
   .gizli { display: none !important; }
 
@@ -304,6 +329,8 @@
     .adim-baslik { font-size: 12.5px; margin-bottom: 20px; }
 
     .usta-grid { grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .usta-kart { padding: 12px 10px 14px; border-radius: 18px; }
+    .usta-ad { font-size: 13.5px; }
     .secim-liste { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .saat-grid { grid-template-columns: repeat(4, 1fr); gap: 10px; }
   }
@@ -404,10 +431,10 @@
 
 <div class="ust">
   <div class="ust-icerik">
-    <span class="etiket">✂️ Online Randevu</span>
-    <img src="/dashboard/logo.jpg" alt="Logo">
-    <h1>Resul Tabu Saç Atölyesi</h1>
-    <div class="cizgi-vurgu"></div>
+    <a class="ust-marka" href="/randevu-al" onclick="basaDon(event)" aria-label="Başa dön">
+      <img src="/dashboard/logo.jpg" alt="Logo">
+      <h1>Resul Tabu Saç Atölyesi</h1>
+    </a>
     <p>Birkaç adımda randevunuzu oluşturun</p>
     <p class="iptal-link" onclick="iptalBaslat()">Randevunuzu iptal etmek mi istiyorsunuz?</p>
   </div>
@@ -486,6 +513,7 @@
       <label for="inTelefon">Telefon *</label>
       <input type="tel" id="inTelefon" data-clarity-mask="true" autocomplete="tel" inputmode="tel" placeholder="05XX XXX XX XX">
 
+      <p class="bilgi gizli" id="kayitliBilgi">Bilgileriniz bu telefonda hatırlandı. <a href="#" onclick="event.preventDefault();musteriBilgisiniUnut()">Bilgilerimi unut</a></p>
       <button class="btn" id="kodGonderBtn" onclick="bilgiDevam()">Randevu Al</button>
       <div class="hata" id="bilgiHata"></div>
     </div>
@@ -517,6 +545,14 @@
       <h2>Randevunuz Onaylandı!</h2>
       <p>Belirttiğiniz tarih ve saatte sizi bekliyoruz.</p>
       <div class="ozet" id="basariOzet" style="text-align:left;"></div>
+      <p class="basari-sms">📩 Onay SMS'i telefonunuza gönderildi.</p>
+      <div class="basari-eylem">
+        <button class="eylem-btn" onclick="takvimeEkle()"><span class="eylem-ikon">📅</span>Takvime ekle</button>
+        <a class="eylem-btn" id="yolTarifiBtn" target="_blank" rel="noopener"><span class="eylem-ikon">📍</span>Yol tarifi</a>
+        <a class="eylem-btn" href="tel:+905359116681"><span class="eylem-ikon">📞</span>Ara</a>
+      </div>
+      <p class="basari-adres" id="basariAdres"></p>
+      <button class="yeni-randevu" onclick="yeniRandevu()">Başka bir randevu al</button>
     </div>
   </div>
 
@@ -567,6 +603,12 @@ let OTP_AKTIF = false;
 
 const ADIM_SIRASI = ["adimBerber", "adimHizmet", "adimTarih", "adimSaat", "adimBilgi"];
 
+const ISLETME = {
+  ad: "Resul Tabu Saç Atölyesi",
+  adres: "Yenidoğan, Halkalı Merkez, Yarımburgaz Cd. No:5A, 34303 Küçükçekmece/İstanbul",
+};
+let sonRandevu = null; // başarı ekranındaki "takvime ekle" için
+
 function kacis(s) {
   const d = document.createElement("div");
   d.textContent = s == null ? "" : String(s);
@@ -609,10 +651,44 @@ function adimaDon(n) {
   else adimGoster(ADIM_SIRASI[n], "geri");
 }
 
+// Başarı ekranı: telefon takvimine eklenecek .ics dosyası (1 saat önce hatırlatmalı)
+function takvimeEkle() {
+  if (!sonRandevu) return;
+  const r = sonRandevu;
+  const bas = new Date(`${r.tarih}T${r.saat}:00+03:00`); // Türkiye yaz saati uygulamıyor, hep +03
+  const bit = new Date(bas.getTime() + (r.sureDk || 45) * 60000);
+  const utc = (d) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const kac = (t) => String(t).replace(/([,;\\])/g, "\\$1");
+  const ics = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Resul Tabu//Randevu//TR", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${r.tarih}-${r.saat}-${Date.now()}@randevu.resultabu.com`,
+    `DTSTAMP:${utc(new Date())}`, `DTSTART:${utc(bas)}`, `DTEND:${utc(bit)}`,
+    `SUMMARY:${kac(`${r.hizmet} - ${ISLETME.ad}`)}`,
+    `DESCRIPTION:${kac(`Usta: ${r.berber}`)}`,
+    `LOCATION:${kac(ISLETME.adres)}`,
+    "BEGIN:VALARM", "TRIGGER:-PT1H", "ACTION:DISPLAY", "DESCRIPTION:Randevu hatırlatması", "END:VALARM",
+    "END:VEVENT", "END:VCALENDAR",
+  ].join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
+  a.download = "randevu.ics";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+
+// Başarı ekranından yeni randevuya: seçimler sıfırlanır, kayıtlı ad/telefon kalır
+function yeniRandevu() {
+  secim = { berberId: null, hizmetId: null, tarih: null, saat: null };
+  berberListesiniDoldur();
+  adimGoster("adimBerber");
+}
+
 // Logoya basınca en başa dön; randevu adımlarındaysak geçmişte geri gidilir (telefonun geri tuşuyla tutarlı)
 function basaDon(e) {
   e.preventDefault();
   if (aktifAdim === "adimYakinda" || aktifAdim === "adimBerber") return;
+  if (aktifAdim === "adimBasari") return yeniRandevu();
   if (ADIM_SIRASI.indexOf(aktifAdim) > 0) adimaDon(0);
   else adimGoster("adimBerber", "geri");
 }
@@ -739,6 +815,9 @@ async function baslat() {
     berberListesiniDoldur();
     ilerlemeGuncelle("adimBerber");
     yanPaneliGuncelle();
+    musteriBilgisiniDoldur();
+    telefonAlaniBagla(document.getElementById("inTelefon"), "bilgiHata");
+    telefonAlaniBagla(document.getElementById("inIptalTelefon"), "iptalTelefonHata");
     history.replaceState({ adim: "adimBerber" }, ""); // geçmişin ilk adımı
   } catch (e) {
     document.getElementById("berberListe").innerHTML =
@@ -752,7 +831,6 @@ function berberListesiniDoldur() {
     <button class="usta-kart" data-id="${b.id}" onclick="berberSec('${b.id}')">
       ${ustaGorseli(b, "usta-foto", "usta-avatar-yer")}
       <div class="usta-ad">${kacis(b.ad)}</div>
-      <div class="usta-uzmanlik">${kacis(b.uzmanlik || "")}</div>
     </button>`).join("");
 }
 
@@ -857,7 +935,14 @@ function saatListesiniDoldur(saatler) {
       '<button class="btn btn-ikincil" style="grid-column:1/-1;margin-top:4px;" onclick="adimaDon(2)">📅 Başka tarih seç</button>';
     return;
   }
-  kutu.innerHTML = saatler.map((s) => `<button class="saat-btn" data-id="${s}" onclick="saatSec('${s}')">${s}</button>`).join("");
+  // Sabah / öğleden sonra / akşam diye gruplanır — akşamüstü saat arayan doğrudan bulsun
+  const gruplar = [["☀️ Sabah", (s) => s < "12:00"], ["🌤️ Öğleden sonra", (s) => s >= "12:00" && s < "17:00"], ["🌙 Akşam", (s) => s >= "17:00"]];
+  kutu.innerHTML = gruplar.map(([ad, uyar]) => {
+    const liste = saatler.filter(uyar);
+    if (!liste.length) return "";
+    return `<div class="saat-grup">${ad}</div>` +
+      liste.map((s) => `<button class="saat-btn" data-id="${s}" onclick="saatSec('${s}')">${s}</button>`).join("");
+  }).join("");
 }
 
 function saatSec(saat) {
@@ -886,6 +971,60 @@ function ozetGoster() {
   document.getElementById("bilgiHata").textContent = "";
 }
 
+// Tekrar gelen müşteri formu dolu bulsun: ad/telefon SADECE bu tarayıcıda (localStorage)
+// tutulur, sunucuya ayrıca gönderilmez. Gizli sekmede vb. erişim yoksa sessizce geçilir.
+const MUSTERI_ANAHTAR = "rt_musteri";
+function musteriBilgisiniKaydet() {
+  try {
+    localStorage.setItem(MUSTERI_ANAHTAR, JSON.stringify({
+      ad: document.getElementById("inAd").value.trim(), telefon: telefonGoruntu(),
+    }));
+  } catch (e) {}
+}
+function musteriBilgisiniDoldur() {
+  let k = null;
+  try { k = JSON.parse(localStorage.getItem(MUSTERI_ANAHTAR) || "null"); } catch (e) {}
+  if (!k || !k.ad) return;
+  const ad = document.getElementById("inAd"), tel = document.getElementById("inTelefon");
+  if (!ad.value) ad.value = k.ad;
+  if (!tel.value) tel.value = k.telefon || "";
+  document.getElementById("kayitliBilgi").classList.remove("gizli");
+}
+function musteriBilgisiniUnut() {
+  try { localStorage.removeItem(MUSTERI_ANAHTAR); } catch (e) {}
+  document.getElementById("inAd").value = "";
+  document.getElementById("inTelefon").value = "";
+  document.getElementById("kayitliBilgi").classList.add("gizli");
+  document.getElementById("inAd").focus();
+}
+
+// ============ Telefon alanı: yazarken 0555 123 45 67 biçimi + anında doğrulama ============
+function telefonBicimle(deger) {
+  let d = String(deger).replace(/\D/g, "");
+  if (d.startsWith("90")) d = d.slice(2);
+  if (d && !d.startsWith("0")) d = "0" + d;
+  d = d.slice(0, 11);
+  return [d.slice(0, 4), d.slice(4, 7), d.slice(7, 9), d.slice(9, 11)].filter(Boolean).join(" ");
+}
+function telefonAlaniBagla(input, hataId) {
+  input.addEventListener("input", () => {
+    // Yalnızca imleç sondayken biçimlenir — ortada düzeltme yaparken imleç kaçmasın
+    if (input.selectionStart === input.value.length) input.value = telefonBicimle(input.value);
+    const hata = document.getElementById(hataId);
+    if (input.value.replace(/\D/g, "").length === 11 && hata.dataset.alan === "telefon") { hata.textContent = ""; hata.dataset.alan = ""; }
+    input.classList.remove("hatali");
+  });
+  input.addEventListener("blur", () => {
+    const n = input.value.replace(/\D/g, "").length;
+    if (n > 0 && n !== 11) {
+      const hata = document.getElementById(hataId);
+      hata.textContent = "Telefon numarası 11 haneli olmalı (05XX XXX XX XX).";
+      hata.dataset.alan = "telefon";
+      input.classList.add("hatali");
+    }
+  });
+}
+
 function telefonGoruntu() {
   return document.getElementById("inTelefon").value.trim();
 }
@@ -898,7 +1037,7 @@ function bilgiDevam() {
   const ad = document.getElementById("inAd").value.trim();
   const tel = telefonGoruntu();
   if (ad.length < 3) { hataEl.textContent = "Lütfen adınızı ve soyadınızı girin."; return; }
-  if (tel.replace(/\D/g, "").length < 10) { hataEl.textContent = "Lütfen geçerli bir telefon numarası girin."; return; }
+  if (tel.replace(/\D/g, "").length !== 11) { hataEl.textContent = "Telefon numarası 11 haneli olmalı (05XX XXX XX XX)."; return; }
 
   if (OTP_AKTIF) kodGonder();
   else randevuOlustur();
@@ -1150,6 +1289,11 @@ async function randevuOlustur() {
     const berber = BERBERLER.find((b) => b.id === secim.berberId);
     const hizmet = HIZMETLER.find((h) => h.id === secim.hizmetId);
     const tarihStr = new Date(secim.tarih + "T00:00:00").toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
+    sonRandevu = { tarih: secim.tarih, saat: secim.saat, berber: berber.ad, hizmet: hizmet.ad, sureDk: berber.slotDk };
+    document.getElementById("yolTarifiBtn").href =
+      "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(`${ISLETME.ad}, ${ISLETME.adres}`);
+    document.getElementById("basariAdres").textContent = ISLETME.adres;
+    musteriBilgisiniKaydet();
     document.getElementById("basariOzet").innerHTML = `
       ${ustaGorseli(berber, "ozet-foto", "ozet-avatar-yer")}
       <div class="ozet-metin">
