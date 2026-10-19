@@ -265,15 +265,15 @@
   .basari p { color: var(--soluk); font-size: 13.5px; margin: 0 0 18px; }
 
   .basari-sms { margin: 14px 0 0 !important; font-size: 13px !important; }
-  .basari-eylem { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+  .basari-eylem { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 16px; }
   .eylem-btn {
-    display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 12px 4px;
+    display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 50px; padding: 12px 10px;
     background: var(--mavi-acik); border: 1px solid var(--mavi-halka); border-radius: 14px;
-    color: var(--mavi-koyu); font-family: inherit; font-size: 13px; font-weight: 700; text-decoration: none; cursor: pointer;
+    color: var(--mavi-koyu); font-family: inherit; font-size: 14.5px; font-weight: 700; text-decoration: none; cursor: pointer;
     transition: transform .15s var(--yay), background-color .15s; -webkit-tap-highlight-color: transparent;
   }
   .eylem-btn:active { transform: scale(.95); }
-  .eylem-ikon { font-size: 20px; line-height: 1; }
+  .eylem-ikon { font-size: 18px; line-height: 1; }
   .basari-adres { margin: 12px 0 0 !important; font-size: 12px !important; line-height: 1.45; }
   .yeni-randevu {
     margin-top: 12px; background: none; border: none; padding: 8px; font-family: inherit;
@@ -547,7 +547,6 @@
       <div class="ozet" id="basariOzet" style="text-align:left;"></div>
       <p class="basari-sms">📩 Onay SMS'i telefonunuza gönderildi.</p>
       <div class="basari-eylem">
-        <button class="eylem-btn" onclick="takvimeEkle()"><span class="eylem-ikon">📅</span>Takvime ekle</button>
         <a class="eylem-btn" id="yolTarifiBtn" target="_blank" rel="noopener"><span class="eylem-ikon">📍</span>Yol tarifi</a>
         <a class="eylem-btn" href="tel:+905359116681"><span class="eylem-ikon">📞</span>Ara</a>
       </div>
@@ -607,7 +606,6 @@ const ISLETME = {
   ad: "Resul Tabu Saç Atölyesi",
   adres: "Yenidoğan, Halkalı Merkez, Yarımburgaz Cd. No:5A, 34303 Küçükçekmece/İstanbul",
 };
-let sonRandevu = null; // başarı ekranındaki "takvime ekle" için
 
 function kacis(s) {
   const d = document.createElement("div");
@@ -649,32 +647,6 @@ function adimaDon(n) {
   if (idx === -1 || n >= idx) return;
   if (history.state && history.state.adim === aktifAdim) history.go(n - idx);
   else adimGoster(ADIM_SIRASI[n], "geri");
-}
-
-// Başarı ekranı: telefon takvimine eklenecek .ics dosyası (1 saat önce hatırlatmalı)
-function takvimeEkle() {
-  if (!sonRandevu) return;
-  const r = sonRandevu;
-  const bas = new Date(`${r.tarih}T${r.saat}:00+03:00`); // Türkiye yaz saati uygulamıyor, hep +03
-  const bit = new Date(bas.getTime() + (r.sureDk || 45) * 60000);
-  const utc = (d) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-  const kac = (t) => String(t).replace(/([,;\\])/g, "\\$1");
-  const ics = [
-    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Resul Tabu//Randevu//TR", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
-    "BEGIN:VEVENT",
-    `UID:${r.tarih}-${r.saat}-${Date.now()}@randevu.resultabu.com`,
-    `DTSTAMP:${utc(new Date())}`, `DTSTART:${utc(bas)}`, `DTEND:${utc(bit)}`,
-    `SUMMARY:${kac(`${r.hizmet} - ${ISLETME.ad}`)}`,
-    `DESCRIPTION:${kac(`Usta: ${r.berber}`)}`,
-    `LOCATION:${kac(ISLETME.adres)}`,
-    "BEGIN:VALARM", "TRIGGER:-PT1H", "ACTION:DISPLAY", "DESCRIPTION:Randevu hatırlatması", "END:VALARM",
-    "END:VEVENT", "END:VCALENDAR",
-  ].join("\r\n");
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
-  a.download = "randevu.ics";
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 }
 
 // Başarı ekranından yeni randevuya: seçimler sıfırlanır, kayıtlı ad/telefon kalır
@@ -1289,7 +1261,6 @@ async function randevuOlustur() {
     const berber = BERBERLER.find((b) => b.id === secim.berberId);
     const hizmet = HIZMETLER.find((h) => h.id === secim.hizmetId);
     const tarihStr = new Date(secim.tarih + "T00:00:00").toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
-    sonRandevu = { tarih: secim.tarih, saat: secim.saat, berber: berber.ad, hizmet: hizmet.ad, sureDk: berber.slotDk };
     document.getElementById("yolTarifiBtn").href =
       "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(`${ISLETME.ad}, ${ISLETME.adres}`);
     document.getElementById("basariAdres").textContent = ISLETME.adres;
