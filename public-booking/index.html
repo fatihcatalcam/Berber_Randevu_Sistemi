@@ -171,10 +171,14 @@
   .btn-ikincil:disabled { background: #fff; color: #cbd5e1; border-color: #e5e7eb; }
   .hata { color: #dc2626; font-size: 13px; margin-top: 8px; min-height: 1em; font-weight: 600; }
   .bilgi { color: var(--soluk); font-size: 12.5px; margin-top: 8px; }
+  /* Clarity kayıtlarında müşteriler geri butonunu bulamıyordu — belirgin bir hap düğme */
   .geri-btn {
-    background: none; border: none; color: var(--soluk); font-size: 13px; font-weight: 600;
-    cursor: pointer; padding: 6px 0; margin-bottom: 12px; display: flex; align-items: center; gap: 3px;
+    background: var(--mavi-acik); border: 1px solid var(--mavi-halka); color: var(--mavi);
+    font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer;
+    min-height: 40px; padding: 8px 16px 8px 12px; border-radius: 999px; margin-bottom: 14px;
+    display: inline-flex; align-items: center; gap: 6px; -webkit-tap-highlight-color: transparent;
   }
+  .geri-btn:active { transform: scale(.97); }
 
   .ozet {
     background: var(--mavi-acik); border: 1px solid var(--mavi-halka); border-radius: 16px;
@@ -209,7 +213,7 @@
     .usta-kart:hover { border-color: #bfd4fb; transform: translateY(-2px); box-shadow: 0 10px 20px -8px rgba(37,99,235,.2); }
     .saat-btn:hover { border-color: #bfd4fb; background: var(--mavi-acik); }
     .btn:hover:not(:disabled) { box-shadow: 0 10px 22px -6px rgba(37,99,235,.6); }
-    .geri-btn:hover { color: var(--mavi); }
+    .geri-btn:hover { border-color: #bfd4fb; background: #dbeafe; }
   }
 
   /* Liste/ızgara öğeleri aynı anda değil, hafif art arda (stagger) belirir —
@@ -363,7 +367,7 @@
 
   <!-- Randevu iptali (self-servis): telefon → SMS kod → randevu listesi -->
   <div class="kart gizli" id="adimIptalTelefon">
-    <button class="geri-btn" onclick="adimGoster('adimBerber')">‹ Randevu almaya dön</button>
+    <button class="geri-btn" onclick="geriGit('adimBerber')">‹ Randevu almaya dön</button>
     <p class="adim-baslik">Randevunuzu İptal Edin</p>
     <label for="inIptalTelefon">Telefon numaranız</label>
     <input type="tel" id="inIptalTelefon" data-clarity-mask="true" placeholder="05XX XXX XX XX">
@@ -372,7 +376,7 @@
   </div>
 
   <div class="kart gizli" id="adimIptalKod">
-    <button class="geri-btn" onclick="adimGoster('adimIptalTelefon')">‹ Telefon numarasına dön</button>
+    <button class="geri-btn" onclick="geriGit('adimIptalTelefon')">‹ Telefon numarasına dön</button>
     <p class="adim-baslik">Doğrulama Kodu</p>
     <p class="bilgi" id="iptalOtpBilgi"></p>
     <label for="inIptalKod">Telefonunuza gelen 6 haneli kod</label>
@@ -383,7 +387,7 @@
   </div>
 
   <div class="kart gizli" id="adimIptalListe">
-    <button class="geri-btn" onclick="adimGoster('adimBerber')">‹ Randevu almaya dön</button>
+    <button class="geri-btn" onclick="adimGoster('adimBerber', 'geri')">‹ Randevu almaya dön</button>
     <p class="adim-baslik">Randevularınız</p>
     <div class="hata" id="iptalListeHata"></div>
     <div id="iptalListeKutu" data-clarity-mask="true"></div>
@@ -440,7 +444,8 @@ const AZALTILMIS_HAREKET = window.matchMedia && window.matchMedia("(prefers-redu
 
 // yon: "ileri" (varsayılan) içerik sağdan gelir, "geri" soldan — iOS push/pop
 // mantığıyla aynı: bir adım nereden geldiyse geri dönüşte oraya gider.
-function adimGoster(id, yon) {
+// gecmistenMi: telefonun geri/ileri tuşundan (popstate) gelindiyse geçmişe yeni kayıt eklenmez
+function adimGoster(id, yon, gecmistenMi) {
   document.querySelectorAll(".kapsayici > .kart").forEach((el) => el.classList.add("gizli"));
   const hedef = document.getElementById(id);
   hedef.classList.toggle("yon-geri", yon === "geri");
@@ -450,8 +455,18 @@ function adimGoster(id, yon) {
   hedef.style.animation = "";
   ilerlemeGuncelle(id);
   window.scrollTo({ top: 0, behavior: AZALTILMIS_HAREKET ? "auto" : "smooth" });
+  // Her ileri adım tarayıcı geçmişine yazılır; böylece telefonun geri tuşu
+  // siteden çıkarmak yerine bir önceki adıma döner.
+  if (!gecmistenMi && yon !== "geri") history.pushState({ adim: id }, "");
 }
-function geriGit(id) { adimGoster(id, "geri"); }
+function geriGit(id) {
+  // Sayfadaki geri düğmesi de telefonun geri tuşuyla aynı yolu izlesin (geçmiş tutarlı kalır)
+  if (history.state && history.state.adim && history.state.adim !== "adimBerber") history.back();
+  else adimGoster(id, "geri");
+}
+window.addEventListener("popstate", (e) => {
+  adimGoster((e.state && e.state.adim) || "adimBerber", "geri", true);
+});
 
 // ============================================================
 // Adım 1: Usta listesi
@@ -462,7 +477,7 @@ async function baslat() {
     const c = await res.json();
     if (c.randevuKapali) {
       document.querySelector(".iptal-link").style.display = "none";
-      adimGoster("adimYakinda");
+      adimGoster("adimYakinda", "ileri", true);
       return;
     }
     BERBERLER = c.berberler; HIZMETLER = c.hizmetler;
@@ -471,6 +486,7 @@ async function baslat() {
     document.getElementById("kodGonderBtn").textContent = OTP_AKTIF ? "Doğrulama Kodu Gönder" : "Randevu Al";
     berberListesiniDoldur();
     ilerlemeGuncelle("adimBerber");
+    history.replaceState({ adim: "adimBerber" }, ""); // geçmişin ilk adımı
   } catch (e) {
     document.getElementById("berberListe").innerHTML =
       '<div class="hata">Bağlantı hatası. Sayfayı yenileyin.</div>';
