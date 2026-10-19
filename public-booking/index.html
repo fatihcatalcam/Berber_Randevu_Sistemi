@@ -56,6 +56,13 @@
     background: radial-gradient(circle, rgba(37,99,235,.16) 0%, rgba(37,99,235,0) 70%);
   }
   .ust-icerik { position: relative; }
+  /* 2. adımdan itibaren üst kısım tek satıra iner — telefonda seçenekler kaydırmadan görünsün */
+  .ust.kompakt { padding: 12px 16px 10px; }
+  .ust.kompakt::before { display: none; }
+  .ust.kompakt .ust-icerik { display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .ust.kompakt .etiket, .ust.kompakt .cizgi-vurgu, .ust.kompakt p { display: none; }
+  .ust.kompakt img { width: 54px; height: 38px; padding: 3px 5px; border-radius: 11px; margin: 0; box-shadow: 0 0 0 1px var(--cizgi); }
+  .ust.kompakt h1 { font-size: 16px; }
   .etiket {
     display: inline-flex; align-items: center; gap: 6px; background: #fff; color: var(--mavi);
     font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
@@ -79,19 +86,48 @@
     border-bottom: 1px solid transparent; transition: border-color .2s, box-shadow .2s;
   }
   .ilerleme-sarici.golgeli { border-color: var(--cizgi); box-shadow: 0 6px 16px -12px rgba(15,23,42,.25); }
-  .ilerleme { display: flex; justify-content: space-between; align-items: center; position: relative; }
+  /* Adım şeridi: her daire altında adının yazdığı bir düğme. Tamamlanmış adıma
+     basınca o adıma dönülür (yön bulma: "neredeyim, nereye dönebilirim?"). */
+  .ilerleme { display: flex; justify-content: space-between; align-items: flex-start; position: relative; }
   .ilerleme::before {
-    content: ""; position: absolute; top: 50%; left: 0; right: 0; height: 2px;
-    background: var(--cizgi); transform: translateY(-50%); z-index: 0;
+    content: ""; position: absolute; top: 13px; left: 24px; right: 24px; height: 2px;
+    background: var(--cizgi); z-index: 0;
   }
+  .adim-oge {
+    position: relative; z-index: 1; width: 48px; background: none; border: none; padding: 0;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    font-family: inherit; cursor: default; -webkit-tap-highlight-color: transparent;
+  }
+  .adim-oge.tamam { cursor: pointer; }
+  .adim-oge.tamam:active .nokta { transform: scale(.9); }
   .ilerleme .nokta {
-    position: relative; z-index: 1; width: 26px; height: 26px; border-radius: 50%;
+    width: 26px; height: 26px; border-radius: 50%;
     background: #fff; border: 2px solid var(--cizgi); color: var(--soluk);
     display: flex; align-items: center; justify-content: center;
-    font-size: 11px; font-weight: 800; transition: background-color .22s ease, border-color .22s ease, color .22s ease, box-shadow .22s ease;
+    font-size: 11px; font-weight: 800; transition: background-color .22s ease, border-color .22s ease, color .22s ease, box-shadow .22s ease, transform .15s var(--yay);
   }
-  .ilerleme .nokta.tamam { background: var(--mavi); border-color: var(--mavi); color: #fff; }
-  .ilerleme .nokta.aktif { border-color: var(--mavi); color: var(--mavi); box-shadow: 0 0 0 5px var(--mavi-halka); }
+  .nokta-ad { font-size: 10.5px; font-weight: 700; color: var(--soluk); letter-spacing: .01em; }
+  .adim-oge.tamam .nokta { background: var(--mavi); border-color: var(--mavi); color: #fff; }
+  .adim-oge.tamam .nokta-ad { color: var(--lacivert); }
+  .adim-oge.aktif .nokta { border-color: var(--mavi); color: var(--mavi); box-shadow: 0 0 0 5px var(--mavi-halka); }
+  .adim-oge.aktif .nokta-ad { color: var(--mavi); }
+
+  /* Önceki seçimler, basınca o adıma dönen küçük çipler olarak görünür */
+  .secim-serit { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+  .secim-serit:empty { display: none; }
+  .secim-cip {
+    display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 5px 12px 5px 5px;
+    background: #fff; border: 1px solid var(--cizgi); border-radius: 999px;
+    font-family: inherit; font-size: 13px; font-weight: 600; line-height: 1; color: var(--lacivert); cursor: pointer;
+    box-shadow: 0 1px 2px rgba(15,23,42,.04); transition: transform .15s var(--yay), border-color .15s;
+  }
+  .secim-cip:active { transform: scale(.96); }
+  .secim-cip .cip-ikon {
+    width: 24px; height: 24px; border-radius: 50%; background: var(--mavi-acik);
+    display: inline-flex; align-items: center; justify-content: center; font-size: 12px; overflow: hidden; flex-shrink: 0;
+  }
+  .secim-cip .cip-ikon img { width: 100%; height: 100%; object-fit: cover; }
+  .secim-cip .cip-degis { color: var(--mavi); font-size: 12px; font-weight: 700; margin-left: 2px; }
 
   .kapsayici { max-width: 480px; margin: 22px auto 40px; padding: 0 14px; overflow-x: clip; overflow-y: visible; }
   .kart {
@@ -165,6 +201,21 @@
   }
   .btn:active:not(:disabled) { transform: scale(.98); }
   .btn:disabled { background: #cbd5e1; box-shadow: none; cursor: not-allowed; }
+  /* İşlem sürerken buton mavi kalır, dönen simge + ne olduğunu söyleyen yazı (durum geri bildirimi) */
+  .btn.bekliyor:disabled { background: linear-gradient(135deg, var(--mavi), var(--mavi-koyu)); opacity: .88; cursor: progress; }
+  .donen {
+    display: inline-block; width: 16px; height: 16px; margin-right: 9px; vertical-align: -3px;
+    border: 2px solid rgba(255,255,255,.45); border-top-color: #fff; border-radius: 50%;
+    animation: don .7s linear infinite;
+  }
+  @keyframes don { to { transform: rotate(360deg); } }
+  /* Saatler gelene kadar boş yazı yerine saat kutucuklarının iskeleti */
+  .saat-iskelet {
+    height: 47px; border-radius: 12px;
+    background: linear-gradient(90deg, #eef2f7 25%, #f8fafc 50%, #eef2f7 75%); background-size: 200% 100%;
+    animation: parilti 1.2s ease-in-out infinite;
+  }
+  @keyframes parilti { from { background-position: 100% 0; } to { background-position: -100% 0; } }
   .btn-ikincil {
     background: #fff; color: var(--mavi-koyu); border: 1.5px solid var(--mavi-halka); box-shadow: none;
   }
@@ -272,11 +323,11 @@
 </div>
 <div class="ilerleme-sarici">
   <div class="ilerleme" id="ilerleme">
-    <div class="nokta" data-adim="0">1</div>
-    <div class="nokta" data-adim="1">2</div>
-    <div class="nokta" data-adim="2">3</div>
-    <div class="nokta" data-adim="3">4</div>
-    <div class="nokta" data-adim="4">5</div>
+    <button class="adim-oge" data-adim="0" onclick="adimaDon(0)"><span class="nokta">1</span><span class="nokta-ad">Usta</span></button>
+    <button class="adim-oge" data-adim="1" onclick="adimaDon(1)"><span class="nokta">2</span><span class="nokta-ad">Hizmet</span></button>
+    <button class="adim-oge" data-adim="2" onclick="adimaDon(2)"><span class="nokta">3</span><span class="nokta-ad">Tarih</span></button>
+    <button class="adim-oge" data-adim="3" onclick="adimaDon(3)"><span class="nokta">4</span><span class="nokta-ad">Saat</span></button>
+    <button class="adim-oge" data-adim="4" onclick="adimaDon(4)"><span class="nokta">5</span><span class="nokta-ad">Bilgi</span></button>
   </div>
 </div>
 
@@ -300,6 +351,7 @@
   <!-- Adım 2: Hizmet -->
   <div class="kart gizli" id="adimHizmet">
     <button class="geri-btn" onclick="geriGit('adimBerber')">‹ Usta seçimine dön</button>
+    <div class="secim-serit" data-serit="adimHizmet"></div>
     <p class="adim-baslik">2 / 5 — Hizmet Seçin</p>
     <div class="secim-liste" id="hizmetListe"></div>
   </div>
@@ -307,6 +359,7 @@
   <!-- Adım 3: Tarih -->
   <div class="kart gizli" id="adimTarih">
     <button class="geri-btn" onclick="geriGit('adimHizmet')">‹ Hizmet seçimine dön</button>
+    <div class="secim-serit" data-serit="adimTarih"></div>
     <p class="adim-baslik">3 / 5 — Tarih Seçin</p>
     <div class="secim-liste" id="tarihListe"></div>
   </div>
@@ -314,6 +367,7 @@
   <!-- Adım 4: Saat -->
   <div class="kart gizli" id="adimSaat">
     <button class="geri-btn" onclick="geriGit('adimTarih')">‹ Tarih seçimine dön</button>
+    <div class="secim-serit" data-serit="adimSaat"></div>
     <p class="adim-baslik">4 / 5 — Saat Seçin</p>
     <div class="saat-grid" id="saatListe"><div class="yukleniyor">Yükleniyor…</div></div>
   </div>
@@ -326,10 +380,10 @@
 
     <div id="bilgiForm">
       <label for="inAd">Ad Soyad *</label>
-      <input type="text" id="inAd" data-clarity-mask="true" placeholder="Adınız Soyadınız">
+      <input type="text" id="inAd" data-clarity-mask="true" autocomplete="name" autocapitalize="words" placeholder="Adınız Soyadınız">
 
       <label for="inTelefon">Telefon *</label>
-      <input type="tel" id="inTelefon" data-clarity-mask="true" placeholder="05XX XXX XX XX">
+      <input type="tel" id="inTelefon" data-clarity-mask="true" autocomplete="tel" inputmode="tel" placeholder="05XX XXX XX XX">
 
       <button class="btn" id="kodGonderBtn" onclick="bilgiDevam()">Randevu Al</button>
       <div class="hata" id="bilgiHata"></div>
@@ -338,7 +392,7 @@
     <div id="otpForm" class="gizli">
       <p class="bilgi" id="otpBilgi"></p>
       <label for="inKod">Telefonunuza gelen 6 haneli kod</label>
-      <input type="text" id="inKod" data-clarity-mask="true" class="kod-input" maxlength="6" inputmode="numeric" placeholder="______">
+      <input type="text" id="inKod" data-clarity-mask="true" autocomplete="one-time-code" class="kod-input" maxlength="6" inputmode="numeric" placeholder="______">
       <button class="btn" id="kodDogrulaBtn" onclick="kodDogrula()">Kodu Doğrula</button>
       <button class="btn btn-ikincil" id="tekrarGonderBtn" onclick="kodGonder(true)" disabled>Tekrar Gönder (60)</button>
       <div class="hata" id="otpHata"></div>
@@ -370,7 +424,7 @@
     <button class="geri-btn" onclick="geriGit('adimBerber')">‹ Randevu almaya dön</button>
     <p class="adim-baslik">Randevunuzu İptal Edin</p>
     <label for="inIptalTelefon">Telefon numaranız</label>
-    <input type="tel" id="inIptalTelefon" data-clarity-mask="true" placeholder="05XX XXX XX XX">
+    <input type="tel" id="inIptalTelefon" data-clarity-mask="true" autocomplete="tel" inputmode="tel" placeholder="05XX XXX XX XX">
     <button class="btn" id="iptalKodGonderBtn" onclick="iptalKodGonder()">Kod Gönder</button>
     <div class="hata" id="iptalTelefonHata"></div>
   </div>
@@ -380,7 +434,7 @@
     <p class="adim-baslik">Doğrulama Kodu</p>
     <p class="bilgi" id="iptalOtpBilgi"></p>
     <label for="inIptalKod">Telefonunuza gelen 6 haneli kod</label>
-    <input type="text" id="inIptalKod" data-clarity-mask="true" class="kod-input" maxlength="6" inputmode="numeric" placeholder="______">
+    <input type="text" id="inIptalKod" data-clarity-mask="true" autocomplete="one-time-code" class="kod-input" maxlength="6" inputmode="numeric" placeholder="______">
     <button class="btn" id="iptalKodDogrulaBtn" onclick="iptalKodDogrula()">Doğrula</button>
     <button class="btn btn-ikincil" id="iptalTekrarGonderBtn" onclick="iptalKodGonder(true)" disabled>Tekrar Gönder (60)</button>
     <div class="hata" id="iptalKodHata"></div>
@@ -433,11 +487,67 @@ function ilerlemeGuncelle(id) {
   const idx = ADIM_SIRASI.indexOf(id);
   if (idx === -1) { bar.style.display = "none"; return; }
   bar.style.display = "flex";
-  bar.querySelectorAll(".nokta").forEach((el) => {
+  bar.querySelectorAll(".adim-oge").forEach((el) => {
     const n = Number(el.dataset.adim);
     el.classList.toggle("tamam", n < idx);
     el.classList.toggle("aktif", n === idx);
+    el.disabled = n >= idx; // sadece geçilmiş adımlara dönülebilir
+    el.setAttribute("aria-current", n === idx ? "step" : "false");
   });
+}
+
+let aktifAdim = "adimBerber";
+
+// Adım şeridindeki daireye ya da seçim çipine basınca o adıma dön. Telefonun geri
+// tuşuyla tutarlı kalsın diye tarayıcı geçmişinde o kadar adım geri gidilir.
+function adimaDon(n) {
+  const idx = ADIM_SIRASI.indexOf(aktifAdim);
+  if (idx === -1 || n >= idx) return;
+  if (history.state && history.state.adim === aktifAdim) history.go(n - idx);
+  else adimGoster(ADIM_SIRASI[n], "geri");
+}
+
+// Önceki adımlarda seçilenler (usta · hizmet · tarih) basılabilir çipler olarak gösterilir
+function secimSeritleriniGuncelle() {
+  const berber = BERBERLER.find((b) => b.id === secim.berberId);
+  const hizmet = HIZMETLER.find((h) => h.id === secim.hizmetId);
+  const cipler = [];
+  if (berber) {
+    const ikon = berber.foto ? `<img src="${berber.foto}" alt="">` : "💈";
+    cipler.push({ adim: 0, html: `<span class="cip-ikon">${ikon}</span>${kacis(berber.ad)}` });
+  }
+  if (hizmet) cipler.push({ adim: 1, html: `<span class="cip-ikon">✂️</span>${kacis(hizmet.ad)}` });
+  if (secim.tarih) {
+    const t = new Date(secim.tarih + "T00:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long", weekday: "short" });
+    cipler.push({ adim: 2, html: `<span class="cip-ikon">📅</span>${kacis(t)}` });
+  }
+  document.querySelectorAll(".secim-serit").forEach((serit) => {
+    const sinir = ADIM_SIRASI.indexOf(serit.dataset.serit); // sadece bu adımdan önceki seçimler
+    serit.innerHTML = cipler.filter((c) => c.adim < sinir).map((c) =>
+      `<button class="secim-cip" onclick="adimaDon(${c.adim})" aria-label="Değiştir">${c.html}<span class="cip-degis">✎</span></button>`).join("");
+  });
+}
+
+// Geri dönülen adımda daha önce seçilen öğe mavi çerçeveyle işaretli görünsün
+function secilenleriIsaretle() {
+  const esle = { "#berberListe [data-id]": secim.berberId, "#hizmetListe [data-id]": secim.hizmetId,
+                 "#tarihListe [data-id]": secim.tarih, "#saatListe [data-id]": secim.saat };
+  for (const [secici, deger] of Object.entries(esle))
+    document.querySelectorAll(secici).forEach((el) => el.classList.toggle("secili", el.dataset.id === deger));
+}
+
+// İşlem sürerken butonda dönen simge + açıklama; bitince eski yazısına döner
+function butonBekliyor(btn, yazi) {
+  if (yazi) {
+    btn.dataset.yazi = btn.textContent;
+    btn.innerHTML = `<span class="donen"></span>${kacis(yazi)}`;
+    btn.classList.add("bekliyor");
+    btn.disabled = true;
+  } else {
+    if (btn.dataset.yazi) btn.textContent = btn.dataset.yazi;
+    btn.classList.remove("bekliyor");
+    btn.disabled = false;
+  }
 }
 
 const AZALTILMIS_HAREKET = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -454,6 +564,10 @@ function adimGoster(id, yon, gecmistenMi) {
   hedef.offsetHeight; // reflow — giriş animasyonunu her adımda yeniden tetikle
   hedef.style.animation = "";
   ilerlemeGuncelle(id);
+  aktifAdim = id;
+  document.querySelector(".ust").classList.toggle("kompakt", id !== "adimBerber" && id !== "adimYakinda");
+  secimSeritleriniGuncelle();
+  secilenleriIsaretle();
   window.scrollTo({ top: 0, behavior: AZALTILMIS_HAREKET ? "auto" : "smooth" });
   // Her ileri adım tarayıcı geçmişine yazılır; böylece telefonun geri tuşu
   // siteden çıkarmak yerine bir önceki adıma döner.
@@ -496,7 +610,7 @@ async function baslat() {
 function berberListesiniDoldur() {
   const kutu = document.getElementById("berberListe");
   kutu.innerHTML = BERBERLER.map((b) => `
-    <button class="usta-kart" onclick="berberSec('${b.id}')">
+    <button class="usta-kart" data-id="${b.id}" onclick="berberSec('${b.id}')">
       ${ustaGorseli(b, "usta-foto", "usta-avatar-yer")}
       <div class="usta-ad">${kacis(b.ad)}</div>
       <div class="usta-uzmanlik">${kacis(b.uzmanlik || "")}</div>
@@ -517,7 +631,7 @@ function hizmetListesiniDoldur() {
   const berber = BERBERLER.find((b) => b.id === secim.berberId);
   const kutu = document.getElementById("hizmetListe");
   kutu.innerHTML = HIZMETLER.map((h) => `
-    <button class="secim-btn" onclick="hizmetSec('${h.id}')">
+    <button class="secim-btn" data-id="${h.id}" onclick="hizmetSec('${h.id}')">
       <span>✂️ ${kacis(h.ad)}</span>
       <span class="fiyat">${berber.fiyat[h.id]}₺</span>
     </button>`).join("");
@@ -566,14 +680,14 @@ async function tarihListesiniDoldur() {
   const kutu = document.getElementById("tarihListe");
   const tarihler = gelecekTarihleriUret(RANDEVU_UFUK_GUN, await acikGunleriAl());
   kutu.innerHTML = tarihler.map((t) => `
-    <button class="secim-btn" onclick="tarihSec('${t.deger}')"><span>📅 ${kacis(t.etiket)}</span></button>`).join("");
+    <button class="secim-btn" data-id="${t.deger}" onclick="tarihSec('${t.deger}')"><span>📅 ${kacis(t.etiket)}</span></button>`).join("");
 }
 
 async function tarihSec(deger) {
   secim.tarih = deger; secim.saat = null;
   adimGoster("adimSaat");
   const kutu = document.getElementById("saatListe");
-  kutu.innerHTML = '<div class="yukleniyor">Yükleniyor…</div>';
+  kutu.innerHTML = '<div class="saat-iskelet"></div>'.repeat(9);
   try {
     const url = `/api/public/musait-saatler?berberId=${encodeURIComponent(secim.berberId)}&tarih=${encodeURIComponent(secim.tarih)}`;
     const res = await fetch(url, { cache: "no-store" });
@@ -588,10 +702,11 @@ async function tarihSec(deger) {
 function saatListesiniDoldur(saatler) {
   const kutu = document.getElementById("saatListe");
   if (!saatler.length) {
-    kutu.innerHTML = '<div class="bilgi" style="grid-column:1/-1;">Bu gün için boş saat kalmamış. Lütfen başka bir tarih seçin.</div>';
+    kutu.innerHTML = '<div class="bilgi" style="grid-column:1/-1;">Bu gün için boş saat kalmamış.</div>' +
+      '<button class="btn btn-ikincil" style="grid-column:1/-1;margin-top:4px;" onclick="adimaDon(2)">📅 Başka tarih seç</button>';
     return;
   }
-  kutu.innerHTML = saatler.map((s) => `<button class="saat-btn" onclick="saatSec('${s}')">${s}</button>`).join("");
+  kutu.innerHTML = saatler.map((s) => `<button class="saat-btn" data-id="${s}" onclick="saatSec('${s}')">${s}</button>`).join("");
 }
 
 function saatSec(saat) {
@@ -650,13 +765,14 @@ async function kodGonder(tekrar) {
   }
 
   const btn = document.getElementById(tekrar ? "tekrarGonderBtn" : "kodGonderBtn");
-  btn.disabled = true;
+  if (tekrar) btn.disabled = true; else butonBekliyor(btn, "Kod gönderiliyor…");
   try {
     const res = await fetch("/api/public/otp-gonder", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ telefon: telefonGoruntu() }),
     });
     const data = await res.json();
+    if (!tekrar) butonBekliyor(btn);
     if (!res.ok) { hataEl.textContent = data.hata || "Kod gönderilemedi."; btn.disabled = false; return; }
 
     document.getElementById("bilgiForm").classList.add("gizli");
@@ -668,6 +784,7 @@ async function kodGonder(tekrar) {
     document.getElementById("inKod").focus();
     geriSayimBaslat();
   } catch (e) {
+    if (!tekrar) butonBekliyor(btn);
     hataEl.textContent = "Bağlantı hatası, tekrar deneyin.";
     btn.disabled = false;
   }
@@ -862,7 +979,7 @@ async function randevuOlustur() {
   const hataEl = document.getElementById(OTP_AKTIF ? "onayHata" : "bilgiHata");
   hataEl.textContent = "";
   const btn = document.getElementById(OTP_AKTIF ? "randevuAlBtn" : "kodGonderBtn");
-  btn.disabled = true;
+  butonBekliyor(btn, "Randevunuz oluşturuluyor…");
 
   try {
     const res = await fetch("/api/public/randevu", {
@@ -876,7 +993,7 @@ async function randevuOlustur() {
       }),
     });
     const data = await res.json();
-    btn.disabled = false;
+    butonBekliyor(btn);
     if (!res.ok) { hataEl.textContent = data.hata || "Randevu oluşturulamadı."; return; }
 
     const berber = BERBERLER.find((b) => b.id === secim.berberId);
@@ -896,7 +1013,7 @@ async function randevuOlustur() {
     }
   } catch (e) {
     hataEl.textContent = "Bağlantı hatası, tekrar deneyin.";
-    btn.disabled = false;
+    butonBekliyor(btn);
   }
 }
 
