@@ -307,6 +307,88 @@
     .secim-liste { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .saat-grid { grid-template-columns: repeat(4, 1fr); gap: 10px; }
   }
+
+  /* ---------------------------------------------------------------------
+     Bilgisayar (≥960px): telefonun sıralı sihirbazı yerine geniş ekrana göre
+     iki sütun — solda sabit özet paneli (marka + adımlar + seçimler; geçilmiş
+     adıma tıklanınca dönülür), sağda içerik. Tarih takvim ızgarası, hizmetler
+     yan yana kart. Telefondaki üst başlık, nokta şeridi ve çipler burada gizlenir.
+     --------------------------------------------------------------------- */
+  .yan-panel, .tarih-baslik, .tarih-kapali, .tarih-kisa { display: none; }
+  .secim-btn .hizmet-sure { display: none; }
+  @media (min-width: 960px) {
+    .ust, .ilerleme-sarici, .secim-serit { display: none !important; }
+    .sayfa {
+      display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 28px; align-items: start;
+      max-width: 1100px; margin: 0 auto; padding: 44px 32px 64px;
+    }
+    .kapsayici { max-width: none; margin: 0; padding: 0; }
+    .kart { padding: 36px 40px; }
+
+    .yan-panel {
+      display: block; position: sticky; top: 32px;
+      background: var(--kart); border: 1px solid var(--cizgi); border-radius: 26px; padding: 26px 20px 18px;
+      box-shadow: 0 1px 2px rgba(15,23,42,.03), 0 18px 36px -14px rgba(15,23,42,.14);
+    }
+    .yan-logo { display: block; width: 150px; height: 106px; object-fit: contain; margin: 0 auto 14px; border-radius: 18px; box-shadow: 0 0 0 1px var(--cizgi), 0 8px 20px -8px rgba(37,99,235,.18); }
+    .yan-baslik { margin: 0; text-align: center; font-size: 19px; font-weight: 800; letter-spacing: -.02em; line-height: 1.2; }
+    .yan-alt { margin: 6px 0 18px; text-align: center; color: var(--soluk); font-size: 13.5px; }
+    .yan-adimlar { list-style: none; margin: 0; padding: 8px 0 0; border-top: 1px solid var(--cizgi); }
+    .yan-adim {
+      display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 10px; margin: 2px 0;
+      background: none; border: none; border-radius: 14px; text-align: left; font-family: inherit;
+      color: var(--lacivert); cursor: default; transition: background-color .15s;
+    }
+    .yan-adim.tamam { cursor: pointer; }
+    .yan-adim.tamam:hover { background: var(--mavi-acik); }
+    .yan-adim.tamam:active { transform: scale(.98); }
+    .yan-adim.aktif { background: var(--mavi-acik); }
+    .yan-no {
+      flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;
+      background: #fff; border: 2px solid var(--cizgi); color: var(--soluk);
+    }
+    .yan-adim.tamam .yan-no { background: var(--mavi); border-color: var(--mavi); color: #fff; }
+    .yan-adim.aktif .yan-no { border-color: var(--mavi); color: var(--mavi); box-shadow: 0 0 0 4px var(--mavi-halka); }
+    .yan-metin { display: flex; flex-direction: column; min-width: 0; }
+    .yan-etiket { font-size: 11px; font-weight: 700; color: var(--soluk); text-transform: uppercase; letter-spacing: .06em; }
+    .yan-deger { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .yan-deger.bos { color: #cbd5e1; }
+    .yan-adim.aktif .yan-deger { color: var(--mavi); }
+    .yan-degis { margin-left: auto; color: var(--mavi); font-size: 12.5px; font-weight: 700; opacity: 0; transition: opacity .15s; }
+    .yan-adim.tamam:hover .yan-degis, .yan-adim.tamam:focus-visible .yan-degis { opacity: 1; }
+    .yan-iptal {
+      display: block; width: 100%; margin-top: 12px; padding: 10px; background: none; border: none;
+      font-family: inherit; font-size: 12.5px; color: var(--mavi); text-decoration: underline; cursor: pointer;
+    }
+
+    .usta-grid { grid-template-columns: repeat(4, 1fr); }
+
+    #hizmetListe { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    #hizmetListe .secim-btn {
+      flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 14px;
+      min-height: 128px; padding: 20px 18px; font-size: 15px;
+    }
+    #hizmetListe .hizmet-sure { display: block; margin-top: 4px; font-size: 12.5px; font-weight: 500; color: var(--soluk); }
+    #hizmetListe .fiyat { font-size: 21px; letter-spacing: -.01em; }
+
+    /* Tarih: Pzt–Paz sütunlu takvim ızgarası; kapalı Pazarlar kesik çizgili boş hücre */
+    #tarihListe { grid-template-columns: repeat(7, 1fr); gap: 8px; }
+    #tarihListe > .secim-btn, #tarihListe > .tarih-kapali { grid-column: var(--sutun); }
+    .tarih-baslik { display: block; text-align: center; font-size: 11px; font-weight: 700; color: var(--soluk); text-transform: uppercase; letter-spacing: .06em; }
+    .tarih-uzun { display: none; }
+    #tarihListe .secim-btn { flex-direction: column; justify-content: center; align-items: center; min-height: 78px; padding: 10px 4px; }
+    .tarih-kisa { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .tarih-no { font-size: 22px; font-weight: 800; line-height: 1; letter-spacing: -.02em; }
+    .tarih-ay { font-size: 11.5px; font-weight: 600; color: var(--soluk); }
+    .tarih-ay.bugun { color: var(--mavi); font-weight: 800; }
+    .tarih-kapali {
+      display: flex; align-items: center; justify-content: center; min-height: 78px;
+      border: 1.5px dashed var(--cizgi); border-radius: 14px; color: #cbd5e1; font-size: 11.5px; font-weight: 600;
+    }
+
+    .saat-grid { grid-template-columns: repeat(6, 1fr); }
+  }
 </style>
 </head>
 <body>
@@ -331,6 +413,14 @@
   </div>
 </div>
 
+<div class="sayfa">
+<aside class="yan-panel" aria-label="Randevu özeti">
+  <img class="yan-logo" src="/dashboard/logo.jpg" alt="Resul Tabu Saç Atölyesi">
+  <h2 class="yan-baslik">Resul Tabu Saç Atölyesi</h2>
+  <p class="yan-alt">Birkaç adımda randevunuzu oluşturun</p>
+  <ol class="yan-adimlar" id="yanAdimlar"></ol>
+  <button class="yan-iptal iptal-link-yan" onclick="iptalBaslat()">Randevunuzu iptal etmek mi istiyorsunuz?</button>
+</aside>
 <div class="kapsayici">
 
   <!-- Yakında açılıyor (randevu almaya kapalı dönem) -->
@@ -448,6 +538,7 @@
   </div>
 
 </div>
+</div><!-- /sayfa -->
 
 <script>
 // ============================================================
@@ -528,6 +619,33 @@ function secimSeritleriniGuncelle() {
   });
 }
 
+// Bilgisayardaki sol özet paneli: her adım, seçilen değeri ve (geçildiyse) dönüş düğmesi
+function yanPaneliGuncelle() {
+  const liste = document.getElementById("yanAdimlar");
+  const idx = ADIM_SIRASI.indexOf(aktifAdim);
+  liste.style.display = idx === -1 ? "none" : ""; // iptal/başarı/yakında ekranlarında sadece marka
+  if (idx === -1) return;
+  const berber = BERBERLER.find((b) => b.id === secim.berberId);
+  const hizmet = HIZMETLER.find((h) => h.id === secim.hizmetId);
+  const tarih = secim.tarih && new Date(secim.tarih + "T00:00:00").toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
+  const adimlar = [
+    ["Usta", berber && berber.ad],
+    ["Hizmet", hizmet && berber && `${hizmet.ad} · ${berber.fiyat[hizmet.id]}₺`],
+    ["Tarih", tarih],
+    ["Saat", secim.saat],
+    ["Bilgileriniz", null],
+  ];
+  liste.innerHTML = adimlar.map(([ad, deger], n) => {
+    const durum = n < idx ? "tamam" : n === idx ? "aktif" : "";
+    const metin = n < idx ? deger : n === idx ? "Seçin" : "";
+    return `<li><button class="yan-adim ${durum}" ${n < idx ? "" : "disabled"} onclick="adimaDon(${n})">
+      <span class="yan-no">${n < idx ? "✓" : n + 1}</span>
+      <span class="yan-metin"><span class="yan-etiket">${ad}</span><span class="yan-deger${metin ? "" : " bos"}">${metin ? kacis(metin) : "—"}</span></span>
+      ${n < idx ? '<span class="yan-degis">Değiştir</span>' : ""}
+    </button></li>`;
+  }).join("");
+}
+
 // Geri dönülen adımda daha önce seçilen öğe mavi çerçeveyle işaretli görünsün
 function secilenleriIsaretle() {
   const esle = { "#berberListe [data-id]": secim.berberId, "#hizmetListe [data-id]": secim.hizmetId,
@@ -567,6 +685,7 @@ function adimGoster(id, yon, gecmistenMi) {
   aktifAdim = id;
   document.querySelector(".ust").classList.toggle("kompakt", id !== "adimBerber" && id !== "adimYakinda");
   secimSeritleriniGuncelle();
+  yanPaneliGuncelle();
   secilenleriIsaretle();
   window.scrollTo({ top: 0, behavior: AZALTILMIS_HAREKET ? "auto" : "smooth" });
   // Her ileri adım tarayıcı geçmişine yazılır; böylece telefonun geri tuşu
@@ -590,7 +709,7 @@ async function baslat() {
     const res = await fetch("/api/config", { cache: "no-store" });
     const c = await res.json();
     if (c.randevuKapali) {
-      document.querySelector(".iptal-link").style.display = "none";
+      document.querySelectorAll(".iptal-link, .iptal-link-yan").forEach((el) => (el.style.display = "none"));
       adimGoster("adimYakinda", "ileri", true);
       return;
     }
@@ -600,6 +719,7 @@ async function baslat() {
     document.getElementById("kodGonderBtn").textContent = OTP_AKTIF ? "Doğrulama Kodu Gönder" : "Randevu Al";
     berberListesiniDoldur();
     ilerlemeGuncelle("adimBerber");
+    yanPaneliGuncelle();
     history.replaceState({ adim: "adimBerber" }, ""); // geçmişin ilk adımı
   } catch (e) {
     document.getElementById("berberListe").innerHTML =
@@ -632,7 +752,7 @@ function hizmetListesiniDoldur() {
   const kutu = document.getElementById("hizmetListe");
   kutu.innerHTML = HIZMETLER.map((h) => `
     <button class="secim-btn" data-id="${h.id}" onclick="hizmetSec('${h.id}')">
-      <span>✂️ ${kacis(h.ad)}</span>
+      <span>✂️ ${kacis(h.ad)}<small class="hizmet-sure">${kacis(h.sure || "")}</small></span>
       <span class="fiyat">${berber.fiyat[h.id]}₺</span>
     </button>`).join("");
 }
@@ -669,9 +789,13 @@ function gelecekTarihleriUret(gunSayisi, acikGunler = []) {
     const ay  = String(d.getMonth() + 1).padStart(2, "0");
     const gun = String(d.getDate()).padStart(2, "0");
     const deger = `${yil}-${ay}-${gun}`;
-    if (d.getDay() === 0 && !acikGunler.includes(deger)) continue; // Pazar — özel açılmadıysa
+    const kapali = d.getDay() === 0 && !acikGunler.includes(deger); // Pazar — özel açılmadıysa
     const etiket = d.toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
-    sonuc.push({ etiket, deger });
+    sonuc.push({
+      etiket, deger, kapali, bugun: i === 0,
+      sutun: ((d.getDay() + 6) % 7) + 1, // takvimde Pzt=1 … Paz=7
+      no: d.getDate(), ay: d.toLocaleDateString("tr-TR", { month: "short" }),
+    });
   }
   return sonuc;
 }
@@ -679,8 +803,16 @@ function gelecekTarihleriUret(gunSayisi, acikGunler = []) {
 async function tarihListesiniDoldur() {
   const kutu = document.getElementById("tarihListe");
   const tarihler = gelecekTarihleriUret(RANDEVU_UFUK_GUN, await acikGunleriAl());
-  kutu.innerHTML = tarihler.map((t) => `
-    <button class="secim-btn" data-id="${t.deger}" onclick="tarihSec('${t.deger}')"><span>📅 ${kacis(t.etiket)}</span></button>`).join("");
+  // Haftanın günü başlıkları + takvim hücreleri: bunlar sadece bilgisayarda görünür;
+  // telefonda yalnızca açık günlerin uzun etiketli listesi kalır.
+  const basliklar = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"].map((g) => `<div class="tarih-baslik">${g}</div>`).join("");
+  kutu.innerHTML = basliklar + tarihler.map((t) => t.kapali
+    ? `<div class="tarih-kapali" style="--sutun:${t.sutun}">Kapalı</div>`
+    : `
+    <button class="secim-btn" data-id="${t.deger}" style="--sutun:${t.sutun}" onclick="tarihSec('${t.deger}')">
+      <span class="tarih-uzun">📅 ${kacis(t.etiket)}</span>
+      <span class="tarih-kisa"><span class="tarih-no">${t.no}</span><span class="tarih-ay${t.bugun ? " bugun" : ""}">${t.bugun ? "Bugün" : kacis(t.ay)}</span></span>
+    </button>`).join("");
 }
 
 async function tarihSec(deger) {
