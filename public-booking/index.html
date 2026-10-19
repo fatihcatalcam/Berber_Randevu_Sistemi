@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
+<!-- Google tag (gtag.js) — sadece müşteri randevu sayfası; panelde yok -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-HTZ8CSV1YD"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-HTZ8CSV1YD');
+</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Randevu Al - Resul Tabu Saç Atölyesi</title>
@@ -857,6 +865,10 @@ async function randevuOlustur() {
         <div>📅 ${kacis(tarihStr)} ⏰ ${secim.saat}</div>
       </div>`;
     adimGoster("adimBasari");
+    // Google Analytics dönüşümü — kişisel veri (ad/telefon) gönderilmez
+    if (typeof gtag === "function") {
+      gtag("event", "randevu_alindi", { berber: berber.ad, hizmet: hizmet.ad, value: berber.fiyat[hizmet.id], currency: "TRY" });
+    }
   } catch (e) {
     hataEl.textContent = "Bağlantı hatası, tekrar deneyin.";
     btn.disabled = false;
