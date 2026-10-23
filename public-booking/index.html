@@ -241,6 +241,14 @@
     background: #fff; color: var(--mavi-koyu); border: 1.5px solid var(--mavi-halka); box-shadow: none;
   }
   .btn-ikincil:disabled { background: #fff; color: #cbd5e1; border-color: #e5e7eb; }
+  /* Randevularım: her randevunun altında yan yana "tarihi değiştir" ve "iptal et" */
+  .randevu-eylem { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 20px; }
+  .randevu-eylem .btn { margin-top: 0; padding: 13px 8px; font-size: 14px; }
+  .degis-ara { margin: 20px 0 10px; font-size: 12px; font-weight: 800; color: var(--mavi); text-transform: uppercase; letter-spacing: .06em; }
+  .basari-not {
+    margin: 0 0 14px; padding: 11px 14px; border-radius: 12px; font-size: 13.5px; font-weight: 600;
+    color: #047857; background: #ecfdf5; border: 1px solid #a7f3d0;
+  }
   .hata { color: #dc2626; font-size: 13px; margin-top: 8px; min-height: 1em; font-weight: 600; }
   .bilgi { color: var(--soluk); font-size: 12.5px; margin-top: 8px; }
   /* Clarity kayıtlarında müşteriler geri butonunu bulamıyordu — belirgin bir hap düğme */
@@ -418,11 +426,12 @@
     #hizmetListe .fiyat { font-size: 21px; letter-spacing: -.01em; }
 
     /* Tarih: Pzt–Paz sütunlu takvim ızgarası; kapalı Pazarlar kesik çizgili boş hücre */
-    #tarihListe { grid-template-columns: repeat(7, 1fr); gap: 8px; }
-    #tarihListe > .secim-btn, #tarihListe > .tarih-kapali { grid-column: var(--sutun); }
+    #tarihListe, #degisTarihListe { grid-template-columns: repeat(7, 1fr); gap: 8px; }
+    #tarihListe > .secim-btn, #tarihListe > .tarih-kapali,
+    #degisTarihListe > .secim-btn, #degisTarihListe > .tarih-kapali { grid-column: var(--sutun); }
     .tarih-baslik { display: block; text-align: center; font-size: 11px; font-weight: 700; color: var(--soluk); text-transform: uppercase; letter-spacing: .06em; }
     .tarih-uzun { display: none; }
-    #tarihListe .secim-btn { flex-direction: column; justify-content: center; align-items: center; min-height: 78px; padding: 10px 4px; }
+    #tarihListe .secim-btn, #degisTarihListe .secim-btn { flex-direction: column; justify-content: center; align-items: center; min-height: 78px; padding: 10px 4px; }
     .tarih-kisa { display: flex; flex-direction: column; align-items: center; gap: 3px; }
     .tarih-no { font-size: 22px; font-weight: 800; line-height: 1; letter-spacing: -.02em; }
     .tarih-ay { font-size: 11.5px; font-weight: 600; color: var(--soluk); }
@@ -445,7 +454,7 @@
       <h1>Resul Tabu Saç Atölyesi</h1>
     </a>
     <p>Birkaç adımda randevunuzu oluşturun</p>
-    <button class="iptal-btn" onclick="iptalBaslat()">Randevumu iptal et</button>
+    <button class="iptal-btn" onclick="iptalBaslat()">Randevumu değiştir / iptal et</button>
   </div>
 </div>
 <div class="ilerleme-sarici">
@@ -466,7 +475,7 @@
     <p class="yan-alt">Birkaç adımda randevunuzu oluşturun</p>
   </a>
   <ol class="yan-adimlar" id="yanAdimlar"></ol>
-  <button class="iptal-btn yan-iptal" onclick="iptalBaslat()">Randevumu iptal et</button>
+  <button class="iptal-btn yan-iptal" onclick="iptalBaslat()">Randevumu değiştir / iptal et</button>
 </aside>
 <div class="kapsayici">
 
@@ -567,7 +576,7 @@
   <!-- Randevu iptali (self-servis): telefon → SMS kod → randevu listesi -->
   <div class="kart gizli" id="adimIptalTelefon">
     <button class="geri-btn" onclick="geriGit('adimBerber')">‹ Randevu almaya dön</button>
-    <p class="adim-baslik">Randevunuzu İptal Edin</p>
+    <p class="adim-baslik">Randevunuzu Değiştirin veya İptal Edin</p>
     <label for="inIptalTelefon">Telefon numaranız</label>
     <input type="tel" id="inIptalTelefon" data-clarity-mask="true" autocomplete="tel" inputmode="tel" placeholder="05XX XXX XX XX">
     <button class="btn" id="iptalKodGonderBtn" onclick="iptalKodGonder()">Kod Gönder</button>
@@ -588,8 +597,22 @@
   <div class="kart gizli" id="adimIptalListe">
     <button class="geri-btn" onclick="adimGoster('adimBerber', 'geri')">‹ Randevu almaya dön</button>
     <p class="adim-baslik">Randevularınız</p>
+    <p class="basari-not gizli" id="iptalListeBasari" role="status"></p>
     <div class="hata" id="iptalListeHata"></div>
     <div id="iptalListeKutu" data-clarity-mask="true"></div>
+  </div>
+
+  <!-- Tarih değiştirme (self-servis): aynı usta ve hizmet, yeni gün ve saat -->
+  <div class="kart gizli" id="adimDegistir">
+    <button class="geri-btn" onclick="adimGoster('adimIptalListe', 'geri')">‹ Randevularıma dön</button>
+    <p class="adim-baslik">Tarihi Değiştir</p>
+    <div class="ozet" id="degisOzet" data-clarity-mask="true"></div>
+    <p class="degis-ara">Yeni tarih</p>
+    <div class="secim-liste" id="degisTarihListe"></div>
+    <p class="degis-ara gizli" id="degisSaatBaslik">Yeni saat</p>
+    <div class="saat-grid" id="degisSaatListe"></div>
+    <button class="btn gizli" id="degisOnayBtn" onclick="degisikligiOnayla()">Değiştir</button>
+    <div class="hata" id="degisHata"></div>
   </div>
 
 </div>
@@ -878,19 +901,24 @@ function gelecekTarihleriUret(gunSayisi, acikGunler = []) {
   return sonuc;
 }
 
-async function tarihListesiniDoldur() {
-  const kutu = document.getElementById("tarihListe");
-  const tarihler = gelecekTarihleriUret(RANDEVU_UFUK_GUN, await acikGunleriAl());
+// Tarih düğmeleri; randevu almada da tarih değiştirmede de aynı. `secFn` tıklanınca
+// çağrılacak fonksiyonun adı.
+function tarihButonlariHtml(tarihler, secFn) {
   // Haftanın günü başlıkları + takvim hücreleri: bunlar sadece bilgisayarda görünür;
   // telefonda yalnızca açık günlerin uzun etiketli listesi kalır.
   const basliklar = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"].map((g) => `<div class="tarih-baslik">${g}</div>`).join("");
-  kutu.innerHTML = basliklar + tarihler.map((t) => t.kapali
+  return basliklar + tarihler.map((t) => t.kapali
     ? `<div class="tarih-kapali" style="--sutun:${t.sutun}">Kapalı</div>`
     : `
-    <button class="secim-btn" data-id="${t.deger}" style="--sutun:${t.sutun}" onclick="tarihSec('${t.deger}')">
+    <button class="secim-btn" data-id="${t.deger}" style="--sutun:${t.sutun}" onclick="${secFn}('${t.deger}')">
       <span class="tarih-uzun">📅 ${kacis(t.etiket)}</span>
       <span class="tarih-kisa"><span class="tarih-no">${t.no}</span><span class="tarih-ay${t.bugun ? " bugun" : ""}">${t.bugun ? "Bugün" : kacis(t.ay)}</span></span>
     </button>`).join("");
+}
+
+async function tarihListesiniDoldur() {
+  const tarihler = gelecekTarihleriUret(RANDEVU_UFUK_GUN, await acikGunleriAl());
+  document.getElementById("tarihListe").innerHTML = tarihButonlariHtml(tarihler, "tarihSec");
 }
 
 async function tarihSec(deger) {
@@ -916,13 +944,18 @@ function saatListesiniDoldur(saatler) {
       '<button class="btn btn-ikincil" style="grid-column:1/-1;margin-top:4px;" onclick="adimaDon(2)">📅 Başka tarih seç</button>';
     return;
   }
+  kutu.innerHTML = saatButonlariHtml(saatler, "saatSec");
+}
+
+// Saat düğmeleri; randevu almada da tarih değiştirmede de aynı.
+function saatButonlariHtml(saatler, secFn) {
   // Sabah / öğleden sonra / akşam diye gruplanır — akşamüstü saat arayan doğrudan bulsun
   const gruplar = [["☀️ Sabah", (s) => s < "12:00"], ["🌤️ Öğleden sonra", (s) => s >= "12:00" && s < "17:00"], ["🌙 Akşam", (s) => s >= "17:00"]];
-  kutu.innerHTML = gruplar.map(([ad, uyar]) => {
+  return gruplar.map(([ad, uyar]) => {
     const liste = saatler.filter(uyar);
     if (!liste.length) return "";
     return `<div class="saat-grup">${ad}</div>` +
-      liste.map((s) => `<button class="saat-btn" data-id="${s}" onclick="saatSec('${s}')">${s}</button>`).join("");
+      liste.map((s) => `<button class="saat-btn" data-id="${s}" onclick="${secFn}('${s}')">${s}</button>`).join("");
   }).join("");
 }
 
@@ -1141,6 +1174,7 @@ async function iptalKodDogrula() {
 
     iptalToken = data.dogrulamaToken;
     clearInterval(geriSayimTimer);
+    document.getElementById("iptalListeBasari").classList.add("gizli"); // önceki bir değişikliğin notu kalmasın
     adimGoster("adimIptalListe");
     iptalListesiGetir();
   } catch (e) {
@@ -1157,6 +1191,7 @@ async function iptalListesiGetir() {
     const res = await fetch(`/api/public/randevularim?dogrulamaToken=${encodeURIComponent(iptalToken)}`, { cache: "no-store" });
     const data = await res.json();
     if (!res.ok) throw new Error(data.hata || "sunucu hatası");
+    benimRandevularim = new Map(data.randevular.map((r) => [r.id, r]));
     if (!data.randevular.length) {
       kutu.innerHTML = '<p class="bilgi">Aktif randevunuz bulunmuyor.</p>';
       return;
@@ -1179,7 +1214,107 @@ function iptalKartHtml(r) {
         <div>${durumEtiket}</div>
       </div>
     </div>
-    <button class="btn btn-ikincil" style="margin-top:-4px;margin-bottom:16px;" onclick="iptalOnayIste('${r.id}', this)">İptal Et</button>`;
+    <div class="randevu-eylem">
+      <button class="btn" onclick="degistirBaslat('${r.id}')">Tarihi Değiştir</button>
+      <button class="btn btn-ikincil" onclick="iptalOnayIste('${r.id}', this)">İptal Et</button>
+    </div>`;
+}
+
+// ============================================================
+// Tarih değiştirme: iptal edip yeniden almak yerine aynı usta ve hizmetle
+// yeni gün ve saat. Tarih ve saat seçimi randevu almadakiyle aynı görünür.
+// ============================================================
+let benimRandevularim = new Map(); // son listelenen randevular, id -> randevu
+let degis = null;                  // { r, tarih, saat }
+
+function tarihEtiketi(tarih) {
+  return new Date(tarih + "T00:00:00").toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
+}
+
+function degisSeciliIsaretle() {
+  document.querySelectorAll("#degisTarihListe [data-id]").forEach((el) => el.classList.toggle("secili", el.dataset.id === degis.tarih));
+  document.querySelectorAll("#degisSaatListe [data-id]").forEach((el) => el.classList.toggle("secili", el.dataset.id === degis.saat));
+}
+
+async function degistirBaslat(id) {
+  const r = benimRandevularim.get(id);
+  if (!r) return;
+  degis = { r, tarih: null, saat: null };
+  document.getElementById("iptalListeBasari").classList.add("gizli");
+  document.getElementById("degisHata").textContent = "";
+  document.getElementById("degisOzet").innerHTML = `
+    <div class="ozet-metin">
+      <div><strong>${kacis(r.berber)}</strong> · ${kacis(r.hizmet)}</div>
+      <div>Şu anki randevu: 📅 ${kacis(tarihEtiketi(r.tarih))} ⏰ ${r.saat}</div>
+    </div>`;
+  document.getElementById("degisSaatBaslik").classList.add("gizli");
+  document.getElementById("degisSaatListe").innerHTML = "";
+  document.getElementById("degisOnayBtn").classList.add("gizli");
+  const tarihler = gelecekTarihleriUret(RANDEVU_UFUK_GUN, await acikGunleriAl());
+  document.getElementById("degisTarihListe").innerHTML = tarihButonlariHtml(tarihler, "degisTarihSec");
+  adimGoster("adimDegistir");
+}
+
+async function degisTarihSec(tarih) {
+  degis.tarih = tarih; degis.saat = null;
+  degisSeciliIsaretle();
+  document.getElementById("degisHata").textContent = "";
+  document.getElementById("degisOnayBtn").classList.add("gizli");
+  const baslik = document.getElementById("degisSaatBaslik");
+  const kutu = document.getElementById("degisSaatListe");
+  baslik.classList.remove("gizli");
+  kutu.innerHTML = '<div class="saat-iskelet"></div>'.repeat(6);
+  baslik.scrollIntoView({ behavior: AZALTILMIS_HAREKET ? "auto" : "smooth", block: "start" });
+  try {
+    const url = `/api/public/musait-saatler?berberId=${encodeURIComponent(degis.r.berberId)}&tarih=${encodeURIComponent(tarih)}`;
+    const res = await fetch(url, { cache: "no-store" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.hata || "sunucu hatası");
+    if (degis.tarih !== tarih) return; // bu arada başka gün seçildi
+    const saatler = data.saatler || [];
+    kutu.innerHTML = saatler.length
+      ? saatButonlariHtml(saatler, "degisSaatSec")
+      : '<div class="bilgi" style="grid-column:1/-1;">Bu gün için boş saat kalmamış, başka bir gün seçin.</div>';
+  } catch (e) {
+    kutu.innerHTML = '<div class="hata" style="grid-column:1/-1;">Saatler alınamadı, tekrar deneyin.</div>';
+  }
+}
+
+function degisSaatSec(saat) {
+  degis.saat = saat;
+  degisSeciliIsaretle();
+  const btn = document.getElementById("degisOnayBtn");
+  btn.textContent = `${tarihEtiketi(degis.tarih)} ${saat} olarak değiştir`;
+  btn.classList.remove("gizli");
+  btn.scrollIntoView({ behavior: AZALTILMIS_HAREKET ? "auto" : "smooth", block: "nearest" });
+}
+
+async function degisikligiOnayla() {
+  const btn = document.getElementById("degisOnayBtn");
+  const hataEl = document.getElementById("degisHata");
+  hataEl.textContent = "";
+  butonBekliyor(btn, "Değiştiriliyor…");
+  try {
+    const res = await fetch(`/api/public/randevu/${degis.r.id}/tasi`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dogrulamaToken: iptalToken, tarih: degis.tarih, saat: degis.saat }),
+    });
+    const data = await res.json();
+    butonBekliyor(btn);
+    if (!res.ok) {
+      hataEl.textContent = data.hata || "Değiştirilemedi.";
+      if (res.status === 409) degisTarihSec(degis.tarih); // saat bu arada doldu: listeyi tazele
+      return;
+    }
+    const basari = document.getElementById("iptalListeBasari");
+    basari.textContent = `✅ Randevunuz ${tarihEtiketi(data.tarih)} ${data.saat} olarak değiştirildi. Telefonunuza SMS gönderildi.`;
+    basari.classList.remove("gizli");
+    adimGoster("adimIptalListe", "geri");
+    iptalListesiGetir();
+  } catch (e) {
+    butonBekliyor(btn);
+    hataEl.textContent = "Bağlantı hatası, tekrar deneyin.";
+  }
 }
 
 // Yanlışlıkla tek tıkla iptali önlemek için iki aşamalı onay: ilk tıkta buton

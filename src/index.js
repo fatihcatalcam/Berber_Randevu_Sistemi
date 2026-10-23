@@ -486,17 +486,29 @@ app.post("/api/public/randevu", ah(async (req, res) => {
   }
 }));
 
-// Doğrulanmış telefona ait, web'den alınmış, aktif randevuları listeler —
-// müşterinin kendi randevusunu iptal edebilmesi (self-servis) için.
-app.get("/api/public/randevularim", ah(async (req, res) => {
-  const dogrulama = req.query.dogrulamaToken && dogrulamaTokenlari.get(req.query.dogrulamaToken);
+// Self-servis uçları (randevularım, iptal, tarih değiştirme): SMS koduyla
+// doğrulanmış telefonun token'ı + IP başına istek sınırı. Geçmezse yanıtı
+// yazar ve null döner; geçerse doğrulanmış { telefon } döner.
+function musteriDogrula(req, res) {
+  const token = (req.body && req.body.dogrulamaToken) || req.query.dogrulamaToken;
+  const dogrulama = token && dogrulamaTokenlari.get(token);
   if (!dogrulama || Date.now() - dogrulama.olusturulma > DOGRULAMA_TOKEN_OMUR_MS) {
-    return res.status(401).json({ hata: "Doğrulama süresi doldu. Lütfen tekrar kod isteyin." });
+    res.status(401).json({ hata: "Doğrulama süresi doldu. Lütfen tekrar kod isteyin." });
+    return null;
   }
-  const ip = req.ip;
-  if (publicIptalSinir.asildiMi(ip)) return res.status(429).json({ hata: "Çok fazla istek. Lütfen biraz sonra tekrar deneyin." });
-  publicIptalSinir.kaydet(ip);
+  if (publicIptalSinir.asildiMi(req.ip)) {
+    res.status(429).json({ hata: "Çok fazla istek. Lütfen biraz sonra tekrar deneyin." });
+    return null;
+  }
+  publicIptalSinir.kaydet(req.ip);
+  return dogrulama;
+}
 
+// Doğrulanmış telefona ait, web'den alınmış, aktif randevuları listeler —
+// müşterinin kendi randevusunu iptal edebilmesi / tarihini değiştirebilmesi için.
+app.get("/api/public/randevularim", ah(async (req, res) => {
+  const dogrulama = musteriDogrula(req, res);
+  if (!dogrulama) return;
   const randevular = await db.getRandevularByTelefon(dogrulama.telefon);
   res.json({ randevular });
 }));
@@ -504,13 +516,8 @@ app.get("/api/public/randevularim", ah(async (req, res) => {
 // Müşterinin kendi web randevusunu iptal etmesi — telefon token'la doğrulanır,
 // sadece kendi numarasına ait web randevusu iptal edilebilir.
 app.post("/api/public/randevu/:id/iptal", ah(async (req, res) => {
-  const dogrulama = req.body.dogrulamaToken && dogrulamaTokenlari.get(req.body.dogrulamaToken);
-  if (!dogrulama || Date.now() - dogrulama.olusturulma > DOGRULAMA_TOKEN_OMUR_MS) {
-    return res.status(401).json({ hata: "Doğrulama süresi doldu. Lütfen tekrar kod isteyin." });
-  }
-  const ip = req.ip;
-  if (publicIptalSinir.asildiMi(ip)) return res.status(429).json({ hata: "Çok fazla istek. Lütfen biraz sonra tekrar deneyin." });
-  publicIptalSinir.kaydet(ip);
+  const dogrulama = musteriDogrula(req, res);
+  if (!dogrulama) return;
 
   const kayit = await db.getById(req.params.id);
   if (!kayit) return res.status(404).json({ hata: "Randevu bulunamadı." });
@@ -527,6 +534,46 @@ app.post("/api/public/randevu/:id/iptal", ah(async (req, res) => {
   });
   iptalBildir(guncellenen, tarihStr).catch(() => {});
   res.json(guncellenen);
+}));
+
+// Müşterinin kendi web randevusunu başka gün/saate alması — iptal edip yeniden
+// almak yerine. Doğrulama ve sahiplik iptaldekiyle, tarih kuralları yeni
+// randevudakiyle aynı; usta ve hizmet değişmez.
+app.post("/api/public/randevu/:id/tasi", ah(async (req, res) => {
+  const dogrulama = musteriDogrula(req, res);
+  if (!dogrulama) return;
+  const { tarih, saat } = req.body;
+  if (!tarih || !saat) return res.status(400).json({ hata: "Eksik parametre." });
+
+  const kayit = await db.getById(req.params.id);
+  if (!kayit) return res.status(404).json({ hata: "Randevu bulunamadı." });
+  if (kayit.kaynak !== "web" || kayit.telefon !== dogrulama.telefon) {
+    return res.status(403).json({ hata: "Bu randevuyu değiştirme yetkiniz yok." });
+  }
+  if (kayit.durum !== "onaylı" && kayit.durum !== "bekliyor")
+    return res.status(409).json({ hata: "Bu randevu artık değiştirilemez." });
+  if (slotGectiMi(kayit.tarih, kayit.saat))
+    return res.status(400).json({ hata: "Saati geçmiş bir randevu değiştirilemez." });
+  if (tarih === kayit.tarih && saat === kayit.saat)
+    return res.status(400).json({ hata: "Randevunuz zaten bu gün ve saatte." });
+
+  if (slotGectiMi(tarih, saat)) return res.status(400).json({ hata: "Seçilen saat artık geçmiş. Lütfen başka bir saat seçin." });
+  if (!ufukIcindeMi(tarih)) return res.status(400).json({ hata: `En fazla ${RANDEVU_UFUK_GUN / 7} hafta sonrasına randevu alınabilir.` });
+  if (!(await gunAcikMi(tarih))) return res.status(400).json({ hata: "Seçilen gün kapalı." });
+  const acikSaatler = await acikSaatleriGetir(kayit.berberId, tarih);
+  if (!berberCalismaSaatleri(kayit.berberId, tarih, acikSaatler).includes(saat))
+    return res.status(400).json({ hata: "Seçilen saat çalışma saatleri dışında." });
+  if ((await db.getBusySlots(kayit.berberId, tarih)).includes(saat))
+    return res.status(409).json({ hata: "Seçilen saat dolu." });
+
+  try {
+    const guncellenen = await randevuyuTasi(kayit, tarih, saat);
+    if (!guncellenen) return res.status(404).json({ hata: "Randevu bulunamadı." });
+    res.json(guncellenen);
+  } catch (e) {
+    if (e.code === "SLOT_DOLU") return res.status(409).json({ hata: "Seçilen saat dolu." });
+    throw e;
+  }
 }));
 
 // ---------------------------------------------------------------------------
@@ -849,18 +896,25 @@ app.patch("/api/randevular/:id/tasi", requireAuth, ah(async (req, res) => {
   if (doluFiltered.includes(saat))
     return res.status(409).json({ hata: "Seçilen saat dolu ya da kapalı." });
 
-  const eskiTarih = kayit.tarih;
-  const eskiSaat  = kayit.saat;
   let guncellenen;
   try {
-    guncellenen = await db.updateTarihSaat(id, tarih, saat);
+    guncellenen = await randevuyuTasi(kayit, tarih, saat);
   } catch (e) {
     if (e.code === "SLOT_DOLU") return res.status(409).json({ hata: "Seçilen saat dolu." });
     throw e;
   }
   if (!guncellenen) return res.status(404).json({ hata: "Güncelleme başarısız." });
+  res.json(guncellenen);
+}));
 
-  sheets.clearRandevuCell(kayit.berberId, eskiTarih, eskiSaat, kayit.kisiSayisi || 1).catch(() => {});
+// Randevuyu yeni tarih/saate alır; Sheets'teki eski hücreyi temizleyip yenisini
+// yazar ve müşteriye haber verir. Panelden taşıma da müşterinin kendisi de
+// bunu kullanır. Saat bu arada dolduysa db SlotDoluError (SLOT_DOLU) fırlatır.
+async function randevuyuTasi(kayit, tarih, saat) {
+  const guncellenen = await db.updateTarihSaat(kayit.id, tarih, saat);
+  if (!guncellenen) return null;
+
+  sheets.clearRandevuCell(kayit.berberId, kayit.tarih, kayit.saat, kayit.kisiSayisi || 1).catch(() => {});
   sheets.syncRandevu(guncellenen).catch(() => {});
 
   const tarihStr = new Date(tarih + "T00:00:00").toLocaleDateString("tr-TR", {
@@ -876,8 +930,8 @@ app.patch("/api/randevular/:id/tasi", requireAuth, ah(async (req, res) => {
       `📅 ${tarihStr} ⏰ ${saat}\n\nGörüşürüz! 🙏`
     );
   }
-  res.json(guncellenen);
-}));
+  return guncellenen;
+}
 
 // ---------------------------------------------------------------------------
 // 9) Randevu açıklaması (berber notu)
