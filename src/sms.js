@@ -9,6 +9,12 @@
 // hesap henüz açılmadıysa) gönderim atlanır, hata olarak işaretlenir.
 // ---------------------------------------------------------------------------
 const axios = require("axios");
+const { AsyncLocalStorage } = require("async_hooks");
+const { DEMO, DUKKAN } = require("./config");
+
+// DEMO: SMS gönderilmez; mesaj o isteğin listesine yazılır ve yanıtta
+// "müşteriye şu SMS giderdi" diye gösterilir (src/demo/index.js).
+const demoSmsKutusu = new AsyncLocalStorage();
 
 const NETGSM_URL = "https://api.netgsm.com.tr/sms/send/get";
 
@@ -24,6 +30,11 @@ async function gonder(telefon, mesaj) {
   const { NETGSM_USERCODE, NETGSM_PASSWORD, NETGSM_MSGHEADER } = process.env;
   telefon = numaraDuzelt(telefon);
   if (!telefon) return null; // numara yok/geçersiz — tekrar denemenin anlamı yok
+  if (DEMO) {
+    const kutu = demoSmsKutusu.getStore();
+    if (kutu) kutu.push({ telefon, mesaj });
+    return { hata: false };
+  }
   if (!NETGSM_USERCODE || !NETGSM_PASSWORD || !NETGSM_MSGHEADER) {
     console.warn("⚠️ NETGSM_* env değişkenleri tanımsız — SMS gönderilemedi.");
     return { hata: true, kod: "yapilandirma_yok" };
@@ -50,7 +61,7 @@ async function gonder(telefon, mesaj) {
 }
 
 async function otpGonder(telefon, kod) {
-  return gonder(telefon, `Resul Tabu Saç Atölyesi doğrulama kodunuz: ${kod}`);
+  return gonder(telefon, `${DUKKAN.ad} doğrulama kodunuz: ${kod}`);
 }
 
 // Web'den alınan randevunun onayı — en uzun tarih/usta/hizmet ile bile 155
@@ -58,29 +69,29 @@ async function otpGonder(telefon, kod) {
 async function randevuOnaySms(randevu, tarihStr) {
   return gonder(
     randevu.telefon,
-    `Resul Tabu Saç Atölyesi: Randevunuz alındı. ${tarihStr} ${randevu.saat}, ${randevu.berber}, ${randevu.hizmet}. İptal için: randevu.resultabu.com`
+    `${DUKKAN.ad}: Randevunuz alındı. ${tarihStr} ${randevu.saat}, ${randevu.berber}, ${randevu.hizmet}. İptal için: ${DUKKAN.alanAdi}`
   );
 }
 
 async function randevuIptalSms(randevu, tarihStr) {
   return gonder(
     randevu.telefon,
-    `Resul Tabu Saç Atölyesi: ${tarihStr} ${randevu.saat} saatindeki randevunuz iptal edildi. Yeni randevu için sitemizi ziyaret edebilirsiniz.`
+    `${DUKKAN.ad}: ${tarihStr} ${randevu.saat} saatindeki randevunuz iptal edildi. Yeni randevu için sitemizi ziyaret edebilirsiniz.`
   );
 }
 
 async function randevuTasindiSms(randevu, tarihStr) {
   return gonder(
     randevu.telefon,
-    `Resul Tabu Saç Atölyesi: Randevunuz ${tarihStr} ${randevu.saat} saatine güncellendi. Görüşürüz!`
+    `${DUKKAN.ad}: Randevunuz ${tarihStr} ${randevu.saat} saatine güncellendi. Görüşürüz!`
   );
 }
 
 async function randevuHatirlatmaSms(randevu, tarihStr) {
   return gonder(
     randevu.telefon,
-    `Resul Tabu Saç Atölyesi: ${tarihStr} saat ${randevu.saat}'de randevunuz var, sizi bekliyoruz.`
+    `${DUKKAN.ad}: ${tarihStr} saat ${randevu.saat}'de randevunuz var, sizi bekliyoruz.`
   );
 }
 
-module.exports = { otpGonder, randevuOnaySms, randevuIptalSms, randevuTasindiSms, randevuHatirlatmaSms };
+module.exports = { demoSmsKutusu, otpGonder, randevuOnaySms, randevuIptalSms, randevuTasindiSms, randevuHatirlatmaSms };

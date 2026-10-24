@@ -16,6 +16,22 @@
 //   Resul patron olduğu için tam ciroyu görür (taban 0, oran 1).
 // ---------------------------------------------------------------------------
 
+// DEMO=true: tanıtım kurulumu (randevu.catalcamyazilim.online). Dükkân, usta ve
+// fiyatlar src/demo/dukkan.js'teki uydurma verilerden gelir; gerçek kurulumda yok.
+const DEMO = process.env.DEMO === "true";
+const demo = DEMO ? require("./demo/dukkan") : null;
+
+// Dükkânın müşteriye görünen bilgileri (SMS, e-posta, sayfa başlıkları).
+// Sayfalarda (HTML) bu değerler yazılı; demo sayfaları gönderirken bunları değiştirir.
+const GERCEK_DUKKAN = {
+  ad: "Resul Tabu Saç Atölyesi",
+  adres: "Yenidoğan, Halkalı Merkez, Yarımburgaz Cd. No:5A, 34303 Küçükçekmece/İstanbul",
+  telefon: "905359116681",
+  alanAdi: "randevu.resultabu.com",
+  logo: "/dashboard/logo.jpg",
+};
+const DUKKAN = demo ? demo.DUKKAN : GERCEK_DUKKAN;
+
 const ADMIN_PIN = process.env.ADMIN_PIN || null;
 const CIRO_PIN  = "3131"; // sadece ciro sayfası (/dashboard/ciro) — isteğe göre koda sabit
 const pinOku = (id) => process.env["PIN_" + id.toUpperCase()] || null;
@@ -29,7 +45,7 @@ const EREN_BASLANGIC = { 1: "10:30", 2: "09:45", 3: "10:30", 4: "09:45", 5: "10:
 // tel: WhatsApp numarası (uluslararası format, + olmadan, örn: "905551234567")
 // Boş bırakılırsa o berbere bildirim gönderilmez.
 // slotDk: bir randevu diliminin süresi (Resul 30dk, diğerleri 45dk).
-const BERBERLER = [
+const BERBERLER = demo ? demo.BERBERLER : [
   { id: "resul",     ad: "Resul Tabu",     uzmanlik: "Saç & Sakal Tasarımı", pin: pinOku("resul"), tel: null, admin: true, slotDk: 30, fiyat: RESUL_FIYAT, foto: "/randevu-al/fotolar/resul.jpeg",
     calisma: { baslangic: "09:00", bitis: "20:30", yemek: "14:00", yemekDk: 120 }, net: { taban: 0, oran: 1 } },
   { id: "eren",      ad: "Eren Tokalak",   uzmanlik: "Saç & Sakal Tasarımı", pin: pinOku("eren"), tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/eren.jpeg",
@@ -159,7 +175,7 @@ function gelecekTarihler(kacGun = 7, acikGunler = []) {
 }
 
 module.exports = {
-  BERBERLER, HIZMETLER, SAATLER, SAATLER_45,
+  DEMO, DUKKAN, GERCEK_DUKKAN, BERBERLER, HIZMETLER, SAATLER, SAATLER_45,
   berberSlotDk, berberSaatleri, berberCalismaSaatleri, berberGunSlotlari,
   berberBaslangicSaati, berberNet, gelecekTarihler, ADMIN_PIN, CIRO_PIN,
 };

@@ -6,3 +6,6 @@ npm-debug.log*
 
 # Google service account anahtari (GIZLI - asla commit etme)
 google-key.json
+.neon
+.env.demo
+.env.local

@@ -671,6 +671,60 @@ async function otpBugunSayisi(telefon) {
   return Number(res.rows[0].count);
 }
 
+// ---------------------------------------------------------------------------
+// DEMO — her gece tüm veriyi silip demo randevularını yükler (src/demo/index.js).
+// Gerçek kurulumda çağrılırsa hata verir: veri silen tek yer burası.
+// ---------------------------------------------------------------------------
+function demoMu() {
+  if (process.env.DEMO !== "true") throw new Error("Demo işlemi sadece DEMO=true kurulumda çalışır.");
+}
+
+const demoTablo = () => pool.query("CREATE TABLE IF NOT EXISTS demo_durum (anahtar TEXT PRIMARY KEY, deger TEXT)");
+
+async function demoSonSifirlama() {
+  demoMu();
+  await demoTablo();
+  const res = await pool.query("SELECT deger FROM demo_durum WHERE anahtar='son_sifirlama'");
+  return res.rows[0] ? res.rows[0].deger : null;
+}
+
+// Tek işlemde: tabloları boşalt, randevuları toplu yükle, sıfırlama gününü yaz.
+async function demoSifirla(randevular, gun) {
+  demoMu();
+  await demoTablo();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("TRUNCATE randevular, kapali_saatler, kapali_gunler, acik_gunler, acik_saatler, sabit_randevular, otp_kodlari");
+    await client.query(
+      `INSERT INTO randevular (id, ad, telefon, berber_id, berber, hizmet_id, hizmet, tarih, saat, fiyat,
+                               durum, olusturulma, kaynak, hatirlatildi)
+       SELECT id, ad, telefon, berber_id, berber, hizmet_id, hizmet, tarih, saat, fiyat,
+              durum, olusturulma, kaynak, true
+       FROM json_to_recordset($1) AS x(id TEXT, ad TEXT, telefon TEXT, berber_id TEXT, berber TEXT,
+            hizmet_id TEXT, hizmet TEXT, tarih TEXT, saat TEXT, fiyat INTEGER, durum TEXT,
+            olusturulma BIGINT, kaynak TEXT)`,
+      [JSON.stringify(randevular.map((r) => ({
+        id: yeniId(), ad: r.ad, telefon: r.telefon, berber_id: r.berberId, berber: r.berber,
+        hizmet_id: r.hizmetId, hizmet: r.hizmet, tarih: r.tarih, saat: r.saat, fiyat: r.fiyat,
+        durum: r.durum, olusturulma: r.olusturulma, kaynak: r.kaynak,
+      })))]
+    );
+    await client.query(
+      `INSERT INTO demo_durum (anahtar, deger) VALUES ('son_sifirlama', $1)
+       ON CONFLICT (anahtar) DO UPDATE SET deger = EXCLUDED.deger`,
+      [gun]
+    );
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
+  degisti();
+}
+
 module.exports = {
   init,
   SlotDoluError,
@@ -712,4 +766,6 @@ module.exports = {
   sabitGuncelle,
   sabitGelecekGuncelle,
   sabitGelecekSil,
+  demoSonSifirlama,
+  demoSifirla,
 };

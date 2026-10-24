@@ -6,6 +6,7 @@
 // simetrik: çağıran taraf ekstra kontrol yapmak zorunda kalmaz.
 // ---------------------------------------------------------------------------
 const { Resend } = require("resend");
+const { DUKKAN } = require("./config");
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -31,7 +32,7 @@ async function gonder(to, subject, html) {
 
 function taban(icerik) {
   return `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px;margin:0 auto;">
-    <h2 style="color:#075E54;">Resul Tabu Saç Atölyesi</h2>
+    <h2 style="color:#075E54;">${DUKKAN.ad}</h2>
     ${icerik}
     <p style="color:#6b7280;font-size:13px;margin-top:24px;">Bu e-posta randevu sisteminden otomatik gönderilmiştir.</p>
   </div>`;

@@ -1,5 +1,5 @@
 const db = require("./db");
-const { BERBERLER, HIZMETLER, berberCalismaSaatleri, berberSlotDk, gelecekTarihler } = require("./config");
+const { DUKKAN, BERBERLER, HIZMETLER, berberCalismaSaatleri, berberSlotDk, gelecekTarihler } = require("./config");
 const { sendText, sendButtons, sendList } = require("./whatsapp");
 const sheets = require("./sheets");
 const { bugunStr, slotEkle, MIN_ONCE_DK, slotGectiMi, acikSaatleriGetir } = require("./randevu-yardimci");
@@ -47,7 +47,7 @@ async function handleMessage(telefon, metin) {
     s = resetSession(telefon);
     await sendButtons(
       telefon,
-      "Merhaba! *Resul Tabu Saç Atölyesi* randevu sistemine hoş geldiniz. 💈\n\n" +
+      `Merhaba! *${DUKKAN.ad}* randevu sistemine hoş geldiniz. 💈\n\n` +
         "Ustalarımızı ve fiyat tarifemizi görmek için işletme profilimizdeki *kataloğu* inceleyebilirsiniz.\n\n" +
         "Ne yapmak istersiniz?",
       [

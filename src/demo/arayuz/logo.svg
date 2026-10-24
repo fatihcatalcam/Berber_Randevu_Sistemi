@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400" role="img" aria-label="Örnek Berber">
+  <defs>
+    <clipPath id="direk"><rect x="140" y="96" width="120" height="24" rx="12"/></clipPath>
+  </defs>
+  <circle cx="200" cy="200" r="196" fill="#111827"/>
+  <circle cx="200" cy="200" r="176" fill="none" stroke="#d4b483" stroke-width="3"/>
+  <g clip-path="url(#direk)">
+    <rect x="140" y="96" width="120" height="24" fill="#f8fafc"/>
+    <g fill="#dc2626">
+      <path d="M128 120l24-24h12l-24 24z"/><path d="M164 120l24-24h12l-24 24z"/><path d="M200 120l24-24h12l-24 24z"/><path d="M236 120l24-24h12l-24 24z"/>
+    </g>
+    <g fill="#2563eb">
+      <path d="M146 120l24-24h12l-24 24z"/><path d="M182 120l24-24h12l-24 24z"/><path d="M218 120l24-24h12l-24 24z"/><path d="M254 120l24-24h12l-24 24z"/>
+    </g>
+  </g>
+  <rect x="140" y="96" width="120" height="24" rx="12" fill="none" stroke="#d4b483" stroke-width="2"/>
+  <g font-family="Georgia, 'Times New Roman', serif" font-weight="700" fill="#f8fafc" text-anchor="middle">
+    <text x="200" y="208" font-size="68" letter-spacing="6">ÖRNEK</text>
+    <text x="200" y="272" font-size="50" letter-spacing="10">BERBER</text>
+  </g>
+  <line x1="120" y1="300" x2="170" y2="300" stroke="#d4b483" stroke-width="2"/>
+  <line x1="230" y1="300" x2="280" y2="300" stroke="#d4b483" stroke-width="2"/>
+  <text x="200" y="306" font-family="Georgia, 'Times New Roman', serif" font-size="17" letter-spacing="4" fill="#d4b483" text-anchor="middle">DEMO</text>
+</svg>

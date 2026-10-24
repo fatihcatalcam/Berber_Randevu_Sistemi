@@ -11,7 +11,7 @@ const crypto = require("crypto");
 const db = require("./db");
 const { handleMessage } = require("./bot");
 const { sendText, sendTemplate } = require("./whatsapp");
-const { BERBERLER, HIZMETLER, SAATLER, SAATLER_45, ADMIN_PIN, CIRO_PIN, berberCalismaSaatleri } = require("./config");
+const { DEMO, DUKKAN, BERBERLER, HIZMETLER, SAATLER, SAATLER_45, ADMIN_PIN, CIRO_PIN, berberCalismaSaatleri } = require("./config");
 const sheets = require("./sheets");
 const sms = require("./sms");
 const eposta = require("./email");
@@ -35,6 +35,10 @@ app.use("/api", (req, res, next) => {
   res.set("Cache-Control", "no-store, no-cache, must-revalidate");
   next();
 });
+
+// Tanıtım kurulumu: demo sayfaları, ekranda gösterilen SMS, gece sıfırlama (src/demo)
+const demo = DEMO ? require("./demo") : null;
+if (demo) demo.kur(app);
 
 const PORT         = process.env.PORT || 3000;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
@@ -270,6 +274,9 @@ app.post("/webhook", async (req, res) => {
 // ---------------------------------------------------------------------------
 // 3) Dashboard login
 // ---------------------------------------------------------------------------
+// PIN doğru mu? Tanımsız PIN'le o hesaba girilemez. Demo kurulumda şifre sorulmaz.
+const pinDogru = (beklenen, pin) => DEMO || (!!beklenen && pin === beklenen);
+
 app.post("/api/auth", (req, res) => {
   const ip = req.ip;
   if (girisEngelli(ip)) {
@@ -277,7 +284,7 @@ app.post("/api/auth", (req, res) => {
   }
   const { berberId, pin, admin, ciro } = req.body;
   if (ciro) {
-    if (CIRO_PIN && pin === CIRO_PIN) {
+    if (pinDogru(CIRO_PIN, pin)) {
       girisDenemeleri.delete(ip);
       return res.json({ ok: true, role: "ciro", token: tokenUret({ role: "ciro", berberId: null, ad: "Ciro" }) });
     }
@@ -285,7 +292,7 @@ app.post("/api/auth", (req, res) => {
     return res.status(401).json({ ok: false, hata: "Yanlış şifre." });
   }
   if (admin) {
-    if (ADMIN_PIN && pin === ADMIN_PIN) {
+    if (pinDogru(ADMIN_PIN, pin)) {
       girisDenemeleri.delete(ip);
       const token = tokenUret({ role: "admin", berberId: null, ad: "Admin" });
       return res.json({ ok: true, role: "admin", token });
@@ -295,7 +302,7 @@ app.post("/api/auth", (req, res) => {
   }
   const berber = BERBERLER.find((b) => b.id === berberId);
   if (!berber)          return res.status(404).json({ ok: false, hata: "Berber bulunamadı." });
-  if (!berber.pin || berber.pin !== pin) { // PIN_<ID> tanımsızsa hesap kapalı
+  if (!pinDogru(berber.pin, pin)) { // PIN_<ID> tanımsızsa hesap kapalı
     girisHatasiKaydet(ip);
     return res.status(401).json({ ok: false, hata: "Yanlış PIN." });
   }
@@ -345,7 +352,7 @@ app.post("/api/public/otp-gonder", ah(async (req, res) => {
 
   // Netgsm hesabı henüz tanımlı değilse (geliştirme / kurulum öncesi) SMS
   // atmaya çalışmak yerine kodu konsola yaz — form yine test edilebilsin.
-  if (!process.env.NETGSM_USERCODE) {
+  if (!process.env.NETGSM_USERCODE && !DEMO) {
     console.log(`🔑 DEV OTP (${telefon}): ${kod}`);
     return res.json({ ok: true, gelistirmeModu: true });
   }
@@ -1086,7 +1093,7 @@ const server = app.listen(PORT, () => {
 });
 
 // DB tabloları arka planda oluştur
-db.init().catch((err) => {
+db.init().then(() => demo && demo.baslat({ sabitUret })).catch((err) => {
   console.error("❌ Veritabanı başlatma hatası:", err.message);
   if (process.env.NODE_ENV !== "test") process.exit(1);
 });
@@ -1158,8 +1165,11 @@ async function hatirlatmaKontrol() {
   }
 }
 
-setInterval(hatirlatmaKontrol, 5 * 60 * 1000).unref();
-setTimeout(hatirlatmaKontrol, 15000).unref();
+// Demoda hatırlatma yok: gösterecek kimse yok, her randevu Neon'u ayrıca uyandırırdı
+if (!DEMO) {
+  setInterval(hatirlatmaKontrol, 5 * 60 * 1000).unref();
+  setTimeout(hatirlatmaKontrol, 15000).unref();
+}
 
 // Google Sheets arşivleyici
 if (sheets.isEnabled()) {
@@ -1193,7 +1203,7 @@ const GIZLILIK_HTML = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gizlilik Politikası - Resul Tabu Saç Atölyesi</title>
+<title>Gizlilik Politikası - ${DUKKAN.ad}</title>
 <style>
   :root { color-scheme: light; }
   * { box-sizing: border-box; }
@@ -1211,9 +1221,9 @@ const GIZLILIK_HTML = `<!DOCTYPE html>
 <body>
 <div class="kutu">
   <h1>Gizlilik Politikası</h1>
-  <div class="tarih">Resul Tabu Saç Atölyesi — Son güncelleme: 8 Temmuz 2026</div>
+  <div class="tarih">${DUKKAN.ad} — Son güncelleme: 8 Temmuz 2026</div>
 
-  <p>Bu gizlilik politikası, Resul Tabu Saç Atölyesi'nin WhatsApp üzerinden sunduğu
+  <p>Bu gizlilik politikası, ${DUKKAN.ad} işletmesinin WhatsApp üzerinden sunduğu
   online randevu hizmetinde kişisel verilerinizi nasıl işlediğimizi açıklar.
   Hizmeti kullanarak bu politikayı kabul etmiş sayılırsınız.</p>
 
@@ -1250,7 +1260,7 @@ const GIZLILIK_HTML = `<!DOCTYPE html>
   <p>Gizlilikle ilgili her türlü soru için işletmemizin WhatsApp randevu hattından
   bize ulaşabilirsiniz.</p>
 
-  <div class="alt">Bu sayfa Resul Tabu Saç Atölyesi randevu sistemi tarafından sağlanmaktadır.</div>
+  <div class="alt">Bu sayfa ${DUKKAN.ad} randevu sistemi tarafından sağlanmaktadır.</div>
 </div>
 </body>
 </html>`;
