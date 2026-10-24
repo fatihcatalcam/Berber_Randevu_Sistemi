@@ -43,30 +43,46 @@
   }
 
   const asilFetch = window.fetch.bind(window);
+  let randevuAlindi = () => {};
   window.fetch = async (...args) => {
     const res = await asilFetch(...args);
+    const adres = typeof args[0] === "string" ? args[0] : (args[0] && args[0].url) || "";
     if ((res.headers.get("content-type") || "").includes("json")) {
-      res.clone().json().then((g) => { if (g && Array.isArray(g.demoSms)) g.demoSms.forEach(smsGoster); }).catch(() => {});
+      res.clone().json().then((g) => {
+        if (g && Array.isArray(g.demoSms)) g.demoSms.forEach(smsGoster);
+        if (res.status === 201 && adres.endsWith("/api/public/randevu")) randevuAlindi(g);
+      }).catch(() => {});
     }
     return res;
   };
 
+  // Panel ve ciro şeridiyle aynı; müşteri sayfasında da demo olduğu baştan belli olsun
+  const serit = () => yeni("div", "demo-serit",
+    `DEMO · Veriler her gece 0${D.sifirlamaSaati}:00'te sıfırlanır<span class="demo-serit-ek"> · Kendi dükkânın için ${instagram}</span>`);
+
   // --- Müşteri randevu sayfası ---
   if (D.sayfa === "randevu") {
-    const not = () => yeni("p", "demo-not", "Bu bir demo, girdiğin bilgiler her gece silinir.");
+    document.body.prepend(serit());
+    const not = () => yeni("p", "demo-not", "Bu bir demo. Girdiğin bilgiler her gece silinir, gerçek telefon numarası yazmana gerek yok.");
     document.getElementById("bilgiHata")?.after(not());
     document.getElementById("iptalTelefonHata")?.after(not());
+
+    // Onay ekranından, randevunun düştüğü ustanın paneline (yeni randevu vurgulu)
+    const panelBtn = yeni("a", "demo-panel-btn", "Şimdi usta panelinde gör →");
+    panelBtn.href = "/dashboard";
+    document.querySelector("#adimBasari .basari-eylem")?.before(panelBtn);
+    randevuAlindi = (r) => {
+      panelBtn.href = `/dashboard?${new URLSearchParams({ usta: r.berberId, tarih: r.tarih, randevu: r.id })}`;
+    };
     const basariSms = document.querySelector(".basari-sms");
     if (basariSms) basariSms.textContent = "📩 Gerçek sistemde müşteriye onay SMS'i gider (üstte gösterildi).";
     document.body.appendChild(yeni("footer", "demo-alt",
-      `Bu sistemi <b>Çatalçam Yazılım</b> yaptı. Kendi dükkânın için Instagram'dan DM at: ${instagram}`));
+      `Bu sistemi <b>Çatalçam Yazılım</b> yaptı. Kendi dükkânın için Instagram'dan DM at: ${instagram}` +
+      `<br><a href="/dashboard">Usta ve yönetici panelini gör →</a>`));
   }
 
   // --- Panel ve ciro: üst şerit + şifresiz giriş (sunucu demoda PIN sormaz) ---
-  if (D.sayfa === "panel" || D.sayfa === "ciro") {
-    document.body.prepend(yeni("div", "demo-serit",
-      `DEMO · Veriler her gece 0${D.sifirlamaSaati}:00'te sıfırlanır · Kendi dükkânın için ${instagram}`));
-  }
+  if (D.sayfa === "panel" || D.sayfa === "ciro") document.body.prepend(serit());
 
   if (D.sayfa === "panel") {
     const asilSec = window.berberSec, asilAdmin = window.adminGirisGoster;
@@ -78,6 +94,49 @@
     if (ayrac) ayrac.textContent = "Yönetici";
     const adminBtn = document.querySelector('button[onclick="adminGirisGoster()"]');
     if (adminBtn) adminBtn.textContent = "👑 Yönetici olarak gir";
+
+    // Randevu onay ekranından gelindiyse (?usta=&tarih=&randevu=): o ustanın
+    // paneli açılır, randevunun gününe gidilir, yeni randevu vurgulanır.
+    // (BERBERLER, randevular, seciliTarih... panelin kendi değişkenleri)
+    const q = new URLSearchParams(location.search);
+    const hedef = q.get("usta") && { usta: q.get("usta"), tarih: q.get("tarih"), id: q.get("randevu") };
+    let vurguId = null;
+    const vurgula = (kaydir) => {
+      const hucre = vurguId && document.querySelector(`.cizelge-hucre[data-id="${CSS.escape(vurguId)}"]`);
+      if (!hucre) return;
+      hucre.classList.add("demo-vurgu");
+      if (kaydir) hucre.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+    };
+    const asilCizelge = window.cizelgeRender;
+    window.cizelgeRender = function () { asilCizelge.apply(this, arguments); vurgula(false); };
+
+    const bekle = async (kosul, ms = 15000) => {
+      for (const bitis = Date.now() + ms; Date.now() < bitis; await new Promise((r) => setTimeout(r, 150))) {
+        if (kosul()) return true;
+      }
+      return false;
+    };
+
+    const kayitli = (() => { try { return JSON.parse(localStorage.getItem("berberPanelAuth")); } catch { return null; } })();
+    if (hedef && kayitli && kayitli.berberId !== hedef.usta) {
+      localStorage.removeItem("berberPanelAuth"); // başka biri girişliyse o ustaya geç
+      location.reload();
+    } else if (hedef) {
+      history.replaceState(null, "", location.pathname); // yenileyince tekrarlamasın
+      (async () => {
+        if (!kayitli) {
+          if (!(await bekle(() => BERBERLER.length))) return;
+          const usta = BERBERLER.find((b) => b.id === hedef.usta);
+          if (!usta) return;
+          window.berberSec(usta.id, usta.ad);
+        }
+        if (!(await bekle(() => randevular.some((r) => String(r.id) === hedef.id)))) return;
+        vurguId = hedef.id;
+        if (hedef.tarih) { seciliTarih = hedef.tarih; takvimAy = new Date(hedef.tarih + "T00:00:00"); }
+        takvimRender(); cizelgeRender(); render();
+        setTimeout(() => vurgula(true), 100);
+      })();
+    }
   }
 
   if (D.sayfa === "ciro") {
