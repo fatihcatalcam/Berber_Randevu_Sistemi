@@ -420,6 +420,21 @@ app.get("/api/public/musait-saatler", ah(async (req, res) => {
 }));
 
 // Doğrulanmış telefonla randevu oluştur — "bekliyor" durumunda kaydedilir
+// Web'den randevu alma/taşıma kısıtları: engelli numara ve aynı güne en fazla
+// GUNLUK_RANDEVU_SINIRI aktif randevu. Panelden elle girilen randevular bunlara takılmaz.
+// Engel yoksa null, varsa { status, hata } döner.
+const GUNLUK_RANDEVU_SINIRI = 3;
+async function webRandevuEngeli(telefon, tarih, tasinanTarih = null) {
+  if (await db.engelliMi(telefon)) {
+    return { status: 403, hata: "Bu numarayla online randevu alınamıyor. Randevu için lütfen dükkânı arayın." };
+  }
+  // Aynı gün içinde saat değiştirmek sayıyı artırmaz
+  if (tarih !== tasinanTarih && (await db.telefonGunRandevuSayisi(telefon, tarih)) >= GUNLUK_RANDEVU_SINIRI) {
+    return { status: 409, hata: `Bir numarayla aynı güne en fazla ${GUNLUK_RANDEVU_SINIRI} randevu alınabilir.` };
+  }
+  return null;
+}
+
 app.post("/api/public/randevu", ah(async (req, res) => {
   if (randevuKapaliMi())
     return res.status(423).json({ hata: "Online randevu sistemi henüz açılmadı." });
@@ -463,6 +478,8 @@ app.post("/api/public/randevu", ah(async (req, res) => {
   if (!calisilanSaatler.includes(saat)) {
     return res.status(400).json({ hata: "Seçilen saat çalışma saatleri dışında." });
   }
+  const engel = await webRandevuEngeli(telefon, tarih);
+  if (engel) return res.status(engel.status).json({ hata: engel.hata });
   const dolu = await db.getBusySlots(berberId, tarih);
   if (dolu.includes(saat)) return res.status(409).json({ hata: "Seçilen saat dolu." });
 
@@ -570,6 +587,8 @@ app.post("/api/public/randevu/:id/tasi", ah(async (req, res) => {
   const acikSaatler = await acikSaatleriGetir(kayit.berberId, tarih);
   if (!berberCalismaSaatleri(kayit.berberId, tarih, acikSaatler).includes(saat))
     return res.status(400).json({ hata: "Seçilen saat çalışma saatleri dışında." });
+  const engel = await webRandevuEngeli(kayit.telefon, tarih, kayit.tarih);
+  if (engel) return res.status(engel.status).json({ hata: engel.hata });
   if ((await db.getBusySlots(kayit.berberId, tarih)).includes(saat))
     return res.status(409).json({ hata: "Seçilen saat dolu." });
 
@@ -955,6 +974,29 @@ app.patch("/api/randevular/:id/aciklama", requireAuth, ah(async (req, res) => {
 // ---------------------------------------------------------------------------
 // 10) Kapalı saatler
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Engelli numaralar — gelmeyen / trolleyen müşteri web'den randevu alamaz.
+// Her usta engelleyebilir (dükkânın tamamı için geçerli); listeyi ve engeli
+// kaldırmayı yönetici yönetir.
+// ---------------------------------------------------------------------------
+app.get("/api/engelli", requireAuth, ah(async (req, res) => {
+  res.json(await db.engelliListe());
+}));
+
+app.post("/api/engelli", requireAuth, ah(async (req, res) => {
+  const telefon = telefonNormalize(req.body.telefon);
+  if (!telefon) return res.status(400).json({ hata: "Geçerli bir telefon numarası yok." });
+  await db.engelle(telefon, req.body.ad, req.auth.ad);
+  res.status(201).json({ ok: true, telefon });
+}));
+
+app.delete("/api/engelli/:telefon", requireAuth, ah(async (req, res) => {
+  if (req.auth.role !== "admin") return res.status(403).json({ hata: "Engeli sadece yönetici kaldırabilir." });
+  const silindi = await db.engelKaldir(req.params.telefon);
+  if (!silindi) return res.status(404).json({ hata: "Bu numara engelli değil." });
+  res.json({ ok: true });
+}));
+
 app.get("/api/kapali-saatler", requireAuth, ah(async (req, res) => {
   res.json(await db.getKapaliSaatler());
 }));

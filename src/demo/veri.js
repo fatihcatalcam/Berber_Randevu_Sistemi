@@ -76,6 +76,8 @@ function demoRandevulari(bugun, simdiSaat, { gecmisGun = 28, ileriGun = 13 } = {
           berberId: berber.id, berber: berber.ad,
           hizmetId, hizmet: HIZMETLER.find((h) => h.id === hizmetId).ad,
           tarih, saat, fiyat: berber.fiyat[hizmetId], durum,
+          // İptallerin çoğunu müşteri siteden yapar
+          iptalEden: durum === "iptal" ? (rnd() < 0.7 ? "musteri" : "berber") : null,
           kaynak: sabit ? "sabit" : rnd() < 0.6 ? "web" : "panel",
           olusturulma: olusturulma(tarih),
         });

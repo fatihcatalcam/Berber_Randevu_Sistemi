@@ -32,6 +32,8 @@ Module._load = function (req) {
       getAll: async () => store.slice(),
       getAcikGunler: async () => [],
       getAcikSaatlerFor: async () => [],
+      engelliMi: async () => false,
+      telefonGunRandevuSayisi: async () => 0,
       otpKaydet: async () => {}, otpDogrula: async () => ({ sonuc: "kod_yok" }),
       otpSonGonderim: async () => null, otpBugunSayisi: async () => 0,
     };

@@ -647,6 +647,16 @@ function kacis(s) {
   return d.innerHTML;
 }
 
+// Fisher–Yates: diziyi yerinde değil, karıştırılmış kopya olarak döner
+function karistir(dizi) {
+  const d = dizi.slice();
+  for (let i = d.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [d[i], d[j]] = [d[j], d[i]];
+  }
+  return d;
+}
+
 function baslarKirp(ad) {
   return (ad || "").trim().split(/\s+/).map((p) => p[0]).slice(0, 2).join("").toUpperCase();
 }
@@ -814,7 +824,8 @@ async function baslat() {
       adimGoster("adimYakinda", "ileri", true);
       return;
     }
-    BERBERLER = c.berberler; HIZMETLER = c.hizmetler;
+    // Ustalar her açılışta karışık sırada: listenin sonundakiler daha az seçilmesin
+    BERBERLER = karistir(c.berberler); HIZMETLER = c.hizmetler;
     RANDEVU_UFUK_GUN = c.randevuUfukGun || 14;
     OTP_AKTIF = !!c.otpAktif;
     document.getElementById("kodGonderBtn").textContent = OTP_AKTIF ? "Doğrulama Kodu Gönder" : "Randevu Al";
@@ -1304,8 +1315,10 @@ async function degisikligiOnayla() {
     const data = await res.json();
     butonBekliyor(btn);
     if (!res.ok) {
+      // 409: saat bu arada doldu (ya da günlük sınır) — listeyi tazele; tazeleme
+      // hata kutusunu sildiği için mesaj ondan sonra yazılır
+      if (res.status === 409) await degisTarihSec(degis.tarih);
       hataEl.textContent = data.hata || "Değiştirilemedi.";
-      if (res.status === 409) degisTarihSec(degis.tarih); // saat bu arada doldu: listeyi tazele
       return;
     }
     const basari = document.getElementById("iptalListeBasari");

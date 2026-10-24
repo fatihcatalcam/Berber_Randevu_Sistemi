@@ -148,6 +148,15 @@ async function init() {
   // tablo büyüdükçe bu taramaların hızlı kalması için indeks şart.
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_randevular_tarih ON randevular (tarih)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_randevular_telefon ON randevular (telefon)`);
+  // Engellenen numaralar (gelmeyen / trolleyen) — web'den randevu alamaz
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS engelli_telefonlar (
+      telefon     TEXT PRIMARY KEY,
+      ad          TEXT,
+      engelleyen  TEXT,
+      olusturulma BIGINT
+    )
+  `);
   console.log("✅ Veritabanı tabloları hazır.");
 }
 
@@ -409,6 +418,15 @@ async function getBusySlots(berberId, tarih) {
 // Bir telefon numarasının web'den aldığı, henüz iptal edilmemiş, bugün veya
 // sonrası için olan randevuları — müşterinin kendi randevusunu iptal
 // edebilmesi (self-servis) için kullanılır.
+// Bu numaranın o güne aldığı aktif (iptal olmayan) randevu sayısı — web'de günlük sınır için
+async function telefonGunRandevuSayisi(telefon, tarih) {
+  const res = await pool.query(
+    "SELECT COUNT(*) FROM randevular WHERE telefon=$1 AND tarih=$2 AND durum <> 'iptal'",
+    [telefon, tarih]
+  );
+  return Number(res.rows[0].count);
+}
+
 async function getRandevularByTelefon(telefon) {
   const bugun = new Date();
   const tarihStr = `${bugun.getFullYear()}-${String(bugun.getMonth() + 1).padStart(2, "0")}-${String(bugun.getDate()).padStart(2, "0")}`;
@@ -661,6 +679,32 @@ async function otpSonGonderim(telefon) {
   return res.rows[0] ? Number(res.rows[0].olusturulma) : null;
 }
 
+// ---------------------------------------------------------------------------
+// Engelli numaralar — panelden engellenir, web randevu formu bunu kontrol eder
+// ---------------------------------------------------------------------------
+async function engelliMi(telefon) {
+  const res = await pool.query("SELECT 1 FROM engelli_telefonlar WHERE telefon=$1", [telefon]);
+  return res.rowCount > 0;
+}
+
+async function engelliListe() {
+  const res = await pool.query("SELECT * FROM engelli_telefonlar ORDER BY olusturulma DESC");
+  return res.rows.map((x) => ({ telefon: x.telefon, ad: x.ad, engelleyen: x.engelleyen, olusturulma: Number(x.olusturulma) }));
+}
+
+async function engelle(telefon, ad, engelleyen) {
+  await pool.query(
+    `INSERT INTO engelli_telefonlar (telefon, ad, engelleyen, olusturulma) VALUES ($1,$2,$3,$4)
+     ON CONFLICT (telefon) DO NOTHING`,
+    [telefon, ad || null, engelleyen || null, Date.now()]
+  );
+}
+
+async function engelKaldir(telefon) {
+  const res = await pool.query("DELETE FROM engelli_telefonlar WHERE telefon=$1", [telefon]);
+  return res.rowCount > 0;
+}
+
 // Bugün bu telefona kaç OTP gönderildi (günlük limit için)
 async function otpBugunSayisi(telefon) {
   const gunBasi = new Date(); gunBasi.setHours(0, 0, 0, 0);
@@ -695,19 +739,19 @@ async function demoSifirla(randevular, gun) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    await client.query("TRUNCATE randevular, kapali_saatler, kapali_gunler, acik_gunler, acik_saatler, sabit_randevular, otp_kodlari");
+    await client.query("TRUNCATE randevular, kapali_saatler, kapali_gunler, acik_gunler, acik_saatler, sabit_randevular, otp_kodlari, engelli_telefonlar");
     await client.query(
       `INSERT INTO randevular (id, ad, telefon, berber_id, berber, hizmet_id, hizmet, tarih, saat, fiyat,
-                               durum, olusturulma, kaynak, hatirlatildi)
+                               durum, iptal_eden, olusturulma, kaynak, hatirlatildi)
        SELECT id, ad, telefon, berber_id, berber, hizmet_id, hizmet, tarih, saat, fiyat,
-              durum, olusturulma, kaynak, true
+              durum, iptal_eden, olusturulma, kaynak, true
        FROM json_to_recordset($1) AS x(id TEXT, ad TEXT, telefon TEXT, berber_id TEXT, berber TEXT,
-            hizmet_id TEXT, hizmet TEXT, tarih TEXT, saat TEXT, fiyat INTEGER, durum TEXT,
+            hizmet_id TEXT, hizmet TEXT, tarih TEXT, saat TEXT, fiyat INTEGER, durum TEXT, iptal_eden TEXT,
             olusturulma BIGINT, kaynak TEXT)`,
       [JSON.stringify(randevular.map((r) => ({
         id: yeniId(), ad: r.ad, telefon: r.telefon, berber_id: r.berberId, berber: r.berber,
         hizmet_id: r.hizmetId, hizmet: r.hizmet, tarih: r.tarih, saat: r.saat, fiyat: r.fiyat,
-        durum: r.durum, olusturulma: r.olusturulma, kaynak: r.kaynak,
+        durum: r.durum, iptal_eden: r.iptalEden || null, olusturulma: r.olusturulma, kaynak: r.kaynak,
       })))]
     );
     await client.query(
@@ -766,6 +810,11 @@ module.exports = {
   sabitGuncelle,
   sabitGelecekGuncelle,
   sabitGelecekSil,
+  telefonGunRandevuSayisi,
+  engelliMi,
+  engelliListe,
+  engelle,
+  engelKaldir,
   demoSonSifirlama,
   demoSifirla,
 };

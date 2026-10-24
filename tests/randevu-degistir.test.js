@@ -47,6 +47,8 @@ Module._load = function (req) {
       },
       getAcikGunler: async () => [],
       getAcikSaatlerFor: async () => [],
+      engelliMi: async () => false,
+      telefonGunRandevuSayisi: async () => 0,
       otpKaydet: async (telefon, kod, sonGecerlilik) => { otpKayitlari.push({ telefon, kod, sonGecerlilik, dogrulandi: false }); },
       otpDogrula: async (telefon, kod) => {
         const aday = [...otpKayitlari].reverse().find((k) => k.telefon === telefon && !k.dogrulandi);

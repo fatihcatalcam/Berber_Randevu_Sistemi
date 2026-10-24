@@ -40,6 +40,8 @@ Module._load = function (req) {
       add: async (r) => { const k = { ...r, id: "k" + store.length, durum: r.durum || "bekliyor" }; store.push(k); return k; },
       getAcikGunler: async () => [],
       getAcikSaatlerFor: async () => [],
+      engelliMi: async () => false,
+      telefonGunRandevuSayisi: async () => 0,
       otpKaydet: async (telefon, kod) => { otpKayitlari.push({ telefon, kod, dogrulandi: false }); },
       otpDogrula: async (telefon, kod) => {
         const aday = [...otpKayitlari].reverse().find((k) => k.telefon === telefon && !k.dogrulandi);

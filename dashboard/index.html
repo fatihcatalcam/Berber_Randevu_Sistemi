@@ -84,6 +84,8 @@
   .modal-btn-yesil   { background: #d1fae5; color: #065f46; }
   .modal-btn-kirmizi { background: #fee2e2; color: #991b1b; }
   .modal-btn-gri     { background: #f3f4f6; color: var(--metin); }
+  .engel-btn { display: block; width: 100%; margin-top: 8px; min-height: 40px; background: none; border: 0; color: #b91c1c; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .engel-bilgi { margin: -6px 0 12px; padding: 8px 12px; border-radius: 10px; background: #fef2f2; color: #991b1b; font-size: 13px; font-weight: 600; }
   #sabitModal .modal-kart { max-height: 90vh; overflow-y: auto; }
   .sabit-etiket { font-size: 12px; font-weight: 700; color: var(--soluk); display: block; margin-bottom: 4px; }
   .sabit-alan {
@@ -399,6 +401,7 @@
     <span id="kullaniciBilgi"></span>
     <span class="header-eylem" style="display:contents;">
       <button onclick="sabitGoster()" class="cikis-btn">📌 Sabit Müşteriler</button>
+      <button onclick="engelliGoster()" class="cikis-btn sadece-admin">⛔ Engelli Numaralar</button>
       <button onclick="cikis()" class="cikis-btn">Çıkış</button>
     </span>
     <div class="canli">
@@ -409,6 +412,7 @@
       <button class="cikis-btn menu-btn" id="menuBtn" onclick="menuAcKapat(event)" aria-label="Menü" aria-haspopup="true" aria-expanded="false">☰</button>
       <div class="ust-menu" id="ustMenu" hidden>
         <button onclick="menuKapat();sabitGoster()">📌 Sabit Müşteriler</button>
+        <button onclick="menuKapat();engelliGoster()" class="sadece-admin">⛔ Engelli Numaralar</button>
         <button onclick="menuKapat();cikis()">↩️ Çıkış</button>
       </div>
     </div>
@@ -513,6 +517,18 @@
   </div>
 </div>
 
+<!-- ========== ENGELLİ NUMARALAR MODAL (yönetici) ========== -->
+<div id="engelliModal" class="modal-overlay" style="display:none;">
+  <div class="modal-kart">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h3 style="font-size:16px;font-weight:700;">⛔ Engelli Numaralar</h3>
+      <button onclick="engelliKapat()" style="border:none;background:none;font-size:28px;cursor:pointer;color:var(--soluk);min-width:44px;min-height:44px;">×</button>
+    </div>
+    <p style="font-size:12.5px;color:var(--soluk);margin-bottom:10px;">Bu numaralar siteden randevu alamaz. Ustalar randevu detayından engeller; engeli buradan kaldırabilirsin.</p>
+    <div id="engelliListe" style="display:flex;flex-direction:column;gap:8px;"></div>
+  </div>
+</div>
+
 <!-- ========== SABİT MÜŞTERİLER MODAL ========== -->
 <div id="sabitModal" class="modal-overlay" style="display:none;">
   <div class="modal-kart">
@@ -553,6 +569,7 @@
       <button onclick="modalKapat()" style="border:none;background:none;font-size:28px;cursor:pointer;color:var(--soluk);min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;">×</button>
     </div>
     <div id="modalBilgi" style="margin-bottom:14px;line-height:2;font-size:14px;background:#f9fafb;border-radius:10px;padding:12px;"></div>
+    <div id="modalEngelBilgi" class="engel-bilgi" style="display:none;">⛔ Bu numara engelli, siteden randevu alamıyor.</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
       <button id="modalOnayla" onclick="modalDurumDegistir('onaylı')" class="modal-btn modal-btn-yesil" style="flex:1;">✅ Onayla</button>
       <button id="modalIptal"  onclick="modalDurumDegistir('iptal')"  class="modal-btn modal-btn-kirmizi" style="flex:1;">❌ İptal Et</button>
@@ -565,6 +582,7 @@
       <button onclick="modalNotAc()" class="modal-btn modal-btn-gri" style="flex:1;">📝 Not</button>
       <button onclick="modalGecmisAc()" class="modal-btn modal-btn-gri" style="flex:1;">👤 Geçmiş</button>
     </div>
+    <button id="modalEngel" onclick="modalEngelDegistir()" class="engel-btn" style="display:none;"></button>
 
     <!-- Ücret düzenleme -->
     <div id="fiyatBolum" style="display:none;border-top:1px solid var(--cizgi);padding-top:12px;margin-top:8px;">
@@ -786,6 +804,7 @@ function loginGizle() {
   // kendi randevularını görür (gorRunumRandevular/gorRunumBerberler filtreler).
   // Yalnızca "Tüm Günü Aç" admin yetkisi ister.
   document.getElementById("tumGunuAcBtn").style.display = isAdmin ? "" : "none";
+  document.querySelectorAll(".sadece-admin").forEach(el => el.style.display = isAdmin ? "" : "none");
   // iOS Safari'de Notification API olmayabilir — yoksa atla (yoksa baslat() çalışmaz!)
   try {
     if (typeof Notification !== "undefined" && Notification.permission === "default") {
@@ -1284,6 +1303,12 @@ function tarihFormat(t) {
   catch { return t; }
 }
 
+// İptal edilmiş randevuda kimin iptal ettiği (müşteri siteden / berber panelden)
+function iptalEdenYazi(r) {
+  if (r.durum !== "iptal") return "";
+  return r.iptalEden === "musteri" ? "Müşteri iptal etti" : "Berber iptal etti";
+}
+
 function durumYazi(d) {
   if (d === "onaylı")  return "✅ Onaylı";
   if (d === "iptal")   return "❌ İptal";
@@ -1473,14 +1498,15 @@ function cizelgeRender() {
         } else {
           const gelmedi = gelmediSayisi(r);
           let etiket = (r.sabitId ? "📌 " : "") + (gelmedi > 0 ? "⚠️ " : "") + r.ad;
-          if (r.durum === "iptal") etiket += ` — İPTAL (${r.iptalEden === "musteri" ? "müşteri" : "berber"})`;
-          else if (r.kisiSayisi > 1) etiket += ` (${r.kisiSayisi} kişi)`;
+          if (r.durum !== "iptal" && r.kisiSayisi > 1) etiket += ` (${r.kisiSayisi} kişi)`;
           const fiyatGoster = fiyatGizliMi(r) ? ""
             : " · " + (r.gercekFiyat !== undefined ? `${r.gercekFiyat}₺ ✏️` : `${r.fiyat}₺`);
           const ipucu = gelmedi > 0 ? ` title="Son 6 ayda ${gelmedi} kez gelmedi"` : "";
           html += `<td class="cizelge-hucre${zk}" data-id="${r.id}"${ipucu} style="padding:7px 10px;border:1px solid var(--cizgi);background:${renk.bg};color:${renk.fg};font-size:12px;cursor:pointer;user-select:none;min-width:80px;">` +
             `<div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;">${kacis(etiket)}</div>` +
-            `<div style="font-size:11px;opacity:.75;white-space:nowrap;">${kacis(r.hizmet)}${fiyatGoster}</div></td>`;
+            (r.durum === "iptal"
+              ? `<div style="font-size:11px;font-weight:700;white-space:nowrap;">❌ ${iptalEdenYazi(r)}</div></td>`
+              : `<div style="font-size:11px;opacity:.75;white-space:nowrap;">${kacis(r.hizmet)}${fiyatGoster}</div></td>`);
         }
       } else if (slot.yemek && !acikSaatMi(b.id, seciliTarih, saat)) {
         // Yemek arası — çift tık/sağ tık ile açılabilir (berber tokken kullansın)
@@ -1648,7 +1674,7 @@ function hucreMenu(id) {
   document.getElementById("modalBaslik").textContent = r.ad;
   document.getElementById("modalBilgi").innerHTML =
     (r.telefon ? `📞 <a class="tel-link" href="tel:+${String(r.telefon).replace(/\D/g, "")}">${kacis(telGoster(r.telefon))}</a><br>` : "") +
-    `💈 ${kacis(r.berber)}<br>✂️ ${kacis(r.hizmet)}<br>📅 ${tarih} ⏰ ${r.saat}<br>💰 ${fiyatHtml}<br>📌 ${durumYazi(r.durum)}${notSatiri}${gelmediSatiri}`;
+    `💈 ${kacis(r.berber)}<br>✂️ ${kacis(r.hizmet)}<br>📅 ${tarih} ⏰ ${r.saat}<br>💰 ${fiyatHtml}<br>📌 ${durumYazi(r.durum)}${r.durum === "iptal" ? " · " + iptalEdenYazi(r) : ""}${notSatiri}${gelmediSatiri}`;
   document.getElementById("modalOnayla").disabled  = r.durum === "onaylı";
   document.getElementById("modalIptal").disabled   = r.durum === "iptal";
   document.getElementById("modalGelmedi").disabled = r.durum === "gelmedi";
@@ -1660,6 +1686,98 @@ function hucreMenu(id) {
     document.getElementById(id).style.display = "none";
   });
   document.getElementById("randevuModal").style.display = "flex";
+  modalEngelGoster(r);
+  engelliYukle().then(() => { if (modalRandevuId === id) modalEngelGoster(r); });
+}
+
+// ============================================================
+// Engelli numaralar — gelmeyen / trolleyen müşteri siteden randevu alamaz.
+// Her usta engelleyebilir; engeli sadece yönetici kaldırır.
+// ============================================================
+let engelliTelefonlar = new Map(); // "905XXXXXXXXX" → { telefon, ad, engelleyen, olusturulma }
+
+function telNormal(t) {
+  let d = String(t || "").replace(/\D/g, "");
+  if (d.startsWith("0")) d = d.slice(1);
+  if (!d.startsWith("90")) d = "90" + d;
+  return /^905\d{9}$/.test(d) ? d : null;
+}
+
+async function engelliYukle() {
+  const liste = await guvenliJson("/api/engelli", null);
+  if (liste) engelliTelefonlar = new Map(liste.map(e => [e.telefon, e]));
+}
+
+function modalEngelGoster(r) {
+  const btn = document.getElementById("modalEngel");
+  const tel = telNormal(r.telefon);
+  const engelli = !!tel && engelliTelefonlar.has(tel);
+  document.getElementById("modalEngelBilgi").style.display = engelli ? "block" : "none";
+  // Usta engelleyebilir ama kaldıramaz: engelliyse ustaya düğme gösterilmez
+  btn.style.display = !tel || (engelli && auth.role !== "admin") ? "none" : "block";
+  btn.textContent = engelli ? "🔓 Engeli kaldır" : "⛔ Bu numarayı engelle";
+}
+
+async function modalEngelDegistir() {
+  const r = randevular.find(x => x.id === modalRandevuId);
+  const tel = r && telNormal(r.telefon);
+  if (!tel) return;
+  try {
+    if (engelliTelefonlar.has(tel)) {
+      if (!(await engelKaldir(tel))) return;
+    } else {
+      const evet = await onayIste("Bu numara engellensin mi?",
+        `${r.ad} (${telGoster(tel)}) bundan sonra siteden randevu alamaz. Var olan randevularına dokunulmaz.`, "Engelle");
+      if (!evet) return;
+      const res = await authFetch("/api/engelli", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ telefon: tel, ad: r.ad }),
+      });
+      if (!res.ok) { bildir((await res.json().catch(() => ({}))).hata || "Numara engellenemedi."); return; }
+      engelliTelefonlar.set(tel, { telefon: tel, ad: r.ad, engelleyen: auth.ad, olusturulma: Date.now() });
+      bildir("Numara engellendi, artık siteden randevu alamaz.", "ok");
+    }
+  } catch { bildir("Sunucu hatası."); }
+  modalEngelGoster(r);
+}
+
+// Onay sorar; kaldırırsa true döner
+async function engelKaldir(tel) {
+  const kayit = engelliTelefonlar.get(tel);
+  const kim = kayit && kayit.ad ? `${kayit.ad} (${telGoster(tel)})` : telGoster(tel);
+  if (!(await onayIste("Engel kaldırılsın mı?", `${kim} yeniden siteden randevu alabilecek.`, "Engeli kaldır", false))) return false;
+  const res = await authFetch(`/api/engelli/${tel}`, { method: "DELETE" });
+  if (!res.ok) { bildir((await res.json().catch(() => ({}))).hata || "Engel kaldırılamadı."); return false; }
+  engelliTelefonlar.delete(tel);
+  bildir("Engel kaldırıldı.", "ok");
+  return true;
+}
+
+async function engelliGoster() {
+  document.getElementById("engelliModal").style.display = "flex";
+  await engelliListeCiz();
+}
+function engelliKapat() { document.getElementById("engelliModal").style.display = "none"; }
+
+async function engelliListeCiz() {
+  const kutu = document.getElementById("engelliListe");
+  kutu.innerHTML = '<div style="font-size:13px;color:var(--soluk);">Yükleniyor…</div>';
+  await engelliYukle();
+  const liste = [...engelliTelefonlar.values()];
+  if (!liste.length) {
+    kutu.innerHTML = '<div style="font-size:13px;color:var(--soluk);">Engelli numara yok.</div>';
+    return;
+  }
+  kutu.innerHTML = liste.map(e => {
+    const tarih = new Date(e.olusturulma).toLocaleDateString("tr-TR", { day: "numeric", month: "long" });
+    return `<div class="sabit-satir">
+      <div>
+        <strong>${kacis(e.ad || telGoster(e.telefon))}</strong><br>
+        <span style="color:var(--soluk);">${kacis(telGoster(e.telefon))} · ${tarih}${e.engelleyen ? " · " + kacis(e.engelleyen) + " engelledi" : ""}</span>
+      </div>
+      <button class="modal-btn modal-btn-gri" style="min-height:36px;padding:6px 12px;font-size:13px;" onclick="engelKaldir('${e.telefon}').then(k => k && engelliListeCiz())">Kaldır</button>
+    </div>`;
+  }).join("");
 }
 
 function modalKapat() { document.getElementById("randevuModal").style.display = "none"; }
@@ -2174,7 +2292,7 @@ function renderDesktop(liste, isAdmin) {
       <td>${tarihFormat(r.tarih)}</td>
       <td>${kacis(r.saat)}</td>
       <td>${fiyatHtml}</td>
-      <td><span class="badge ${r.durum}">${durumYazi(r.durum)}</span></td>
+      <td><span class="badge ${r.durum}">${durumYazi(r.durum)}</span>${r.durum === "iptal" ? `<div style="font-size:11px;color:var(--soluk);margin-top:2px;">${iptalEdenYazi(r)}</div>` : ""}</td>
       <td>
         <button class="islem-btn" title="Onayla" ${r.durum==="onaylı"?"disabled":""} onclick="durumDegistir('${r.id}','onaylı')">✅</button>
         <button class="islem-btn" title="İptal"  ${r.durum==="iptal" ?"disabled":""} onclick="durumDegistir('${r.id}','iptal')">❌</button>
@@ -2201,7 +2319,7 @@ function renderMobil(liste, isAdmin) {
       <div class="m-kart${flashIdler.has(r.id) ? " flash" : ""}">
         <div class="m-kart-ust">
           <strong class="m-kart-ad">${kacis(r.ad)}${gelmediRozet(r)}</strong>
-          <span class="badge ${r.durum}">${durumYazi(r.durum)}</span>
+          <span class="badge ${r.durum}">${durumYazi(r.durum)}</span>${r.durum === "iptal" ? `<div style="font-size:11px;color:var(--soluk);margin-top:2px;">${iptalEdenYazi(r)}</div>` : ""}
         </div>
         <div class="m-kart-bilgi">${berberStr}✂️ ${kacis(r.hizmet)}</div>
         <div class="m-kart-bilgi">📅 ${tarihFormat(r.tarih)} · ⏰ ${r.saat}${fiyatHtml ? " · 💰 " + fiyatHtml : ""}</div>

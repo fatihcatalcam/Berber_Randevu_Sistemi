@@ -23,6 +23,7 @@ Module._load = function (req) {
     return {
       init: async () => {}, getHatirlatilacaklar: async () => [], degisimSurumu: () => "t:0",
       getAcikGunler: async () => acikGunler, getAcikSaatlerFor: async () => [],
+      engelliMi: async () => false, telefonGunRandevuSayisi: async () => 0,
       getBusySlots: async () => [],
       getRecentAndUpcoming: async () => store,
       add: async (r) => { const k = { ...r, id: "r" + store.length }; store.push(k); return k; },

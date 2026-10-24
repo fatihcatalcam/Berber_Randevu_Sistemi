@@ -61,6 +61,8 @@ Module._load = function (req) {
       getAll: async () => store.slice(),
       getAcikGunler: async () => [],
       getAcikSaatlerFor: async () => [],
+      engelliMi: async () => false,
+      telefonGunRandevuSayisi: async () => 0,
       otpKaydet: async (telefon, kod, sonGecerlilik) => {
         otpKayitlari.push({ telefon, kod, olusturulma: Date.now(), sonGecerlilik, deneme: 0, dogrulandi: false });
       },
