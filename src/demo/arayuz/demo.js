@@ -57,8 +57,12 @@
   };
 
   // Panel ve ciro şeridiyle aynı; müşteri sayfasında da demo olduğu baştan belli olsun
+  // Sağdaki düğme demonun öbür yüzüne geçirir: müşteri sayfasından panele, panelden müşteri sayfasına
   const serit = () => yeni("div", "demo-serit",
-    `DEMO · Veriler her gece 0${D.sifirlamaSaati}:00'te sıfırlanır<span class="demo-serit-ek"> · Kendi dükkânın için ${instagram}</span>`);
+    `<span>DEMO · <span class="demo-serit-ek">Veriler </span>her gece 0${D.sifirlamaSaati}:00'te sıfırlanır<span class="demo-serit-ek"> · Kendi dükkânın için ${instagram}</span></span>` +
+    (D.sayfa === "randevu"
+      ? '<a class="demo-serit-btn" href="/dashboard">Usta panelini gör →</a>'
+      : '<a class="demo-serit-btn" href="/randevu-al">Müşteri sayfası →</a>'));
 
   // --- Müşteri randevu sayfası ---
   if (D.sayfa === "randevu") {

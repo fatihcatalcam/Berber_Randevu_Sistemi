@@ -51,10 +51,16 @@
 
 /* Sayfa ve panelin üstündeki şerit */
 .demo-serit {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
   background: #111827; color: #f8fafc; text-align: center;
   font: 12.5px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 6px 12px;
 }
 .demo-serit a { color: #d4b483; text-decoration: none; font-weight: 600; }
+.demo-serit a.demo-serit-btn {
+  flex-shrink: 0; white-space: nowrap; padding: 4px 11px; border-radius: 999px;
+  background: #d4b483; color: #111827; font-size: 12px; font-weight: 700;
+}
+.demo-serit a.demo-serit-btn:hover { background: #e2c79a; }
 
 /* Panel girişindeki açıklama */
 .demo-giris-not {
