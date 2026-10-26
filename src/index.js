@@ -11,7 +11,7 @@ const crypto = require("crypto");
 const db = require("./db");
 const { handleMessage } = require("./bot");
 const { sendText, sendTemplate } = require("./whatsapp");
-const { DEMO, DUKKAN, BERBERLER, HIZMETLER, SAATLER, SAATLER_45, ADMIN_PIN, CIRO_PIN, berberCalismaSaatleri } = require("./config");
+const { DEMO, DUKKAN, BERBERLER, HIZMETLER, EKLER, SAATLER, SAATLER_45, ADMIN_PIN, CIRO_PIN, berberCalismaSaatleri } = require("./config");
 const sheets = require("./sheets");
 const sms = require("./sms");
 const eposta = require("./email");
@@ -20,6 +20,18 @@ const { slotGectiMi, acikSaatleriGetir, bugunStr, gunEkle, sabitTarihleri } = re
 // Müşteri bildirimleri SMS ile gider. WhatsApp artık kullanılmıyor; eski bot
 // akışı ancak WHATSAPP_AKTIF=true verilirse, bottan gelen randevular için devreye girer.
 // (Elle girilen eski randevular da kaynak='whatsapp' kayıtlı; bu yüzden kaynağa değil anahtara bakılır.)
+// Seçilen hizmete ekler (ör. kaş): randevu kaydında hizmet adı "Saç Kesimi + Kaş Tasarımı"
+// olur, fiyatına ekin fiyatı eklenir. Çizelge, ciro, SMS ve Sheets bu ad ve fiyatı kullanır.
+// Bilinmeyen ek varsa null döner.
+function hizmetEkleriyle(berber, hizmet, ekIdleri) {
+  const ekler = [...new Set(Array.isArray(ekIdleri) ? ekIdleri : [])].map((id) => EKLER.find((e) => e.id === id));
+  if (ekler.some((e) => !e)) return null;
+  return {
+    ad: [hizmet.ad, ...ekler.map((e) => e.ad)].join(" + "),
+    fiyat: berber.fiyat[hizmet.id] + ekler.reduce((t, e) => t + e.fiyat, 0),
+  };
+}
+
 function smsMusterisi(r) {
   return process.env.WHATSAPP_AKTIF !== "true" || (r.kaynak || "whatsapp") !== "whatsapp";
 }
@@ -317,7 +329,7 @@ app.post("/api/auth", (req, res) => {
 // ---------------------------------------------------------------------------
 app.get("/api/config", (req, res) => {
   const berberler = BERBERLER.map(({ pin, ...rest }) => rest);
-  res.json({ berberler, hizmetler: HIZMETLER, saatler: SAATLER, saatler45: SAATLER_45, otpAktif: OTP_AKTIF, randevuKapali: randevuKapaliMi(), randevuUfukGun: RANDEVU_UFUK_GUN });
+  res.json({ berberler, hizmetler: HIZMETLER, ekler: EKLER, saatler: SAATLER, saatler45: SAATLER_45, otpAktif: OTP_AKTIF, randevuKapali: randevuKapaliMi(), randevuUfukGun: RANDEVU_UFUK_GUN });
 });
 
 // ---------------------------------------------------------------------------
@@ -439,7 +451,7 @@ app.post("/api/public/randevu", ah(async (req, res) => {
   if (randevuKapaliMi())
     return res.status(423).json({ hata: "Online randevu sistemi henüz açılmadı." });
 
-  const { dogrulamaToken, ad, telefon: gelenTelefon, email: musteriEmail, berberId, hizmetId, tarih, saat } = req.body;
+  const { dogrulamaToken, ad, telefon: gelenTelefon, email: musteriEmail, berberId, hizmetId, tarih, saat, ekler } = req.body;
 
   let telefon;
   if (OTP_AKTIF) {
@@ -466,6 +478,8 @@ app.post("/api/public/randevu", ah(async (req, res) => {
   const berber = BERBERLER.find((b) => b.id === berberId);
   const hizmet = HIZMETLER.find((h) => h.id === hizmetId);
   if (!berber || !hizmet) return res.status(400).json({ hata: "Geçersiz usta veya hizmet." });
+  const secilen = hizmetEkleriyle(berber, hizmet, ekler);
+  if (!secilen) return res.status(400).json({ hata: "Geçersiz ek hizmet." });
 
   if (slotGectiMi(tarih, saat)) {
     return res.status(400).json({ hata: "Seçilen saat artık geçmiş. Lütfen başka bir saat seçin." });
@@ -488,9 +502,9 @@ app.post("/api/public/randevu", ah(async (req, res) => {
       ad, telefon,
       email: musteriEmail || null,
       berberId, berber: berber.ad,
-      hizmetId, hizmet: hizmet.ad,
+      hizmetId, hizmet: secilen.ad,
       tarih, saat,
-      fiyat: berber.fiyat[hizmetId],
+      fiyat: secilen.fiyat,
       kaynak: "web",
       durum: "onaylı", // berber onayı kalktı — web randevusu doğrudan onaylanmış sayılır
     });
@@ -630,13 +644,15 @@ app.get("/api/randevular/gecmis", requireAuth, ah(async (req, res) => {
 // 5b) Elle (manuel) randevu ekle — direkt onaylı olarak kaydedilir
 // ---------------------------------------------------------------------------
 app.post("/api/randevular", requireAuth, ah(async (req, res) => {
-  const { ad, telefon, berberId, hizmetId, tarih, saat, fiyat } = req.body;
+  const { ad, telefon, berberId, hizmetId, tarih, saat, fiyat, ekler } = req.body;
   if (!ad || !berberId || !hizmetId || !tarih || !saat)
     return res.status(400).json({ hata: "Eksik parametre." });
 
   const berber = BERBERLER.find((b) => b.id === berberId);
   const hizmet = HIZMETLER.find((h) => h.id === hizmetId);
   if (!berber || !hizmet) return res.status(400).json({ hata: "Geçersiz berber veya hizmet." });
+  const secilen = hizmetEkleriyle(berber, hizmet, ekler);
+  if (!secilen) return res.status(400).json({ hata: "Geçersiz ek hizmet." });
 
   const dolu = await db.getBusySlots(berberId, tarih);
   if (dolu.includes(saat)) return res.status(409).json({ hata: "Seçilen saat dolu." });
@@ -645,9 +661,9 @@ app.post("/api/randevular", requireAuth, ah(async (req, res) => {
     const kayit = await db.add({
       ad, telefon: telefon ? (telefonNormalize(telefon) || telefon) : "",
       berberId, berber: berber.ad,
-      hizmetId, hizmet: hizmet.ad,
+      hizmetId, hizmet: secilen.ad,
       tarih, saat,
-      fiyat: typeof fiyat === "number" ? fiyat : berber.fiyat[hizmetId],
+      fiyat: typeof fiyat === "number" ? fiyat : secilen.fiyat,
       durum: "onaylı", // elle eklenen randevu direkt onaylı
       kaynak: "panel",
     });

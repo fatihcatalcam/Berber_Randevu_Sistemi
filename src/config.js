@@ -68,6 +68,12 @@ const HIZMETLER = [
   { id: "kombin", ad: "Saç + Sakal",  sure: "~45 dk" },
 ];
 
+// Hizmete eklenebilen ekstralar: ayrı kart/randevu değil, seçilen hizmete eklenir.
+// Fiyat herkes için aynı; randevu süresini uzatmaz.
+const EKLER = [
+  { id: "kas", ad: "Kaş Tasarımı", fiyat: 300 },
+];
+
 // --- Saat yardımcıları ---
 function saatToDk(s) { const [h, m] = s.split(":").map(Number); return h * 60 + m; }
 function dkToSaat(t) { return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`; }
@@ -175,7 +181,7 @@ function gelecekTarihler(kacGun = 7, acikGunler = []) {
 }
 
 module.exports = {
-  DEMO, DUKKAN, GERCEK_DUKKAN, BERBERLER, HIZMETLER, SAATLER, SAATLER_45,
+  DEMO, DUKKAN, GERCEK_DUKKAN, BERBERLER, HIZMETLER, EKLER, SAATLER, SAATLER_45,
   berberSlotDk, berberSaatleri, berberCalismaSaatleri, berberGunSlotlari,
   berberBaslangicSaati, berberNet, gelecekTarihler, ADMIN_PIN, CIRO_PIN,
 };

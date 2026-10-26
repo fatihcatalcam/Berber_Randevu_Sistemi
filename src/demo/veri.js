@@ -4,7 +4,7 @@
 // dolu görünsün), önümüzdeki günler giderek seyrelen doluluk. Rastgelelik
 // günün tarihinden tohumlanır; aynı gün aynı veri çıkar (test edilebilir).
 // ---------------------------------------------------------------------------
-const { BERBERLER, HIZMETLER, berberCalismaSaatleri } = require("../config");
+const { BERBERLER, HIZMETLER, EKLER, berberCalismaSaatleri } = require("../config");
 const { gunEkle } = require("../randevu-yardimci");
 
 const ADLAR = ["Ahmet", "Mehmet", "Mustafa", "Ali", "Hasan", "Emre", "Burak", "Can", "Cem", "Deniz", "Efe", "Furkan",
@@ -71,11 +71,12 @@ function demoRandevulari(bugun, simdiSaat, { gecmisGun = 28, ileriGun = 13 } = {
         const durum = gecmis ? (x < 0.9 ? "onaylı" : x < 0.96 ? "gelmedi" : "iptal") : (x < 0.96 ? "onaylı" : "iptal");
         const musteri = sabit || sec(musteriler);
         const hizmetId = sabit ? sabit.hizmetId : hizmetSec();
+        const kas = !sabit && hizmetId !== "sakal" && rnd() < 0.15 ? EKLER.find((e) => e.id === "kas") : null;
         randevular.push({
           ad: musteri.ad, telefon: musteri.telefon,
           berberId: berber.id, berber: berber.ad,
-          hizmetId, hizmet: HIZMETLER.find((h) => h.id === hizmetId).ad,
-          tarih, saat, fiyat: berber.fiyat[hizmetId], durum,
+          hizmetId, hizmet: HIZMETLER.find((h) => h.id === hizmetId).ad + (kas ? ` + ${kas.ad}` : ""),
+          tarih, saat, fiyat: berber.fiyat[hizmetId] + (kas ? kas.fiyat : 0), durum,
           // İptallerin çoğunu müşteri siteden yapar
           iptalEden: durum === "iptal" ? (rnd() < 0.7 ? "musteri" : "berber") : null,
           kaynak: sabit ? "sabit" : rnd() < 0.6 ? "web" : "panel",

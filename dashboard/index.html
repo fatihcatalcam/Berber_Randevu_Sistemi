@@ -646,6 +646,7 @@
       <div>
         <label style="font-size:12px;font-weight:700;color:var(--soluk);display:block;margin-bottom:4px;">Hizmet</label>
         <select id="elleHizmet" onchange="elleFiyatGuncelle()" style="width:100%;padding:10px;border:1px solid var(--cizgi);border-radius:8px;font-size:14px;outline:none;min-height:44px;"></select>
+        <div id="elleEkler"></div>
       </div>
       <div>
         <label style="font-size:12px;font-weight:700;color:var(--soluk);display:block;margin-bottom:4px;">Tarih</label>
@@ -696,7 +697,7 @@
 // State
 // ============================================================
 let randevular = [], kapaliSaatler = {}, kapaliGunler = {}, acikSaatler = {};
-let BERBERLER = [], SAATLER = [], SAATLER45 = [], HIZMETLER = [];
+let BERBERLER = [], SAATLER = [], SAATLER45 = [], HIZMETLER = [], EKLER = [];
 let auth = null;
 
 function slotEkle(saat, dk) {
@@ -899,7 +900,7 @@ async function authFetch(url, opts = {}) {
 async function configCek() {
   try {
     const c = await (await fetch("/api/config")).json();
-    BERBERLER = c.berberler; SAATLER = c.saatler; SAATLER45 = c.saatler45 || []; HIZMETLER = c.hizmetler;
+    BERBERLER = c.berberler; SAATLER = c.saatler; SAATLER45 = c.saatler45 || []; HIZMETLER = c.hizmetler; EKLER = c.ekler || [];
   } catch {}
 }
 
@@ -1802,6 +1803,11 @@ function elleRandevuGoster() {
   // Hizmet listesi
   const elleHizmet = document.getElementById("elleHizmet");
   elleHizmet.innerHTML = HIZMETLER.map(h => `<option value="${h.id}">${h.ad}</option>`).join("");
+  // Hizmete ekler (kaş): işaretlenince hizmet adına ve fiyata eklenir
+  document.getElementById("elleEkler").innerHTML = EKLER.map(e =>
+    `<label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:14px;cursor:pointer;min-height:32px;">
+      <input type="checkbox" class="elle-ek" value="${e.id}" onchange="elleFiyatGuncelle()" style="width:18px;height:18px;">
+      ${kacis(e.ad)} da ekle (+${e.fiyat}₺)</label>`).join("");
 
   // Tarih listesi — 14 gün, Pazar hariç
   const elleTarih = document.getElementById("elleTarih");
@@ -1859,9 +1865,12 @@ function elleFiyatGuncelle() {
   const hizmetId  = document.getElementById("elleHizmet").value;
   const berber    = BERBERLER.find(b => b.id === berberId);
   if (berber && berber.fiyat && berber.fiyat[hizmetId] !== undefined) {
-    document.getElementById("elleFiyat").value = berber.fiyat[hizmetId];
+    const ekToplam = elleEkler().reduce((t, id) => t + (EKLER.find(e => e.id === id) || { fiyat: 0 }).fiyat, 0);
+    document.getElementById("elleFiyat").value = berber.fiyat[hizmetId] + ekToplam;
   }
 }
+
+function elleEkler() { return [...document.querySelectorAll(".elle-ek:checked")].map(k => k.value); }
 
 async function elleRandevuKaydet() {
   const ad       = document.getElementById("elleAd").value.trim();
@@ -1879,7 +1888,7 @@ async function elleRandevuKaydet() {
     const res = await authFetch("/api/randevular", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ad, telefon, berberId, hizmetId, tarih, saat, fiyat: isNaN(fiyat) ? undefined : fiyat }),
+      body: JSON.stringify({ ad, telefon, berberId, hizmetId, ekler: elleEkler(), tarih, saat, fiyat: isNaN(fiyat) ? undefined : fiyat }),
     });
     const data = await res.json();
     if (!res.ok) { bildir(data.hata || "Hata oluştu."); return; }

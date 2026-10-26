@@ -170,6 +170,19 @@
   .secim-btn.secili { border-color: var(--mavi); background: var(--mavi-acik); box-shadow: 0 0 0 3px var(--mavi-halka); }
   .secim-btn small { display: block; font-weight: 400; color: var(--soluk); font-size: 12px; margin-top: 2px; }
   .secim-btn .fiyat { color: var(--mavi-koyu); font-weight: 800; white-space: nowrap; }
+  /* Hizmete ek (kaş): kartların üstünde tek kutucuk */
+  .ek-liste { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .ek-kutu {
+    display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 16px;
+    border: 1.5px dashed var(--cizgi); border-radius: 14px; background: #f8fafc;
+    font-size: 14px; font-weight: 600; color: var(--lacivert); cursor: pointer; user-select: none;
+    transition: border-color .15s, background .15s;
+  }
+  .ek-kutu input { width: 20px; height: 20px; margin: 0; accent-color: var(--mavi); flex-shrink: 0; cursor: pointer; }
+  .ek-kutu .ek-ad { flex: 1; }
+  .ek-kutu .ek-fiyat { color: var(--mavi-koyu); font-weight: 800; white-space: nowrap; }
+  .ek-kutu.secili { border-style: solid; border-color: var(--mavi); background: #eff6ff; }
+  .ek-kutu:focus-within { outline: 2px solid var(--mavi); outline-offset: 2px; }
 
   /* Usta kartları (fotoğraflı) */
   .usta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
@@ -501,6 +514,7 @@
     <button class="geri-btn" onclick="geriGit('adimBerber')">‹ Usta seçimine dön</button>
     <div class="secim-serit" data-serit="adimHizmet"></div>
     <p class="adim-baslik">2 / 5 — Hizmet Seçin</p>
+    <div class="ek-liste" id="ekListe"></div>
     <div class="secim-liste" id="hizmetListe"></div>
   </div>
 
@@ -624,8 +638,13 @@
 // ============================================================
 // State
 // ============================================================
-let BERBERLER = [], HIZMETLER = [];
-let secim = { berberId: null, hizmetId: null, tarih: null, saat: null };
+let BERBERLER = [], HIZMETLER = [], EKLER = [];
+
+// Seçilen hizmet + ekleri: ad "Saç Kesimi + Kaş Tasarımı", fiyat toplamı
+function seciliEkler() { return EKLER.filter((e) => secim.ekler.includes(e.id)); }
+function hizmetAdi(hizmet) { return [hizmet.ad, ...seciliEkler().map((e) => e.ad)].join(" + "); }
+function hizmetFiyati(berber, hizmet) { return berber.fiyat[hizmet.id] + seciliEkler().reduce((t, e) => t + e.fiyat, 0); }
+let secim = { berberId: null, hizmetId: null, ekler: [], tarih: null, saat: null };
 let dogrulamaToken = null;
 let geriSayimTimer = null;
 
@@ -695,7 +714,7 @@ function adimaDon(n) {
 
 // Başarı ekranından yeni randevuya: seçimler sıfırlanır, kayıtlı ad/telefon kalır
 function yeniRandevu() {
-  secim = { berberId: null, hizmetId: null, tarih: null, saat: null };
+  secim = { berberId: null, hizmetId: null, ekler: [], tarih: null, saat: null };
   berberListesiniDoldur();
   adimGoster("adimBerber");
 }
@@ -718,7 +737,7 @@ function secimSeritleriniGuncelle() {
     const ikon = berber.foto ? `<img src="${berber.foto}" alt="">` : "💈";
     cipler.push({ adim: 0, html: `<span class="cip-ikon">${ikon}</span>${kacis(berber.ad)}` });
   }
-  if (hizmet) cipler.push({ adim: 1, html: `<span class="cip-ikon">✂️</span>${kacis(hizmet.ad)}` });
+  if (hizmet) cipler.push({ adim: 1, html: `<span class="cip-ikon">✂️</span>${kacis(hizmetAdi(hizmet))}` });
   if (secim.tarih) {
     const t = new Date(secim.tarih + "T00:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long", weekday: "short" });
     cipler.push({ adim: 2, html: `<span class="cip-ikon">📅</span>${kacis(t)}` });
@@ -741,7 +760,7 @@ function yanPaneliGuncelle() {
   const tarih = secim.tarih && new Date(secim.tarih + "T00:00:00").toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" });
   const adimlar = [
     ["Usta", berber && berber.ad],
-    ["Hizmet", hizmet && berber && `${hizmet.ad} · ${berber.fiyat[hizmet.id]}₺`],
+    ["Hizmet", hizmet && berber && `${hizmetAdi(hizmet)} · ${hizmetFiyati(berber, hizmet)}₺`],
     ["Tarih", tarih],
     ["Saat", secim.saat],
     ["Bilgileriniz", null],
@@ -825,7 +844,7 @@ async function baslat() {
       return;
     }
     // Ustalar her açılışta karışık sırada: listenin sonundakiler daha az seçilmesin
-    BERBERLER = karistir(c.berberler); HIZMETLER = c.hizmetler;
+    BERBERLER = karistir(c.berberler); HIZMETLER = c.hizmetler; EKLER = c.ekler || [];
     RANDEVU_UFUK_GUN = c.randevuUfukGun || 14;
     OTP_AKTIF = !!c.otpAktif;
     document.getElementById("kodGonderBtn").textContent = OTP_AKTIF ? "Doğrulama Kodu Gönder" : "Randevu Al";
@@ -863,12 +882,28 @@ function berberSec(id) {
 // ============================================================
 function hizmetListesiniDoldur() {
   const berber = BERBERLER.find((b) => b.id === secim.berberId);
-  const kutu = document.getElementById("hizmetListe");
-  kutu.innerHTML = HIZMETLER.map((h) => `
+  document.getElementById("ekListe").innerHTML = EKLER.map((e) => {
+    const secili = secim.ekler.includes(e.id);
+    return `<label class="ek-kutu${secili ? " secili" : ""}">
+      <input type="checkbox" ${secili ? "checked" : ""} onchange="ekDegistir('${e.id}', this.checked)">
+      <span class="ek-ad">${kacis(e.ad)} da ekle</span>
+      <span class="ek-fiyat">+${e.fiyat}₺</span>
+    </label>`;
+  }).join("");
+  // Kart fiyatı seçili eklerle birlikte (müşteri ödeyeceği toplamı görsün)
+  document.getElementById("hizmetListe").innerHTML = HIZMETLER.map((h) => `
     <button class="secim-btn" data-id="${h.id}" onclick="hizmetSec('${h.id}')">
       <span>✂️ ${kacis(h.ad)}<small class="hizmet-sure">${kacis(h.sure || "")}</small></span>
-      <span class="fiyat">${berber.fiyat[h.id]}₺</span>
+      <span class="fiyat">${hizmetFiyati(berber, h)}₺</span>
     </button>`).join("");
+  secilenleriIsaretle();
+}
+
+function ekDegistir(id, secili) {
+  secim.ekler = secili ? [...new Set([...secim.ekler, id])] : secim.ekler.filter((x) => x !== id);
+  hizmetListesiniDoldur();
+  yanPaneliGuncelle();
+  secimSeritleriniGuncelle();
 }
 
 function hizmetSec(id) {
@@ -989,7 +1024,7 @@ function ozetGoster() {
     ${ustaGorseli(berber, "ozet-foto", "ozet-avatar-yer")}
     <div class="ozet-metin">
       <div><strong>${kacis(berber.ad)}</strong></div>
-      <div>✂️ ${kacis(hizmet.ad)} — ${berber.fiyat[hizmet.id]}₺</div>
+      <div>✂️ ${kacis(hizmetAdi(hizmet))} — ${hizmetFiyati(berber, hizmet)}₺</div>
       <div>📅 ${kacis(tarihStr)} ⏰ ${secim.saat}</div>
     </div>`;
   document.getElementById("bilgiForm").classList.remove("gizli");
@@ -1409,7 +1444,7 @@ async function randevuOlustur() {
         dogrulamaToken,
         telefon: OTP_AKTIF ? undefined : telefonGoruntu(),
         ad: document.getElementById("inAd").value.trim(),
-        berberId: secim.berberId, hizmetId: secim.hizmetId,
+        berberId: secim.berberId, hizmetId: secim.hizmetId, ekler: secim.ekler,
         tarih: secim.tarih, saat: secim.saat,
       }),
     });
@@ -1428,13 +1463,13 @@ async function randevuOlustur() {
       ${ustaGorseli(berber, "ozet-foto", "ozet-avatar-yer")}
       <div class="ozet-metin">
         <div><strong>${kacis(berber.ad)}</strong></div>
-        <div>✂️ ${kacis(hizmet.ad)}</div>
+        <div>✂️ ${kacis(hizmetAdi(hizmet))}</div>
         <div>📅 ${kacis(tarihStr)} ⏰ ${secim.saat}</div>
       </div>`;
     adimGoster("adimBasari");
     // Google Analytics dönüşümü — kişisel veri (ad/telefon) gönderilmez
     if (typeof gtag === "function") {
-      gtag("event", "randevu_alindi", { berber: berber.ad, hizmet: hizmet.ad, value: berber.fiyat[hizmet.id], currency: "TRY" });
+      gtag("event", "randevu_alindi", { berber: berber.ad, hizmet: hizmetAdi(hizmet), value: hizmetFiyati(berber, hizmet), currency: "TRY" });
     }
   } catch (e) {
     hataEl.textContent = "Bağlantı hatası, tekrar deneyin.";
