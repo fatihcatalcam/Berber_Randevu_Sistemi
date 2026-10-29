@@ -94,10 +94,14 @@ test("sayfalar Örnek Berber olarak gelir: Resul Tabu, analitik ve gerçek telef
     assert.ok(body.includes("Örnek Berber"), `${yol}: demo adı`);
     assert.ok(!body.includes("Resul"), `${yol}: Resul geçmemeli`);
     assert.ok(!body.includes("googletagmanager") && !body.includes("clarity.ms"), `${yol}: analitik yok`);
+    assert.ok(!body.includes("utm_campaign=imza"), `${yol}: gerçek dükkânın imza satırı yok`);
     assert.ok(!body.includes("905359116681") && !body.includes("logo.jpg"), `${yol}: gerçek telefon/logo yok`);
     assert.ok(body.includes('/demo/demo.js') && body.includes('content="noindex"'), `${yol}: demo arayüzü`);
   }
   assert.strictEqual((await istek("GET", "/saglik")).body, "ok");
+  assert.strictEqual((await istek("GET", "/robots.txt")).body, "User-agent: *\nDisallow: /\n", "demo taranmaz");
+  assert.strictEqual((await istek("GET", "/sitemap.xml")).status, 404);
+  assert.strictEqual((await istek("GET", "/llms.txt")).status, 404);
   assert.strictEqual((await istek("GET", "/demo/logo.svg")).status, 200);
 });
 

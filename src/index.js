@@ -1118,6 +1118,72 @@ app.get("/randevu-al", (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// Arama motorları ve yapay zekâ araçları: robots.txt, sitemap.xml, llms.txt.
+// Dükkân bilgisi config'ten gelir (fiyat/usta değişince kendiliğinden güncel).
+// Demo kurulum taranmaz: robots her yeri kapatır, site haritası ve llms.txt yok.
+// ---------------------------------------------------------------------------
+const SITE = `https://${DUKKAN.alanAdi}`;
+
+app.get("/robots.txt", (req, res) => {
+  res.type("text").send(DEMO
+    ? "User-agent: *\nDisallow: /\n"
+    : `User-agent: *\nAllow: /\nDisallow: /dashboard\nDisallow: /api/\n\nSitemap: ${SITE}/sitemap.xml\n`);
+});
+
+if (!DEMO) {
+  app.get("/sitemap.xml", (req, res) => {
+    res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>${SITE}/randevu-al</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>${SITE}/gizlilik</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>
+</urlset>
+`);
+  });
+
+  app.get("/llms.txt", (req, res) => res.type("text/markdown").send(llmsMetni()));
+}
+
+// llms.txt (llmstxt.org): yapay zekâ araçlarına dükkânı kısaca anlatan Markdown
+function llmsMetni() {
+  const tl = (n) => `${n.toLocaleString("tr-TR")} ₺`;
+  const aralik = (fiyatlar) => {
+    const az = Math.min(...fiyatlar), cok = Math.max(...fiyatlar);
+    return az === cok ? tl(az) : `${tl(az)}–${tl(cok)}`;
+  };
+  const t = String(DUKKAN.telefon);
+  const telefon = `+${t.slice(0, 2)} ${t.slice(2, 5)} ${t.slice(5, 8)} ${t.slice(8, 10)} ${t.slice(10)}`;
+  // Bütün ustaların en erken açılış ve en geç kapanış saati
+  const baslangiclar = BERBERLER.flatMap((b) => typeof b.calisma.baslangic === "string" ? [b.calisma.baslangic] : Object.values(b.calisma.baslangic));
+  const acilis = baslangiclar.sort()[0];
+  const kapanis = BERBERLER.map((b) => b.calisma.bitis).sort().at(-1);
+
+  return `# ${DUKKAN.ad}
+
+> Erkek kuaförü. Randevu bu siteden online alınır; müşteri ustayı, hizmeti, günü ve saati seçer, onay SMS'le gelir.
+
+- Adres: ${DUKKAN.adres}
+- Telefon: ${telefon}
+- Online randevu: ${SITE}/randevu-al
+- Çalışma günleri: Pazartesi–Cumartesi, ${acilis}–${kapanis} (saatler ustaya göre değişir). Pazar kapalı.
+- Randevu en fazla ${RANDEVU_UFUK_GUN / 7} hafta sonrasına alınabilir. Müşteri randevusunu aynı sayfadan, telefonuna gelen kodla değiştirebilir ya da iptal edebilir.
+
+## Hizmetler ve fiyatlar
+
+${HIZMETLER.map((h) => `- ${h.ad}: ${aralik(BERBERLER.map((b) => b.fiyat[h.id]))} (ustaya göre)`).join("\n")}
+${EKLER.map((e) => `- ${e.ad}: ${tl(e.fiyat)}, saç veya sakal hizmetine eklenir`).join("\n")}
+
+## Ustalar
+
+${BERBERLER.map((b) => `- ${b.ad}${b.admin ? " (dükkân sahibi)" : ""}`).join("\n")}
+
+## Sayfalar
+
+- [Online randevu](${SITE}/randevu-al): Usta, hizmet, gün ve saat seçerek randevu alma
+- [Gizlilik politikası](${SITE}/gizlilik)
+`;
+}
+
+// ---------------------------------------------------------------------------
 // Gizlilik Politikası — Meta uygulamayı Live'a almak için geçerli bir
 // Privacy Policy URL zorunlu kılar. Herkese açık, giriş gerektirmez.
 // ---------------------------------------------------------------------------

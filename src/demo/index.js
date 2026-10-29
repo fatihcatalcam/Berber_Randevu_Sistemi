@@ -25,6 +25,8 @@ const SIFIRLAMA_SAATI = 3;
 function demoSayfasi(dosya, sayfa) {
   let html = fs.readFileSync(path.join(KOK, dosya), "utf8");
   html = html.replace(/<!-- analitik -->[\s\S]*?<!-- \/analitik -->/, "");
+  // Gerçek dükkânın "Randevu sistemi: Çatalçam Yazılım" satırı demoda yok (orada demo alt yazısı var)
+  html = html.replace(/<!-- imza -->[\s\S]*?<!-- \/imza -->/, "");
   html = html.split(GERCEK_DUKKAN.ad).join(DUKKAN.ad);
   html = html.split(GERCEK_DUKKAN.adres).join(DUKKAN.adres);
   html = html.split(`tel:+${GERCEK_DUKKAN.telefon}`).join(`tel:+${DUKKAN.telefon}`);

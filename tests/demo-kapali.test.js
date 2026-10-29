@@ -48,6 +48,9 @@ test("sayfalar gerçek dükkânla ve analitikle gelir, demo eki yok", async () =
   assert.strictEqual(status, 200);
   assert.ok(body.includes("Resul Tabu Saç Atölyesi") && body.includes("googletagmanager"));
   assert.ok(!body.includes("/demo/demo.js") && !body.includes("noindex"));
+  // "Randevu sistemi: Çatalçam Yazılım" satırı sunucunun gönderdiği HTML'de (JS ile sonradan değil)
+  assert.ok(body.includes('Randevu sistemi: <a href="https://www.catalcamyazilim.online/?utm_source=resultabu&amp;utm_medium=referral&amp;utm_campaign=imza" target="_blank" rel="noopener">Çatalçam Yazılım</a>'));
+  assert.ok(!(await istek("GET", "/dashboard")).body.includes("catalcamyazilim"), "panelde imza yok");
   assert.ok(!(await istek("GET", "/dashboard")).body.includes("/demo/"));
   assert.strictEqual((await istek("GET", "/saglik")).status, 404);
   assert.strictEqual((await istek("GET", "/demo/demo.js")).status, 404);
@@ -71,4 +74,17 @@ test("SMS Netgsm'e gider, metinde gerçek dükkân ve adres", async () => {
   assert.strictEqual(axiosCagrilari.length, 1);
   assert.strictEqual(axiosCagrilari[0][1].params.message,
     "Resul Tabu Saç Atölyesi: Randevunuz alındı. 26 Ekim Pazartesi 10:30, Eren Tokalak, Saç Kesimi. İptal için: randevu.resultabu.com");
+});
+
+test("robots.txt, sitemap.xml ve llms.txt gerçek dükkânla gelir", async () => {
+  const robots = await istek("GET", "/robots.txt");
+  assert.ok(robots.body.includes("Disallow: /dashboard\nDisallow: /api/"));
+  assert.ok(robots.body.includes("Sitemap: https://randevu.resultabu.com/sitemap.xml"));
+  const harita = await istek("GET", "/sitemap.xml");
+  assert.ok(harita.body.includes("<loc>https://randevu.resultabu.com/randevu-al</loc>"));
+  const llms = await istek("GET", "/llms.txt");
+  assert.strictEqual(llms.status, 200);
+  assert.ok(llms.body.startsWith("# Resul Tabu Saç Atölyesi"));
+  assert.ok(llms.body.includes("Kaş Tasarımı: 300 ₺") && llms.body.includes("Resul Tabu (dükkân sahibi)"));
+  console.log(llms.body);
 });
