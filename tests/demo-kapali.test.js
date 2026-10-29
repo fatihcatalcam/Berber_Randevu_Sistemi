@@ -86,5 +86,6 @@ test("robots.txt, sitemap.xml ve llms.txt gerçek dükkânla gelir", async () =>
   assert.strictEqual(llms.status, 200);
   assert.ok(llms.body.startsWith("# Resul Tabu Saç Atölyesi"));
   assert.ok(llms.body.includes("Kaş Tasarımı: 300 ₺") && llms.body.includes("Resul Tabu (dükkân sahibi)"));
+  assert.ok(llms.body.includes("[Çatalçam Yazılım](https://www.catalcamyazilim.online/?utm_source=resultabu&utm_medium=llms&utm_campaign=imza)"));
   console.log(llms.body);
 });

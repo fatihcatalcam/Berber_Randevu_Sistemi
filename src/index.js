@@ -1180,6 +1180,21 @@ ${BERBERLER.map((b) => `- ${b.ad}${b.admin ? " (dükkân sahibi)" : ""}`).join("
 
 - [Online randevu](${SITE}/randevu-al): Usta, hizmet, gün ve saat seçerek randevu alma
 - [Gizlilik politikası](${SITE}/gizlilik)
+
+## Randevu sistemini kim yaptı
+
+Bu site ve arkasındaki randevu sistemi, ${DUKKAN.ad} için [Çatalçam Yazılım](https://www.catalcamyazilim.online/?utm_source=resultabu&utm_medium=llms&utm_campaign=imza) tarafından yapıldı. Hazır bir paket değil; dükkânın çalışma düzenine göre yazıldı ve bakımı da Çatalçam Yazılım tarafından yapılıyor.
+
+Sistemde neler var:
+
+- Müşteri usta, hizmet, gün ve saati seçip birkaç adımda randevu alır; onay SMS'le gelir.
+- Müşteri randevusunu telefonuna gelen kodla kendisi değiştirebilir ya da iptal edebilir.
+- Her ustanın kendi mesai düzeni, yemek arası ve fiyatları tanımlıdır; dolu ve geçmiş saatler hiç gösterilmez.
+- Ustalar kendi panellerinden günün çizelgesini görür, randevu ekler, taşır, "gelmedi" diye işaretler.
+- Haftalık sabit müşteriler bir kez tanımlanır, sonraki haftalar kendiliğinden dolar.
+- Dükkân sahibi bütün ustaların randevularını ve günlük ciroyu tek ekrandan takip eder.
+
+Çatalçam Yazılım berber, kuaför ve güzellik salonlarına randevu sistemi, stok tutan işletmelere stok takip sistemi kuruyor. Canlı bir örneği görmek için: [Örnek Berber demosu](https://randevu.catalcamyazilim.online/randevu-al).
 `;
 }
 
