@@ -14,6 +14,9 @@
 //
 // net: berberin kendi panelinde gördüğü günlük net gelir = (ciro - taban) * oran
 //   Resul patron olduğu için tam ciroyu görür (taban 0, oran 1).
+//
+// ayrildi: true → usta işi bıraktı. Silinmez (geçmiş randevuları ve cirosu
+//   panelde kalsın); müşteri sayfasında görünmez, yeni randevu ve panel girişi kapalı.
 // ---------------------------------------------------------------------------
 
 // DEMO=true: tanıtım kurulumu (randevu.catalcamyazilim.online). Dükkân, usta ve
@@ -56,7 +59,7 @@ const BERBERLER = demo ? demo.BERBERLER : [
     calisma: { baslangic: "10:30", bitis: "21:00", yemek: "16:30", yemekDk: 45 }, net: { taban: 0, oran: 0.45 } },
   { id: "emre",      ad: "Emre Akçam",     uzmanlik: "Saç & Sakal Tasarımı", pin: pinOku("emre"), tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/emre.jpeg",
     calisma: { baslangic: "09:30", bitis: "20:45", yemek: "16:15", yemekDk: 45 }, net: { taban: 0, oran: 0.50 } },
-  { id: "huseyin",   ad: "Hüseyin Dincer", uzmanlik: "Saç & Sakal Tasarımı", pin: pinOku("huseyin"), tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/huseyin.jpeg",
+  { id: "huseyin",   ad: "Hüseyin Dincer", uzmanlik: "Saç & Sakal Tasarımı", pin: pinOku("huseyin"), tel: null, ayrildi: true, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/huseyin.jpeg",
     calisma: { baslangic: "09:00", bitis: "21:00", yemek: "15:00", yemekDk: 45 }, net: { taban: 0, oran: 0.45 } },
   { id: "mehmetali", ad: "Mehmet Ali",     uzmanlik: "Saç & Sakal Tasarımı", pin: pinOku("mehmetali"), tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/mehmetali.jpeg",
     calisma: { baslangic: "09:30", bitis: "20:45", yemek: "16:15", yemekDk: 45 }, net: { taban: 0, oran: 0.45 } },

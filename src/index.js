@@ -314,6 +314,7 @@ app.post("/api/auth", (req, res) => {
   }
   const berber = BERBERLER.find((b) => b.id === berberId);
   if (!berber)          return res.status(404).json({ ok: false, hata: "Berber bulunamadı." });
+  if (berber.ayrildi)   return res.status(403).json({ ok: false, hata: "Bu hesap kapatıldı." });
   if (!pinDogru(berber.pin, pin)) { // PIN_<ID> tanımsızsa hesap kapalı
     girisHatasiKaydet(ip);
     return res.status(401).json({ ok: false, hata: "Yanlış PIN." });
@@ -419,7 +420,7 @@ app.get("/api/public/acik-gunler", ah(async (req, res) => {
 app.get("/api/public/musait-saatler", ah(async (req, res) => {
   const { berberId, tarih } = req.query;
   const berber = BERBERLER.find((b) => b.id === berberId);
-  if (!berber || !tarih) return res.status(400).json({ hata: "Eksik/geçersiz parametre." });
+  if (!berber || berber.ayrildi || !tarih) return res.status(400).json({ hata: "Eksik/geçersiz parametre." });
   if (!ufukIcindeMi(tarih) || !(await gunAcikMi(tarih))) return res.json({ saatler: [] });
 
   const [dolu, acikSaatler] = await Promise.all([
@@ -477,7 +478,7 @@ app.post("/api/public/randevu", ah(async (req, res) => {
 
   const berber = BERBERLER.find((b) => b.id === berberId);
   const hizmet = HIZMETLER.find((h) => h.id === hizmetId);
-  if (!berber || !hizmet) return res.status(400).json({ hata: "Geçersiz usta veya hizmet." });
+  if (!berber || berber.ayrildi || !hizmet) return res.status(400).json({ hata: "Geçersiz usta veya hizmet." });
   const secilen = hizmetEkleriyle(berber, hizmet, ekler);
   if (!secilen) return res.status(400).json({ hata: "Geçersiz ek hizmet." });
 
@@ -590,6 +591,8 @@ app.post("/api/public/randevu/:id/tasi", ah(async (req, res) => {
   }
   if (kayit.durum !== "onaylı" && kayit.durum !== "bekliyor")
     return res.status(409).json({ hata: "Bu randevu artık değiştirilemez." });
+  if ((BERBERLER.find((b) => b.id === kayit.berberId) || {}).ayrildi)
+    return res.status(409).json({ hata: "Bu usta artık dükkânda çalışmıyor. Randevunuzu iptal edip başka bir ustadan yeni randevu alabilirsiniz." });
   if (slotGectiMi(kayit.tarih, kayit.saat))
     return res.status(400).json({ hata: "Saati geçmiş bir randevu değiştirilemez." });
   if (tarih === kayit.tarih && saat === kayit.saat)
@@ -651,6 +654,7 @@ app.post("/api/randevular", requireAuth, ah(async (req, res) => {
   const berber = BERBERLER.find((b) => b.id === berberId);
   const hizmet = HIZMETLER.find((h) => h.id === hizmetId);
   if (!berber || !hizmet) return res.status(400).json({ hata: "Geçersiz berber veya hizmet." });
+  if (berber.ayrildi) return res.status(400).json({ hata: "Bu usta artık dükkânda çalışmıyor." });
   const secilen = hizmetEkleriyle(berber, hizmet, ekler);
   if (!secilen) return res.status(400).json({ hata: "Geçersiz ek hizmet." });
 
@@ -756,7 +760,7 @@ app.delete("/api/randevular/:id", requireAuth, ah(async (req, res) => {
 async function sabitUret(kural) {
   const berber = BERBERLER.find((b) => b.id === kural.berberId);
   const hizmet = HIZMETLER.find((h) => h.id === kural.hizmetId);
-  if (!berber || !hizmet) return { olusturulan: [], atlanan: [] };
+  if (!berber || berber.ayrildi || !hizmet) return { olusturulan: [], atlanan: [] };
 
   const { tarihler, bitis } = sabitTarihleri(kural);
   const olusturulan = [], atlanan = [];
@@ -804,6 +808,7 @@ function sabitGirdisi(body, berberId, baslangic) {
 
   if (!ad || !String(ad).trim() || !saat) return { hata: "Eksik parametre." };
   if (!berber || !hizmet) return { hata: "Geçersiz berber veya hizmet." };
+  if (berber.ayrildi) return { hata: "Bu usta artık dükkânda çalışmıyor." };
   if (!Number.isInteger(gun) || gun < 1 || gun > 6) return { hata: "Gün Pazartesi–Cumartesi arası olmalı." };
 
   let ilkTarih = baslangic;
@@ -1145,6 +1150,7 @@ if (!DEMO) {
 
 // llms.txt (llmstxt.org): yapay zekâ araçlarına dükkânı kısaca anlatan Markdown
 function llmsMetni() {
+  const ustalar = BERBERLER.filter((b) => !b.ayrildi);
   const tl = (n) => `${n.toLocaleString("tr-TR")} ₺`;
   const aralik = (fiyatlar) => {
     const az = Math.min(...fiyatlar), cok = Math.max(...fiyatlar);
@@ -1153,9 +1159,9 @@ function llmsMetni() {
   const t = String(DUKKAN.telefon);
   const telefon = `+${t.slice(0, 2)} ${t.slice(2, 5)} ${t.slice(5, 8)} ${t.slice(8, 10)} ${t.slice(10)}`;
   // Bütün ustaların en erken açılış ve en geç kapanış saati
-  const baslangiclar = BERBERLER.flatMap((b) => typeof b.calisma.baslangic === "string" ? [b.calisma.baslangic] : Object.values(b.calisma.baslangic));
+  const baslangiclar = ustalar.flatMap((b) => typeof b.calisma.baslangic === "string" ? [b.calisma.baslangic] : Object.values(b.calisma.baslangic));
   const acilis = baslangiclar.sort()[0];
-  const kapanis = BERBERLER.map((b) => b.calisma.bitis).sort().at(-1);
+  const kapanis = ustalar.map((b) => b.calisma.bitis).sort().at(-1);
 
   return `# ${DUKKAN.ad}
 
@@ -1169,12 +1175,12 @@ function llmsMetni() {
 
 ## Hizmetler ve fiyatlar
 
-${HIZMETLER.map((h) => `- ${h.ad}: ${aralik(BERBERLER.map((b) => b.fiyat[h.id]))} (ustaya göre)`).join("\n")}
+${HIZMETLER.map((h) => `- ${h.ad}: ${aralik(ustalar.map((b) => b.fiyat[h.id]))} (ustaya göre)`).join("\n")}
 ${EKLER.map((e) => `- ${e.ad}: ${tl(e.fiyat)}, saç veya sakal hizmetine eklenir`).join("\n")}
 
 ## Ustalar
 
-${BERBERLER.map((b) => `- ${b.ad}${b.admin ? " (dükkân sahibi)" : ""}`).join("\n")}
+${ustalar.map((b) => `- ${b.ad}${b.admin ? " (dükkân sahibi)" : ""}`).join("\n")}
 
 ## Sayfalar
 

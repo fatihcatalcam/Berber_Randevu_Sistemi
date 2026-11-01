@@ -89,3 +89,24 @@ test("robots.txt, sitemap.xml ve llms.txt gerçek dükkânla gelir", async () =>
   assert.ok(llms.body.includes("[Çatalçam Yazılım](https://www.catalcamyazilim.online/?utm_source=resultabu&utm_medium=llms&utm_campaign=imza)"));
   console.log(llms.body);
 });
+
+test("ayrılan usta (Hüseyin): panele giremez, yeni randevu ve boş saat yok, geçmişi için listede durur", async () => {
+  const { BERBERLER } = require("../src/config");
+  assert.strictEqual(BERBERLER.find((b) => b.id === "huseyin").ayrildi, true);
+  assert.strictEqual((await istek("POST", "/api/auth", { berberId: "huseyin", pin: process.env.PIN_HUSEYIN })).status, 403);
+  assert.strictEqual((await istek("GET", "/api/public/musait-saatler?berberId=huseyin&tarih=2026-11-03")).status, 400);
+  const r = await istek("POST", "/api/public/randevu", { ad: "Ali", telefon: "05553340001", berberId: "huseyin", hizmetId: "sac", tarih: "2026-11-03", saat: "10:30" });
+  assert.strictEqual(r.status, 400);
+  const token = JSON.parse((await istek("POST", "/api/auth", { admin: true, pin: process.env.ADMIN_PIN })).body).token;
+  const elle = await new Promise((resolve, reject) => {
+    const veri = JSON.stringify({ ad: "Ali", berberId: "huseyin", hizmetId: "sac", tarih: "2026-11-03", saat: "10:30" });
+    const req = http.request({ host: "localhost", port: 3219, path: "/api/randevular", method: "POST",
+      headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(veri), Authorization: `Bearer ${token}` } },
+      (res) => { let b = ""; res.on("data", (c) => (b += c)); res.on("end", () => resolve({ status: res.statusCode, body: b })); });
+    req.on("error", reject); req.write(veri); req.end();
+  });
+  assert.strictEqual(elle.status, 400);
+  assert.match(elle.body, /artık dükkânda çalışmıyor/);
+  const llms = (await istek("GET", "/llms.txt")).body;
+  assert.ok(!llms.includes("Hüseyin"), "llms.txt'de ayrılan usta yok");
+});

@@ -252,6 +252,7 @@ function ciroRender() {
 
   BERBERLER.forEach((b) => {
     const bRand = gunRand.filter((r) => r.berberId === b.id);
+    if (b.ayrildi && !bRand.length) return; // ayrılan usta sadece randevusu olan günde
     const bCiro = bRand.reduce((s, r) => s + (r.gercekFiyat ?? r.fiyat ?? 0), 0);
     const bNet = berberNet(b, bCiro);
     toplamCiro += bCiro; toplamSayi += bRand.length; toplamNet += bNet;

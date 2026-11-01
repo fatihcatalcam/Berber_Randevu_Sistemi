@@ -825,7 +825,7 @@ function cikis() {
 function berberKartlariniYukle() {
   const grid = document.getElementById("berberKartGrid");
   grid.innerHTML = "";
-  BERBERLER.forEach((b) => {
+  calisanBerberler().forEach((b) => {
     const btn = document.createElement("button");
     btn.className = "berber-kart-btn";
     btn.innerHTML = `<span style="font-size:22px;">💈</span><span>${kacis(b.ad)}</span>`;
@@ -1206,8 +1206,15 @@ function gorRunumRandevular() {
   return randevular.filter((r) => r.berberId === auth.berberId);
 }
 
+// Ayrılan usta (ayrildi) girişte, formlarda ve boş günlerin çizelgesinde görünmez;
+// geçmiş/ileri tarihli randevusu olan günde sütunu çizelgede kalır.
+function calisanBerberler() { return BERBERLER.filter((b) => !b.ayrildi); }
+
 function gorRunumBerberler() {
-  if (!auth || auth.role === "admin") return BERBERLER;
+  if (!auth || auth.role === "admin") {
+    return BERBERLER.filter((b) => !b.ayrildi ||
+      randevular.some((r) => r.berberId === b.id && r.tarih === seciliTarih && r.durum !== "iptal"));
+  }
   return BERBERLER.filter((b) => b.id === auth.berberId);
 }
 
@@ -1791,8 +1798,8 @@ function elleRandevuGoster() {
   const elleBerber = document.getElementById("elleBerber");
   elleBerber.innerHTML = "";
   const gorulenler = auth.role === "admin" || auth.role === "berber" && auth.berberId
-    ? (auth.role === "admin" ? BERBERLER : BERBERLER.filter(b => b.id === auth.berberId))
-    : BERBERLER;
+    ? (auth.role === "admin" ? calisanBerberler() : BERBERLER.filter(b => b.id === auth.berberId))
+    : calisanBerberler();
   gorulenler.forEach(b => {
     const o = document.createElement("option");
     o.value = b.id; o.textContent = b.ad;
@@ -1911,7 +1918,7 @@ function sonrakiGunTarihi(gun) {
 async function sabitGoster() {
   const isAdmin = auth.role === "admin";
   const berberSel = document.getElementById("sabitBerber");
-  const liste = isAdmin ? BERBERLER : BERBERLER.filter(b => b.id === auth.berberId);
+  const liste = isAdmin ? calisanBerberler() : BERBERLER.filter(b => b.id === auth.berberId);
   berberSel.innerHTML = liste.map(b => `<option value="${b.id}">${kacis(b.ad)}</option>`).join("");
   if (auth.berberId) berberSel.value = auth.berberId;
   document.getElementById("sabitBerberWrap").style.display = isAdmin ? "" : "none";

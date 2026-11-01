@@ -173,7 +173,7 @@ async function adimKisiSayisi(telefon, metin, s) {
 // Berber seçim listesi (ilk seçimde ve "başka berber" navigasyonunda kullanılır)
 async function berberListesiGonder(telefon, s) {
   const sayi = s.veri.kisiSayisi || 1;
-  const rows = BERBERLER.map((b) => ({
+  const rows = BERBERLER.filter((b) => !b.ayrildi).map((b) => ({
     id:          `berber_${b.id}`,
     title:       b.ad,
     description: b.uzmanlik,

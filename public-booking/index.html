@@ -855,7 +855,7 @@ async function baslat() {
       return;
     }
     // Ustalar her açılışta karışık sırada: listenin sonundakiler daha az seçilmesin
-    BERBERLER = karistir(c.berberler); HIZMETLER = c.hizmetler; EKLER = c.ekler || [];
+    BERBERLER = karistir(c.berberler.filter((b) => !b.ayrildi)); HIZMETLER = c.hizmetler; EKLER = c.ekler || [];
     RANDEVU_UFUK_GUN = c.randevuUfukGun || 14;
     OTP_AKTIF = !!c.otpAktif;
     document.getElementById("kodGonderBtn").textContent = OTP_AKTIF ? "Doğrulama Kodu Gönder" : "Randevu Al";
@@ -1274,7 +1274,7 @@ function iptalKartHtml(r) {
       </div>
     </div>
     <div class="randevu-eylem">
-      <button class="btn" onclick="degistirBaslat('${r.id}')">Tarihi Değiştir</button>
+      ${BERBERLER.some((b) => b.id === r.berberId) ? `<button class="btn" onclick="degistirBaslat('${r.id}')">Tarihi Değiştir</button>` : ""}
       <button class="btn btn-ikincil" onclick="iptalOnayIste('${r.id}', this)">İptal Et</button>
     </div>`;
 }
