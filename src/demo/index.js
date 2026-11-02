@@ -31,7 +31,7 @@ function demoSayfasi(dosya, sayfa) {
   html = html.split(GERCEK_DUKKAN.adres).join(DUKKAN.adres);
   html = html.split(`tel:+${GERCEK_DUKKAN.telefon}`).join(`tel:+${DUKKAN.telefon}`);
   html = html.replace(/src="(\/dashboard\/)?logo\.jpg"/g, `src="${DUKKAN.logo}"`);
-  const ayar = { sayfa, dukkan: DUKKAN.ad, instagram: DUKKAN.instagram, sifirlamaSaati: SIFIRLAMA_SAATI };
+  const ayar = { sayfa, dukkan: DUKKAN.ad, instagram: DUKKAN.instagram, sifirlamaSaati: SIFIRLAMA_SAATI, analitik: DUKKAN.analitik };
   const ek = `<meta name="robots" content="noindex">
 <link rel="stylesheet" href="/demo/demo.css">
 <script>window.DEMO = ${JSON.stringify(ayar)};</script>

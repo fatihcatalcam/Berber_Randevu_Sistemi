@@ -51,6 +51,12 @@ test("sayfalar gerçek dükkânla ve analitikle gelir, demo eki yok", async () =
   // "Randevu sistemi: Çatalçam Yazılım" satırı sunucunun gönderdiği HTML'de (JS ile sonradan değil)
   assert.ok(body.includes('Randevu sistemi: <a href="https://www.catalcamyazilim.online/?utm_source=resultabu&amp;utm_medium=referral&amp;utm_campaign=imza" target="_blank" rel="noopener">Çatalçam Yazılım</a>'));
   assert.ok(!(await istek("GET", "/dashboard")).body.includes("catalcamyazilim"), "panelde imza yok");
+  // Demonun ölçüm kimlikleri gerçek sitede hiçbir sayfada yok
+  for (const yol of ["/randevu-al/", "/dashboard", "/dashboard/ciro"]) {
+    const sayfa = (await istek("GET", yol)).body;
+    assert.ok(!sayfa.includes("G-SX7D3VF23M") && !sayfa.includes("z2cy6gcjxh"), yol + ": demo kimliği yok");
+  }
+  assert.ok(body.includes("G-HTZ8CSV1YD") && body.includes("z04ahgwbec"), "dükkânın kendi kodları duruyor");
   assert.ok(!(await istek("GET", "/dashboard")).body.includes("/demo/"));
   assert.strictEqual((await istek("GET", "/saglik")).status, 404);
   assert.strictEqual((await istek("GET", "/demo/demo.js")).status, 404);

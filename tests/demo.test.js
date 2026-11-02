@@ -95,6 +95,8 @@ test("sayfalar Örnek Berber olarak gelir: Resul Tabu, analitik ve gerçek telef
     assert.ok(!body.includes("Resul"), `${yol}: Resul geçmemeli`);
     assert.ok(!body.includes("googletagmanager") && !body.includes("clarity.ms"), `${yol}: analitik yok`);
     assert.ok(!body.includes("utm_campaign=imza"), `${yol}: gerçek dükkânın imza satırı yok`);
+    assert.ok(!body.includes("G-HTZ8CSV1YD") && !body.includes("z04ahgwbec"), `${yol}: dükkânın ölçüm kimliği yok`);
+    assert.ok(body.includes('"analitik":{"ga":"G-SX7D3VF23M","clarity":"z2cy6gcjxh"'), `${yol}: demo ölçüm ayarı (onaydan sonra yüklenir)`);
     assert.ok(!body.includes("905359116681") && !body.includes("logo.jpg"), `${yol}: gerçek telefon/logo yok`);
     assert.ok(body.includes('/demo/demo.js') && body.includes('content="noindex"'), `${yol}: demo arayüzü`);
   }

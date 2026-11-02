@@ -64,6 +64,78 @@
       ? '<a class="demo-serit-btn" href="/dashboard">Usta panelini gör →</a>'
       : '<a class="demo-serit-btn" href="/randevu-al">Müşteri sayfası →</a>'));
 
+  // --- Çerez onayı: GA ve Clarity sadece "Kabul et"ten sonra yüklenir ---
+  // Tercih bütün *.catalcamyazilim.online alt alan adlarında ortak bir çerezde
+  // (portföyde verilen karar demoda da geçerli). Yerelde (localhost) domain'siz yazılır.
+  const A = D.analitik || {};
+  const TERCIH = "cerez-tercihi";
+  const cerezAlani = A.cerezAlani && location.hostname.endsWith(A.cerezAlani) ? `; domain=.${A.cerezAlani}` : "";
+  const tercihOku = () => (document.cookie.match(new RegExp(`(?:^|; )${TERCIH}=([^;]*)`)) || [])[1];
+  const tercihYaz = (deger) => {
+    document.cookie = `${TERCIH}=${deger}${cerezAlani}; path=/; max-age=${365 * 24 * 3600}; SameSite=Lax`;
+  };
+  const cerezSil = (ad) => {
+    const alanlar = ["", `; domain=${location.hostname}`, cerezAlani].filter((x, i, d) => d.indexOf(x) === i);
+    for (const alan of alanlar) document.cookie = `${ad}=; path=/; max-age=0${alan}`;
+  };
+  let olcumYuklendi = false;
+
+  function olcumuYukle() {
+    if (olcumYuklendi || !A.ga) return;
+    olcumYuklendi = true;
+    const gtagJs = document.createElement("script");
+    gtagJs.async = true;
+    gtagJs.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(A.ga)}`;
+    document.head.appendChild(gtagJs);
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function () { window.dataLayer.push(arguments); };
+    window.gtag("js", new Date());
+    window.gtag("config", A.ga);
+
+    window.clarity = window.clarity || function () { (window.clarity.q = window.clarity.q || []).push(arguments); };
+    const clarityJs = document.createElement("script");
+    clarityJs.async = true;
+    clarityJs.src = `https://www.clarity.ms/tag/${encodeURIComponent(A.clarity)}`;
+    document.head.appendChild(clarityJs);
+    window.clarity("consentv2", { ad_Storage: "denied", analytics_Storage: "granted" });
+  }
+
+  function olcumuKapat() {
+    // Bu sayfada daha önce kabul edilmişse Clarity'ye de bildir; yüklü değilse hiçbir istek gitmez
+    if (typeof window.clarity === "function") window.clarity("consentv2", { ad_Storage: "denied", analytics_Storage: "denied" });
+    const adlar = document.cookie.split("; ").map((c) => c.split("=")[0]);
+    for (const ad of adlar) if (ad === "_ga" || ad.startsWith("_ga_") || ad === "_clck" || ad === "_clsk") cerezSil(ad);
+  }
+
+  let bildirim = null;
+  function cerezBildirimiGoster() {
+    if (bildirim) return;
+    bildirim = yeni("div", "demo-cerez",
+      `<p>Sitenin nasıl kullanıldığını görmek için Google Analytics ve Microsoft Clarity çerezlerini kullanmak istiyorum. Clarity sayfadaki tıklamaları ve kaydırmaları kaydeder. Kabul etmezseniz hiçbir ölçüm yapılmaz.</p>
+       <div class="demo-cerez-dugmeler">
+         <button type="button" data-tercih="evet">Kabul et</button>
+         <button type="button" data-tercih="hayir">Reddet</button>
+       </div>`);
+    bildirim.setAttribute("role", "dialog");
+    bildirim.setAttribute("aria-label", "Çerez tercihi");
+    bildirim.addEventListener("click", (e) => {
+      const deger = e.target.dataset && e.target.dataset.tercih;
+      if (!deger) return;
+      tercihYaz(deger);
+      if (deger === "evet") olcumuYukle(); else olcumuKapat();
+      bildirim.remove(); bildirim = null;
+      document.body.style.paddingBottom = "";
+    });
+    document.body.appendChild(bildirim);
+    // Sayfanın son düğmeleri bildirimin altında kalmasın: o kadar boşluk bırak
+    document.body.style.paddingBottom = `${bildirim.offsetHeight + 24}px`;
+  }
+
+  const tercih = tercihOku();
+  if (tercih === "evet") olcumuYukle();
+  else if (tercih === "hayir") olcumuKapat();
+  else cerezBildirimiGoster();
+
   // --- Müşteri randevu sayfası ---
   if (D.sayfa === "randevu") {
     document.body.prepend(serit());
@@ -82,7 +154,9 @@
     if (basariSms) basariSms.textContent = "📩 Gerçek sistemde müşteriye onay SMS'i gider (üstte gösterildi).";
     document.body.appendChild(yeni("footer", "demo-alt",
       `Bu sistemi <b>Çatalçam Yazılım</b> yaptı. Kendi dükkânın için Instagram'dan DM at: ${instagram}` +
-      `<br><a href="/dashboard">Usta ve yönetici panelini gör →</a>`));
+      `<br><a href="/dashboard">Usta ve yönetici panelini gör →</a>` +
+      ` · <a href="#" class="demo-cerez-ac">Çerez tercihleri</a>`));
+    document.querySelector(".demo-cerez-ac").addEventListener("click", (e) => { e.preventDefault(); cerezBildirimiGoster(); });
   }
 
   // --- Panel ve ciro: üst şerit + şifresiz giriş (sunucu demoda PIN sormaz) ---

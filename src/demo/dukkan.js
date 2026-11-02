@@ -10,6 +10,9 @@ const DUKKAN = {
   alanAdi: "randevu.catalcamyazilim.online",
   logo: "/demo/logo.svg",
   instagram: "catalcamyazilim",
+  // Ölçüm sadece demoda ve çerez onayından sonra (src/demo/arayuz/demo.js). Gerçek
+  // dükkânın kendi GA/Clarity kodları ayrıdır, sayfanın <!-- analitik --> bloğundadır.
+  analitik: { ga: "G-SX7D3VF23M", clarity: "z2cy6gcjxh", cerezAlani: "catalcamyazilim.online" },
 };
 
 const PATRON_FIYAT = { sac: 700, sakal: 250, kombin: 900 };
