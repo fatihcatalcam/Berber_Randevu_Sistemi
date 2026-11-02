@@ -316,7 +316,9 @@
   /* --- Şu an / geçmiş / sıradaki (sadece bugün) --- */
   .cizelge-kont td.gecmis { opacity: .42; }
   .cizelge-kont td.simdi { box-shadow: inset 4px 0 0 #ef4444; }
-  .cizelge-kont td.siradaki { box-shadow: inset 0 0 0 2px #2563eb; }
+  /* Hücre sınıfı .siradaki DEĞİL: o ad üstteki "Sıradaki" kutusunun flex kapsayıcısı; td'ye
+     uygulanınca hücre tablodan çıkıp sütunlar karışıyordu */
+  .cizelge-kont td.siradaki-hucre { box-shadow: inset 0 0 0 2px #2563eb; }
   .cizelge-kont td.simdi-saat { color: #dc2626 !important; }
   .siradaki { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
   .siradaki.bos { color: var(--soluk); font-size: 13px; font-weight: 600; padding: 8px 2px; }
@@ -1395,7 +1397,7 @@ function cizelgeRender() {
   const zamanSinifi = (saat, berberId, r) => {
     if (!bugunMu) return "";
     const bas = _saatToDk(saat), bit = bas + berberSlotDk(berberId);
-    if (r && siradakiIdler.has(r.id) && bas > simdiDk) return " siradaki";
+    if (r && siradakiIdler.has(r.id) && bas > simdiDk) return " siradaki-hucre";
     if (bit <= simdiDk) return " gecmis";
     if (bas <= simdiDk) return " simdi";
     return "";
