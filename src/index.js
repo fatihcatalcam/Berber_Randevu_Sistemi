@@ -11,7 +11,7 @@ const crypto = require("crypto");
 const db = require("./db");
 const { handleMessage } = require("./bot");
 const { sendText, sendTemplate } = require("./whatsapp");
-const { DEMO, DUKKAN, BERBERLER, HIZMETLER, EKLER, SAATLER, SAATLER_45, ADMIN_PIN, CIRO_PIN, berberCalismaSaatleri } = require("./config");
+const { DEMO, DUKKAN, BERBERLER, HIZMETLER, EKLER, SAATLER, SAATLER_45, ADMIN_PIN, CIRO_PIN, berberCalismaSaatleri, hizmetFiyati } = require("./config");
 const sheets = require("./sheets");
 const sms = require("./sms");
 const eposta = require("./email");
@@ -20,16 +20,19 @@ const { slotGectiMi, acikSaatleriGetir, bugunStr, gunEkle, sabitTarihleri } = re
 // Müşteri bildirimleri SMS ile gider. WhatsApp artık kullanılmıyor; eski bot
 // akışı ancak WHATSAPP_AKTIF=true verilirse, bottan gelen randevular için devreye girer.
 // (Elle girilen eski randevular da kaynak='whatsapp' kayıtlı; bu yüzden kaynağa değil anahtara bakılır.)
-// Seçilen hizmete ekler (ör. kaş): randevu kaydında hizmet adı "Saç Kesimi + Kaş Tasarımı"
-// olur, fiyatına ekin fiyatı eklenir. Çizelge, ciro, SMS ve Sheets bu ad ve fiyatı kullanır.
-// Bilinmeyen ek varsa null döner.
+// Seçilen hizmete ekler (ör. kaş, keratin): randevu kaydında hizmet adı "Saç Kesimi + Kaş Tasarımı"
+// olur, fiyatına eklerin fiyatı eklenir. Çizelge, ciro, SMS ve Sheets bu ad ve fiyatı kullanır.
+// Keratinin kesintisi (çırak bahşişi) kayıttaki fiyattan düşülür: müşteri musteriFiyat'ı öder.
+// Bilinmeyen ek ya da aynı gruptan ikinci seçim (iki keratin) varsa null döner.
 function hizmetEkleriyle(berber, hizmet, ekIdleri) {
   const ekler = [...new Set(Array.isArray(ekIdleri) ? ekIdleri : [])].map((id) => EKLER.find((e) => e.id === id));
   if (ekler.some((e) => !e)) return null;
-  return {
-    ad: [hizmet.ad, ...ekler.map((e) => e.ad)].join(" + "),
-    fiyat: berber.fiyat[hizmet.id] + ekler.reduce((t, e) => t + e.fiyat, 0),
-  };
+  const hepsi = [hizmet, ...ekler];
+  const gruplar = hepsi.filter((x) => x.grup).map((x) => x.grup);
+  if (new Set(gruplar).size !== gruplar.length) return null;
+  const musteriFiyat = hizmetFiyati(berber, hizmet) + ekler.reduce((t, e) => t + e.fiyat, 0);
+  const kesinti = hepsi.reduce((t, x) => t + (x.kesinti || 0), 0);
+  return { ad: hepsi.map((x) => x.ad).join(" + "), musteriFiyat, kesinti, fiyat: musteriFiyat - kesinti };
 }
 
 function smsMusterisi(r) {
@@ -505,7 +508,7 @@ app.post("/api/public/randevu", ah(async (req, res) => {
       berberId, berber: berber.ad,
       hizmetId, hizmet: secilen.ad,
       tarih, saat,
-      fiyat: secilen.fiyat,
+      fiyat: secilen.fiyat, kesinti: secilen.kesinti,
       kaynak: "web",
       durum: "onaylı", // berber onayı kalktı — web randevusu doğrudan onaylanmış sayılır
     });
@@ -667,7 +670,9 @@ app.post("/api/randevular", requireAuth, ah(async (req, res) => {
       berberId, berber: berber.ad,
       hizmetId, hizmet: secilen.ad,
       tarih, saat,
-      fiyat: typeof fiyat === "number" ? fiyat : secilen.fiyat,
+      // Paneldeki fiyat alanı müşterinin ödediği; kesinti (keratin) ondan düşülür
+      fiyat: typeof fiyat === "number" ? Math.max(0, fiyat - secilen.kesinti) : secilen.fiyat,
+      kesinti: secilen.kesinti,
       durum: "onaylı", // elle eklenen randevu direkt onaylı
       kaynak: "panel",
     });
@@ -808,6 +813,7 @@ function sabitGirdisi(body, berberId, baslangic) {
 
   if (!ad || !String(ad).trim() || !saat) return { hata: "Eksik parametre." };
   if (!berber || !hizmet) return { hata: "Geçersiz berber veya hizmet." };
+  if (hizmet.grup) return { hata: "Sabit müşteri saç/sakal hizmetleri için tanımlanabilir." };
   if (berber.ayrildi) return { hata: "Bu usta artık dükkânda çalışmıyor." };
   if (!Number.isInteger(gun) || gun < 1 || gun > 6) return { hata: "Gün Pazartesi–Cumartesi arası olmalı." };
 
@@ -1175,8 +1181,10 @@ function llmsMetni() {
 
 ## Hizmetler ve fiyatlar
 
-${HIZMETLER.map((h) => `- ${h.ad}: ${aralik(ustalar.map((b) => b.fiyat[h.id]))} (ustaya göre)`).join("\n")}
-${EKLER.map((e) => `- ${e.ad}: ${tl(e.fiyat)}, saç veya sakal hizmetine eklenir`).join("\n")}
+${HIZMETLER.map((h) => h.fiyat
+  ? `- ${h.ad} (${h.aciklama.toLocaleLowerCase("tr")}): ${tl(h.fiyat)}, tek başına ya da saç/sakal hizmetiyle aynı randevuda. ${h.not}`
+  : `- ${h.ad}: ${aralik(ustalar.map((b) => b.fiyat[h.id]))} (ustaya göre)`).join("\n")}
+${EKLER.filter((e) => !HIZMETLER.includes(e)).map((e) => `- ${e.ad}: ${tl(e.fiyat)}, saç veya sakal hizmetine eklenir`).join("\n")}
 
 ## Ustalar
 

@@ -64,9 +64,9 @@ const eren = BERBERLER.find((b) => b.id === "eren");
 const webRandevu = (ek) => istek("POST", "/api/public/randevu",
   { ad: "Ali Veli", telefon: "0555 334 00 01", berberId: "eren", tarih: SALI, ...ek });
 
-test("config ekleri verir: Kaş Tasarımı 300₺", async () => {
+test("config ekleri verir: Kaş Tasarımı 300₺ (keratinler: tests/keratin.test.js)", async () => {
   const { body } = await istek("GET", "/api/config");
-  assert.deepStrictEqual(body.ekler, [{ id: "kas", ad: "Kaş Tasarımı", fiyat: 300 }]);
+  assert.deepStrictEqual(body.ekler[0], { id: "kas", ad: "Kaş Tasarımı", fiyat: 300 });
 });
 
 test("web: kaş eklenince hizmet adı ve fiyatı birleşir, onay SMS'i birleşik adla gider", async () => {

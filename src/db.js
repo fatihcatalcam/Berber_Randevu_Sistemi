@@ -103,6 +103,9 @@ async function init() {
   await pool.query(`ALTER TABLE randevular ADD COLUMN IF NOT EXISTS kaynak TEXT DEFAULT 'whatsapp'`);
   // Haftalık sabit müşteri kuralından üretilen randevunun kural id'si
   await pool.query(`ALTER TABLE randevular ADD COLUMN IF NOT EXISTS sabit_id BIGINT`);
+  // Müşterinin ödediğinden düşülüp fiyata yazılmayan tutar (keratinde çırak bahşişi).
+  // Müşterinin ödediği = (gercek_fiyat ?? fiyat) + kesinti
+  await pool.query(`ALTER TABLE randevular ADD COLUMN IF NOT EXISTS kesinti INTEGER`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS sabit_randevular (
@@ -203,6 +206,7 @@ function rowToRandevu(row) {
     email:       row.email         ?? undefined,
     kaynak:      row.kaynak        ?? "whatsapp",
     sabitId:     row.sabit_id != null ? Number(row.sabit_id) : undefined,
+    kesinti:     row.kesinti       ?? undefined,
     olusturulma: Number(row.olusturulma),
   };
 }
@@ -274,8 +278,8 @@ async function add(randevu) {
     await pool.query(
       `INSERT INTO randevular
          (id, ad, telefon, berber_id, berber, hizmet_id, hizmet,
-          tarih, saat, fiyat, durum, kisi_sayisi, kisiler, olusturulma, email, kaynak, sabit_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+          tarih, saat, fiyat, durum, kisi_sayisi, kisiler, olusturulma, email, kaynak, sabit_id, kesinti)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
       [
         id, randevu.ad, randevu.telefon,
         randevu.berberId, randevu.berber,
@@ -288,6 +292,7 @@ async function add(randevu) {
         randevu.email || null,
         kaynak,
         randevu.sabitId || null,
+        randevu.kesinti || null,
       ]
     );
   } catch (e) {

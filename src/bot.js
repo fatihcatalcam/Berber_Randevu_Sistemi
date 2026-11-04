@@ -211,7 +211,8 @@ async function hizmetSor(telefon, s, kisiIndex) {
   const kisiSayisi = s.veri.kisiSayisi || 1;
   const prefix    = kisiSayisi > 1 ? `${kisiIndex + 1}. kişi için ` : "";
 
-  const rows = HIZMETLER.map((h) => ({
+  // Bot sadece ustaya göre fiyatlı hizmetleri sunar (keratin web sitesinden)
+  const rows = HIZMETLER.filter((h) => !h.grup).map((h) => ({
     id:          `hizmet_${h.id}`,
     title:       h.ad,
     description: `${berber.fiyat[h.id]}₺`,

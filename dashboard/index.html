@@ -588,7 +588,7 @@
 
     <!-- Ücret düzenleme -->
     <div id="fiyatBolum" style="display:none;border-top:1px solid var(--cizgi);padding-top:12px;margin-top:8px;">
-      <p style="font-size:13px;color:var(--soluk);margin-bottom:8px;">Standart ücret: <strong id="standartFiyat"></strong>₺</p>
+      <p style="font-size:13px;color:var(--soluk);margin-bottom:8px;">Standart ücret: <strong id="standartFiyat"></strong>₺<span id="fiyatKesintiNot"></span></p>
       <div style="display:flex;gap:8px;">
         <input id="fiyatInput" type="number" inputmode="numeric" min="0" placeholder="Gerçek alınan ücret (₺)"
           style="flex:1;padding:11px 12px;border:1px solid var(--cizgi);border-radius:8px;font-size:14px;outline:none;min-height:44px;" />
@@ -661,6 +661,7 @@
       <div>
         <label style="font-size:12px;font-weight:700;color:var(--soluk);display:block;margin-bottom:4px;">Fiyat (₺)</label>
         <input id="elleFiyat" type="number" inputmode="numeric" min="0" placeholder="₺" style="width:100%;padding:10px;border:1px solid var(--cizgi);border-radius:8px;font-size:14px;outline:none;min-height:44px;box-sizing:border-box;">
+        <div id="elleKesintiNot" style="font-size:12px;color:var(--soluk);margin-top:4px;"></div>
       </div>
       <button onclick="elleRandevuKaydet()" class="modal-btn modal-btn-yesil" style="margin-top:4px;">Kaydet (Onaylı olarak ekle)</button>
     </div>
@@ -1676,6 +1677,10 @@ function hucreMenu(id) {
   const fiyatHtml = r.gercekFiyat !== undefined
     ? `<s style="color:#9ca3af;">${r.fiyat}₺</s> → <strong style="color:#059669;">${r.gercekFiyat}₺</strong> ✏️`
     : `${r.fiyat}₺`;
+  // Keratin: müşteri kesinti kadar fazla öder, ciroya yazılmaz (çırak bahşişi)
+  const kesinti = r.kesinti || 0;
+  const kesintiSatiri = kesinti
+    ? ` <span style="color:var(--soluk);font-size:12px;">(müşteri ${(r.gercekFiyat ?? r.fiyat) + kesinti}₺ öder, ${kesinti}₺ çırak bahşişi)</span>` : "";
   const notSatiri = r.aciklama ? `<br>📝 ${kacis(r.aciklama)}` : "";
   const gelmedi = gelmediSayisi(r);
   const gelmediSatiri = gelmedi > 0
@@ -1684,13 +1689,15 @@ function hucreMenu(id) {
   document.getElementById("modalBaslik").textContent = r.ad;
   document.getElementById("modalBilgi").innerHTML =
     (r.telefon ? `📞 <a class="tel-link" href="tel:+${String(r.telefon).replace(/\D/g, "")}">${kacis(telGoster(r.telefon))}</a><br>` : "") +
-    `💈 ${kacis(r.berber)}<br>✂️ ${kacis(r.hizmet)}<br>📅 ${tarih} ⏰ ${r.saat}<br>💰 ${fiyatHtml}<br>📌 ${durumYazi(r.durum)}${r.durum === "iptal" ? " · " + iptalEdenYazi(r) : ""}${notSatiri}${gelmediSatiri}`;
+    `💈 ${kacis(r.berber)}<br>✂️ ${kacis(r.hizmet)}<br>📅 ${tarih} ⏰ ${r.saat}<br>💰 ${fiyatHtml}${kesintiSatiri}<br>📌 ${durumYazi(r.durum)}${r.durum === "iptal" ? " · " + iptalEdenYazi(r) : ""}${notSatiri}${gelmediSatiri}`;
   document.getElementById("modalOnayla").disabled  = r.durum === "onaylı";
   document.getElementById("modalIptal").disabled   = r.durum === "iptal";
   document.getElementById("modalGelmedi").disabled = r.durum === "gelmedi";
   document.getElementById("modalSil").style.display = r.durum === "iptal" ? "block" : "none";
-  document.getElementById("standartFiyat").textContent = r.fiyat;
-  document.getElementById("fiyatInput").value = r.gercekFiyat !== undefined ? r.gercekFiyat : r.fiyat;
+  document.getElementById("standartFiyat").textContent = r.fiyat + kesinti;
+  document.getElementById("fiyatKesintiNot").textContent = kesinti
+    ? ` (müşterinin ödediği). Ciroya ${kesinti}₺ eksik yazılır (çırak bahşişi).` : "";
+  document.getElementById("fiyatInput").value = (r.gercekFiyat !== undefined ? r.gercekFiyat : r.fiyat) + kesinti;
   document.getElementById("notInput").value = r.aciklama || "";
   ["fiyatBolum", "tasiBolum", "notBolum", "gecmisBolum"].forEach(id => {
     document.getElementById(id).style.display = "none";
@@ -1815,8 +1822,8 @@ function elleRandevuGoster() {
   // Hizmete ekler (kaş): işaretlenince hizmet adına ve fiyata eklenir
   document.getElementById("elleEkler").innerHTML = EKLER.map(e =>
     `<label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:14px;cursor:pointer;min-height:32px;">
-      <input type="checkbox" class="elle-ek" value="${e.id}" onchange="elleFiyatGuncelle()" style="width:18px;height:18px;">
-      ${kacis(e.ad)} da ekle (+${e.fiyat}₺)</label>`).join("");
+      <input type="checkbox" class="elle-ek" value="${e.id}" onchange="elleEkDegisti(this)" style="width:18px;height:18px;">
+      ${kacis(e.ad)} ${daDe(e.ad)} ekle (+${e.fiyat}₺)</label>`).join("");
 
   // Tarih listesi — 14 gün, Pazar hariç
   const elleTarih = document.getElementById("elleTarih");
@@ -1869,15 +1876,40 @@ function elleSaatDoldur() {
     : `<option disabled>Boş saat yok</option>`;
 }
 
+// Fiyat alanı müşterinin ödeyeceği; keratinde sunucu kesintiyi düşüp kaydeder
 function elleFiyatGuncelle() {
   const berberId  = document.getElementById("elleBerber").value;
-  const hizmetId  = document.getElementById("elleHizmet").value;
+  const hizmet    = HIZMETLER.find(h => h.id === document.getElementById("elleHizmet").value);
   const berber    = BERBERLER.find(b => b.id === berberId);
-  if (berber && berber.fiyat && berber.fiyat[hizmetId] !== undefined) {
+  // Seçilen hizmet keratinse keratin ekleri kapalı (bir randevuda tek keratin)
+  document.querySelectorAll(".elle-ek").forEach(k => {
+    const ayniGrup = !!hizmet && !!hizmet.grup && (EKLER.find(e => e.id === k.value) || {}).grup === hizmet.grup;
+    if (ayniGrup) k.checked = false;
+    k.disabled = ayniGrup;
+    k.parentElement.style.opacity = ayniGrup ? "0.45" : "";
+  });
+  const secilenler = [hizmet, ...elleEkler().map(id => EKLER.find(e => e.id === id))].filter(Boolean);
+  const kesinti = secilenler.reduce((t, x) => t + (x.kesinti || 0), 0);
+  document.getElementById("elleKesintiNot").textContent = kesinti ? `Müşterinin ödediği; ciroya ${kesinti}₺ eksik yazılır (çırak bahşişi).` : "";
+  const temel = hizmet && berber ? (hizmet.fiyat ?? (berber.fiyat || {})[hizmet.id]) : undefined;
+  if (temel !== undefined) {
     const ekToplam = elleEkler().reduce((t, id) => t + (EKLER.find(e => e.id === id) || { fiyat: 0 }).fiyat, 0);
-    document.getElementById("elleFiyat").value = berber.fiyat[hizmetId] + ekToplam;
+    document.getElementById("elleFiyat").value = temel + ekToplam;
   }
 }
+
+// Bir keratin işaretlenince diğeri kalkar
+function elleEkDegisti(kutu) {
+  const grup = (EKLER.find(e => e.id === kutu.value) || {}).grup;
+  if (kutu.checked && grup)
+    document.querySelectorAll(".elle-ek").forEach(k => {
+      if (k !== kutu && (EKLER.find(e => e.id === k.value) || {}).grup === grup) k.checked = false;
+    });
+  elleFiyatGuncelle();
+}
+
+// "Kaş Tasarımı da ekle", "Keratin Yükleme de ekle"
+function daDe(s) { return /[aıou][^aeıioöuü]*$/.test(s.toLocaleLowerCase("tr")) ? "da" : "de"; }
 
 function elleEkler() { return [...document.querySelectorAll(".elle-ek:checked")].map(k => k.value); }
 
@@ -1924,7 +1956,7 @@ async function sabitGoster() {
   berberSel.innerHTML = liste.map(b => `<option value="${b.id}">${kacis(b.ad)}</option>`).join("");
   if (auth.berberId) berberSel.value = auth.berberId;
   document.getElementById("sabitBerberWrap").style.display = isAdmin ? "" : "none";
-  document.getElementById("sabitHizmet").innerHTML = HIZMETLER.map(h => `<option value="${h.id}">${kacis(h.ad)}</option>`).join("");
+  document.getElementById("sabitHizmet").innerHTML = HIZMETLER.filter(h => !h.grup).map(h => `<option value="${h.id}">${kacis(h.ad)}</option>`).join("");
   document.getElementById("sabitGun").innerHTML = [1, 2, 3, 4, 5, 6].map(g => `<option value="${g}">${GUN_ADLARI[g]}</option>`).join("");
   sabitFormSifirla();
   document.getElementById("sabitModal").style.display = "flex";
@@ -2210,11 +2242,13 @@ async function notKaydet() {
 
 async function fiyatKaydetModal() {
   const val = document.getElementById("fiyatInput").value;
-  if (val === "" || isNaN(Number(val)) || Number(val) < 0) { bildir("Geçerli bir fiyat girin."); return; }
+  const r = randevular.find((x) => x.id === modalRandevuId);
+  const kesinti = (r && r.kesinti) || 0;
+  if (val === "" || isNaN(Number(val)) || Number(val) < kesinti) { bildir("Geçerli bir fiyat girin."); return; }
   try {
     await authFetch(`/api/randevular/${modalRandevuId}/fiyat`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ gercekFiyat: Number(val) }),
+      body: JSON.stringify({ gercekFiyat: Number(val) - kesinti }),
     });
     modalKapat();
     await veriCek();

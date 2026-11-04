@@ -65,17 +65,32 @@ const BERBERLER = demo ? demo.BERBERLER : [
     calisma: { baslangic: "09:30", bitis: "20:45", yemek: "16:15", yemekDk: 45 }, net: { taban: 0, oran: 0.45 } },
 ];
 
+// Keratin: tek başına alınabilir (hizmet kartı) ya da saç/sakal hizmetine eklenir
+// (aynı dilim, süre uzamaz). Fiyatı ustadan bağımsız; müşteri tam fiyatı öder.
+// kesinti: içinden çıraklara giden bahşiş — randevu kaydına bu kadar düşük yazılır,
+// ustanın panelinde ve cirosunda öyle görünür. grup: bir randevuda tek keratin olur.
+const KERATIN_NOTU = "Saç uzunluğuna göre fiyat değişiklikleri yaşanabilmektedir.";
+const KERATINLER = [
+  { id: "keratin-yukleme",     ad: "Keratin Yükleme",     aciklama: "En kısa saç", fiyat: 1650, kesinti: 200, grup: "keratin", not: KERATIN_NOTU },
+  { id: "keratin-duzlestirme", ad: "Keratin Düzleştirme", aciklama: "Kısa saç",    fiyat: 1850, kesinti: 200, grup: "keratin", not: KERATIN_NOTU },
+];
+
 const HIZMETLER = [
   { id: "sac",    ad: "Saç Kesimi",   sure: "~30 dk" },
   { id: "sakal",  ad: "Sakal Tıraşı", sure: "~20 dk" },
   { id: "kombin", ad: "Saç + Sakal",  sure: "~45 dk" },
+  ...KERATINLER,
 ];
 
 // Hizmete eklenebilen ekstralar: ayrı kart/randevu değil, seçilen hizmete eklenir.
 // Fiyat herkes için aynı; randevu süresini uzatmaz.
 const EKLER = [
   { id: "kas", ad: "Kaş Tasarımı", fiyat: 300 },
+  ...KERATINLER,
 ];
+
+// Hizmetin bu ustadaki fiyatı: keratin gibi sabit fiyatlıların fiyatı hizmette yazılı
+function hizmetFiyati(b, hizmet) { return hizmet.fiyat ?? b.fiyat[hizmet.id]; }
 
 // --- Saat yardımcıları ---
 function saatToDk(s) { const [h, m] = s.split(":").map(Number); return h * 60 + m; }
@@ -186,5 +201,5 @@ function gelecekTarihler(kacGun = 7, acikGunler = []) {
 module.exports = {
   DEMO, DUKKAN, GERCEK_DUKKAN, BERBERLER, HIZMETLER, EKLER, SAATLER, SAATLER_45,
   berberSlotDk, berberSaatleri, berberCalismaSaatleri, berberGunSlotlari,
-  berberBaslangicSaati, berberNet, gelecekTarihler, ADMIN_PIN, CIRO_PIN,
+  berberBaslangicSaati, berberNet, gelecekTarihler, hizmetFiyati, ADMIN_PIN, CIRO_PIN,
 };
