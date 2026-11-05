@@ -48,6 +48,8 @@ test("sayfalar gerçek dükkânla ve analitikle gelir, demo eki yok", async () =
   assert.strictEqual(status, 200);
   assert.ok(body.includes("Resul Tabu Saç Atölyesi") && body.includes("googletagmanager"));
   assert.ok(!body.includes("/demo/demo.js") && !body.includes("noindex"));
+  // JS çalıştırmadan okuyan araçlar sayfayı "Yakında Açılıyor" sanmasın (yazı sadece kapalıyken JS ile gelir)
+  assert.ok(!body.replace(/<script[\s\S]*?<\/script>/g, "").includes("Yakında Açılıyor"));
   // "Randevu sistemi: Çatalçam Yazılım" satırı sunucunun gönderdiği HTML'de (JS ile sonradan değil)
   assert.ok(body.includes('Randevu sistemi: <a href="https://www.catalcamyazilim.online/?utm_source=resultabu&amp;utm_medium=referral&amp;utm_campaign=imza" target="_blank" rel="noopener">Çatalçam Yazılım</a>'));
   assert.ok(!(await istek("GET", "/dashboard")).body.includes("catalcamyazilim"), "panelde imza yok");

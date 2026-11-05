@@ -506,14 +506,9 @@
 </aside>
 <div class="kapsayici">
 
-  <!-- Yakında açılıyor (randevu almaya kapalı dönem) -->
-  <div class="kart gizli" id="adimYakinda">
-    <div class="basari">
-      <div class="ikon">🗓️</div>
-      <h2>Yakında Açılıyor!</h2>
-      <p>Online randevu sistemimiz <strong>çok yakında</strong> hizmetinizde olacak. Lütfen daha sonra tekrar uğrayın.</p>
-    </div>
-  </div>
+  <!-- Randevu almaya kapalı dönem ekranı. Yazısı sayfada durmaz, kapalıyken JS ile yazılır:
+       HTML'i okuyan araçlar (Google, link önizlemesi) sayfayı kapalı sanmasın -->
+  <div class="kart gizli" id="adimYakinda"></div>
 
   <!-- Adım 1: Usta -->
   <div class="kart" id="adimBerber">
@@ -862,6 +857,12 @@ async function baslat() {
     const c = await res.json();
     if (c.randevuKapali) {
       document.querySelectorAll(".iptal-btn").forEach((el) => (el.style.display = "none"));
+      document.getElementById("adimYakinda").innerHTML = `
+        <div class="basari">
+          <div class="ikon">🗓️</div>
+          <h2>Yakında Açılıyor!</h2>
+          <p>Online randevu sistemimiz <strong>çok yakında</strong> hizmetinizde olacak. Lütfen daha sonra tekrar uğrayın.</p>
+        </div>`;
       adimGoster("adimYakinda", "ileri", true);
       return;
     }

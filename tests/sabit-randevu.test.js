@@ -10,6 +10,10 @@ let kurallar = [];       // sabit_randevular
 let doluTarihler = [];   // getBusySlots bu tarihlerde 10:30'u dolu döndürür
 
 const orig = Module._load;
+// db.js SABIT_GELECEK ile aynı: yarın ve sonrası + bugünün saati geçmemişleri
+// (yoksa kuralın günü bugünse, saati gelmemiş bugünkü randevu silinmemiş sayılır)
+const gelecekMi = (r, bugun, simdi) => r.tarih > bugun || (r.tarih === bugun && r.saat > simdi);
+
 Module._load = function (req) {
   if (req.endsWith("whatsapp")) return { sendText: async () => ({ hata: false }), sendTemplate: async () => null };
   if (req.endsWith("sheets")) return { syncRandevu: async () => {}, clearRandevuCell: async () => {}, musteriKaydet: async () => {}, updateRandevuDurum: async () => {}, isEnabled: () => false, aylikOzetYaz: async () => {} };
@@ -25,14 +29,14 @@ Module._load = function (req) {
       sabitListe: async (berberId) => kurallar.filter((k) => k.aktif && (!berberId || k.berberId === berberId)),
       sabitGetir: async (id) => kurallar.find((k) => k.id === Number(id)) || null,
       sabitSonUretilenGuncelle: async (id, tarih) => { kurallar.find((k) => k.id === id).son_uretilen = tarih; },
-      sabitGelecekSil: async (id, bugun) => {
-        const silinen = store.filter((r) => r.sabitId === id && r.tarih > bugun);
+      sabitGelecekSil: async (id, bugun, simdi) => {
+        const silinen = store.filter((r) => r.sabitId === id && gelecekMi(r, bugun, simdi));
         store = store.filter((r) => !silinen.includes(r));
         return silinen;
       },
-      sabitDurdur: async (id, bugun) => {
+      sabitDurdur: async (id, bugun, simdi) => {
         kurallar.find((k) => k.id === id).aktif = false;
-        const silinen = store.filter((r) => r.sabitId === id && r.tarih > bugun);
+        const silinen = store.filter((r) => r.sabitId === id && gelecekMi(r, bugun, simdi));
         store = store.filter((r) => !silinen.includes(r));
         return silinen;
       },
@@ -43,7 +47,7 @@ Module._load = function (req) {
         return { ...kural };
       },
       sabitGelecekGuncelle: async (id, bugun, saat, a) => {
-        const liste = store.filter((r) => r.sabitId === id && r.tarih > bugun);
+        const liste = store.filter((r) => r.sabitId === id && gelecekMi(r, bugun, saat));
         for (const r of liste) Object.assign(r, { ad: a.ad, telefon: a.telefon, hizmetId: a.hizmetId, hizmet: a.hizmet, fiyat: a.fiyat });
         return liste;
       },
