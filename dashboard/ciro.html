@@ -93,6 +93,58 @@
   .durum-btn.aktif { background: var(--yesil1); color: #fff; border-color: var(--yesil1); }
 
   .yukleniyor { text-align: center; color: var(--soluk); padding: 30px; font-size: 14px; }
+  td.patron-odeme { color: var(--soluk); font-weight: 400; }
+
+  /* --- Net kazanç özetleri --- */
+  .baslik-alt { font-size: 12.5px; font-weight: 600; color: var(--soluk); }
+  .ozet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .ozet-grid .kart { margin-bottom: 14px; }
+  .ozet { padding: 6px 14px 12px; }
+  .ozet-satir { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; font-size: 14px; border-bottom: 1px solid #f3f4f6; }
+  .ozet-satir span:last-child { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .ozet-satir.ara { font-weight: 700; }
+  .ozet-satir.arti span:last-child { color: #059669; }
+  .ozet-satir.eksi span:last-child { color: #dc2626; }
+  .ozet-satir.genel { border-bottom: none; padding-top: 10px; font-size: 16px; font-weight: 800; }
+  .ozet-satir.genel span:last-child { color: var(--yesil1); font-size: 19px; }
+  .ozet-satir.genel.zarar span:last-child { color: #dc2626; }
+  .ozet-ipucu { font-size: 12px; color: var(--soluk); padding: 2px 0 4px; }
+
+  /* --- Ekstra gelir / gider --- */
+  .kasa-form { display: grid; grid-template-columns: auto 1fr 120px auto; gap: 8px; padding: 12px 14px 4px; align-items: center; }
+  .tur-sec { display: flex; gap: 6px; }
+  .kasa-form input {
+    padding: 10px 12px; border: 1px solid var(--cizgi); border-radius: 8px; font-size: 15px;
+    min-height: 42px; width: 100%; outline: none; font-family: inherit;
+  }
+  .kasa-form input:focus { border-color: var(--yesil2); }
+  .kasa-form .btn { width: auto; padding: 10px 18px; min-height: 42px; }
+  #turGider.aktif { background: #dc2626; border-color: #dc2626; }
+  #kasaHata { color: #dc2626; font-size: 13px; padding: 0 14px; min-height: 4px; }
+  .kasa-satir { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-top: 1px solid #f3f4f6; font-size: 14px; }
+  .kasa-satir .k-ad { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .kasa-satir .k-tarih { color: var(--soluk); font-size: 12.5px; white-space: nowrap; }
+  .kasa-satir .k-tutar { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .kasa-satir.gelir .k-tutar { color: #059669; }
+  .kasa-satir.gider .k-tutar { color: #dc2626; }
+  .kasa-sil { border: none; background: none; cursor: pointer; font-size: 16px; padding: 6px; border-radius: 6px; min-width: 36px; min-height: 36px; }
+  .kasa-sil:active { background: #fee2e2; }
+  .kasa-bos { padding: 10px 14px 12px; color: var(--soluk); font-size: 13px; }
+  .kasa-ay { border-top: 1px solid var(--cizgi); }
+  .kasa-ay summary { padding: 11px 14px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--soluk); }
+
+  @media (max-width: 640px) {
+    .ozet-grid { grid-template-columns: 1fr; gap: 0; }
+    .kasa-form { grid-template-columns: 1fr 1fr; }
+    .tur-sec { grid-column: 1 / -1; }
+    .tur-sec .durum-btn { flex: 1; }
+    #kasaAd { grid-column: 1 / -1; }
+    .kasa-form .btn { width: 100%; }
+    thead th { padding: 9px 6px; font-size: 10px; letter-spacing: 0; }
+    tbody td { padding: 10px 6px; font-size: 12.5px; }
+    thead th:first-child, tbody td:first-child { padding-left: 12px; }
+    thead th:last-child, tbody td:last-child { padding-right: 12px; }
+  }
 </style>
 </head>
 <body>
@@ -130,10 +182,41 @@
       </div>
       <table>
         <thead>
-          <tr><th>Berber</th><th style="text-align:right;">Randevu</th><th style="text-align:right;">Ciro</th><th style="text-align:right;">Net Ödeme</th></tr>
+          <tr><th>Berber</th><th style="text-align:right;">Randevu</th><th style="text-align:right;">Ciro</th><th style="text-align:right;">Net Ödeme</th><th style="text-align:right;">Dükkâna Kalan</th></tr>
         </thead>
-        <tbody id="ciroGovde"><tr><td colspan="4" class="yukleniyor">Yükleniyor…</td></tr></tbody>
+        <tbody id="ciroGovde"><tr><td colspan="5" class="yukleniyor">Yükleniyor…</td></tr></tbody>
       </table>
+    </div>
+
+    <!-- Net kazanç: patronun kendi cirosu + ustalardan kalan pay + ekstra gelir − gider -->
+    <div class="ozet-grid">
+      <div class="kart">
+        <div class="kart-baslik"><span>📊 Günlük Net Kazanç</span><span class="baslik-alt" id="gunOzetBaslik"></span></div>
+        <div class="ozet" id="gunOzet"></div>
+      </div>
+      <div class="kart">
+        <div class="kart-baslik"><span>🗓️ Aylık Net Kazanç</span><span class="baslik-alt" id="ayOzetBaslik"></span></div>
+        <div class="ozet" id="ayOzet"></div>
+      </div>
+    </div>
+
+    <div class="kart">
+      <div class="kart-baslik"><span>🧾 Ekstra Gelir / Gider</span><span class="baslik-alt" id="kasaBaslik"></span></div>
+      <div class="kasa-form">
+        <div class="tur-sec">
+          <button type="button" id="turGelir" class="durum-btn aktif" onclick="turSec('gelir')">＋ Gelir</button>
+          <button type="button" id="turGider" class="durum-btn" onclick="turSec('gider')">− Gider</button>
+        </div>
+        <input id="kasaAd" maxlength="60" placeholder="Açıklama (ör. Wax satışı)" autocomplete="off">
+        <input id="kasaTutar" type="number" inputmode="numeric" min="1" step="1" placeholder="Tutar ₺">
+        <button type="button" class="btn" id="kasaEkleBtn" onclick="kasaEkle()">Ekle</button>
+      </div>
+      <div id="kasaHata"></div>
+      <div id="kasaGunListe"></div>
+      <details class="kasa-ay">
+        <summary id="kasaAyOzet">Bu ayın tüm kayıtları</summary>
+        <div id="kasaAyListe"></div>
+      </details>
     </div>
 
     <div class="kart">
@@ -223,7 +306,7 @@ async function veriYukle() {
     ciroRender();
   } catch (e) {
     document.getElementById("ciroGovde").innerHTML =
-      `<tr><td colspan="4" class="yukleniyor">⚠️ Veriler alınamadı (${(e && e.message) || e}). Sayfayı yenileyin.</td></tr>`;
+      `<tr><td colspan="5" class="yukleniyor">⚠️ Veriler alınamadı (${(e && e.message) || e}). Sayfayı yenileyin.</td></tr>`;
   }
 }
 
@@ -241,27 +324,73 @@ function gunDegistir(delta) {
 }
 function gunBugun() { seciliTarih = bugunStr(); ciroRender(); }
 
+const tl = (n) => n.toLocaleString("tr-TR") + "₺";
+const tarihStr = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+
+// Bir günün usta usta hesabı. Ustanın net ödemesi günlük formülle (taban günlük
+// düşülür) hesaplanır; cirodan kalanı dükkânın. Patronun (admin) cirosunun hepsi dükkânın.
+function gunHesabi(tarih) {
+  const gunRand = randevular.filter((r) => r.tarih === tarih && r.durum === "onaylı");
+  return BERBERLER.map((b) => {
+    const bRand = gunRand.filter((r) => r.berberId === b.id);
+    const ciro = bRand.reduce((s, r) => s + (r.gercekFiyat ?? r.fiyat ?? 0), 0);
+    const odeme = b.admin ? 0 : berberNet(b, ciro);
+    return { b, sayi: bRand.length, ciro, odeme, kalan: ciro - odeme };
+  });
+}
+
+// Dönem özeti: net kazanç = patronun kendi cirosu + ustalardan kalan + ekstra gelir − gider.
+// kasa null ise (yüklenemedi/yükleniyor) gelir/gider bilinmiyor demektir.
+function donemOzeti(tarihler, kasa) {
+  const o = { ciro: 0, odeme: 0, patronCiro: 0, ustaKalan: 0 };
+  for (const t of tarihler) {
+    for (const s of gunHesabi(t)) {
+      o.ciro += s.ciro; o.odeme += s.odeme;
+      if (s.b.admin) o.patronCiro += s.ciro; else o.ustaKalan += s.kalan;
+    }
+  }
+  o.hizmetNet = o.patronCiro + o.ustaKalan;
+  if (kasa) {
+    o.gelir = kasa.filter((k) => k.tur === "gelir").reduce((s, k) => s + k.tutar, 0);
+    o.gider = kasa.filter((k) => k.tur === "gider").reduce((s, k) => s + k.tutar, 0);
+    o.genelNet = o.hizmetNet + o.gelir - o.gider;
+  }
+  return o;
+}
+
+function ozetHtml(o) {
+  const patron = BERBERLER.find((b) => b.admin);
+  const bilinmiyor = '<span style="color:var(--soluk);font-weight:400;">…</span>';
+  return `
+    <div class="ozet-ipucu">Toplam ciro ${tl(o.ciro)} · Ustalara ödenen ${tl(o.odeme)}</div>
+    <div class="ozet-satir"><span>${kacis(patron ? patron.ad : "Patron")} (kendi cirosu)</span><span>${tl(o.patronCiro)}</span></div>
+    <div class="ozet-satir"><span>Ustalardan kalan</span><span>${tl(o.ustaKalan)}</span></div>
+    <div class="ozet-satir ara"><span>Hizmet net kazancı</span><span>${tl(o.hizmetNet)}</span></div>
+    <div class="ozet-satir arti"><span>＋ Ekstra gelir</span>${o.gelir == null ? bilinmiyor : `<span>${tl(o.gelir)}</span>`}</div>
+    <div class="ozet-satir eksi"><span>− Gider</span>${o.gider == null ? bilinmiyor : `<span>${tl(o.gider)}</span>`}</div>
+    <div class="ozet-satir genel${o.genelNet < 0 ? " zarar" : ""}"><span>Genel Net Kazanç</span>${o.genelNet == null ? bilinmiyor : `<span>${tl(o.genelNet)}</span>`}</div>`;
+}
+
 function ciroRender() {
   const gunLabel = new Date(seciliTarih + "T00:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
   document.getElementById("gunBaslik").textContent = gunLabel;
 
-  const gunRand = randevular.filter((r) => r.tarih === seciliTarih && r.durum === "onaylı");
   const govde = document.getElementById("ciroGovde");
   govde.innerHTML = "";
-  let toplamCiro = 0, toplamSayi = 0, toplamNet = 0;
+  let toplamCiro = 0, toplamSayi = 0, toplamOdeme = 0, toplamKalan = 0;
 
-  BERBERLER.forEach((b) => {
-    const bRand = gunRand.filter((r) => r.berberId === b.id);
-    if (b.ayrildi && !bRand.length) return; // ayrılan usta sadece randevusu olan günde
-    const bCiro = bRand.reduce((s, r) => s + (r.gercekFiyat ?? r.fiyat ?? 0), 0);
-    const bNet = berberNet(b, bCiro);
-    toplamCiro += bCiro; toplamSayi += bRand.length; toplamNet += bNet;
+  gunHesabi(seciliTarih).forEach((s) => {
+    if (s.b.ayrildi && !s.sayi) return; // ayrılan usta sadece randevusu olan günde
+    toplamCiro += s.ciro; toplamSayi += s.sayi; toplamOdeme += s.odeme; toplamKalan += s.kalan;
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${kacis(b.ad)}</td>
-      <td style="text-align:right;">${bRand.length}</td>
-      <td style="text-align:right;font-weight:700;color:#059669;">${bCiro.toLocaleString("tr-TR")}₺</td>
-      <td style="text-align:right;font-weight:700;color:#2563eb;">${bNet.toLocaleString("tr-TR")}₺</td>`;
+      <td>${kacis(s.b.ad)}</td>
+      <td style="text-align:right;">${s.sayi}</td>
+      <td style="text-align:right;font-weight:700;color:#059669;">${tl(s.ciro)}</td>
+      ${s.b.admin
+        ? `<td style="text-align:right;" class="patron-odeme" title="Patron: cirosu dükkâna kalır">—</td>`
+        : `<td style="text-align:right;font-weight:700;color:#2563eb;">${tl(s.odeme)}</td>`}
+      <td style="text-align:right;font-weight:700;color:#7c3aed;">${tl(s.kalan)}</td>`;
     govde.appendChild(tr);
   });
 
@@ -270,12 +399,149 @@ function ciroRender() {
   tot.innerHTML = `
     <td>Toplam</td>
     <td style="text-align:right;">${toplamSayi}</td>
-    <td style="text-align:right;color:#075E54;">${toplamCiro.toLocaleString("tr-TR")}₺</td>
-    <td style="text-align:right;color:#1d4ed8;">${toplamNet.toLocaleString("tr-TR")}₺</td>`;
+    <td style="text-align:right;color:#075E54;">${tl(toplamCiro)}</td>
+    <td style="text-align:right;color:#1d4ed8;">${tl(toplamOdeme)}</td>
+    <td style="text-align:right;color:#6d28d9;">${tl(toplamKalan)}</td>`;
   govde.appendChild(tot);
 
+  ozetleriRender();
   ciroGrafikRender();
 }
+
+// ---------------------------------------------------------------------------
+// Günlük / aylık net kazanç ve kasa defteri (ekstra gelir / gider)
+// ---------------------------------------------------------------------------
+const kasaAylar = {};       // "YYYY-AA" → kayıtlar (yüklenince)
+const kasaYukleniyor = {};  // aynı ay iki kez istenmesin
+const kasaHatali = {};      // yüklenemeyen ay (otomatik tekrar denenmez)
+let kasaTur = "gelir";
+
+const seciliAy = () => seciliTarih.slice(0, 7);
+
+async function kasaYukle(ay) {
+  if (kasaYukleniyor[ay]) return;
+  kasaYukleniyor[ay] = true;
+  try {
+    const res = await fetch("/api/kasa?ay=" + ay, { headers: { Authorization: "Bearer " + token }, cache: "no-store" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.hata || "HTTP " + res.status);
+    kasaAylar[ay] = data;
+    document.getElementById("kasaHata").textContent = "";
+    if (ay === seciliAy()) ozetleriRender();
+  } catch (e) {
+    // Yeniden denemek için sayfa yenilenir (her çizimde tekrar istenirse döngüye girer)
+    kasaHatali[ay] = true;
+    document.getElementById("kasaHata").textContent = "⚠️ Gelir/gider kayıtları alınamadı (" + ((e && e.message) || e) + "). Sayfayı yenileyin.";
+  } finally {
+    kasaYukleniyor[ay] = false;
+  }
+}
+
+function ozetleriRender() {
+  const ay = seciliAy();
+  const kasa = kasaAylar[ay] || null;
+  if (!kasa && !kasaHatali[ay]) kasaYukle(ay);
+
+  const gunEtiket = new Date(seciliTarih + "T00:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long" });
+  const ayIlk = new Date(ay + "-01T00:00:00");
+  const ayEtiket = ayIlk.toLocaleDateString("tr-TR", { month: "long", year: "numeric" });
+
+  // Ayın günleri; içinde bulunulan ayda bugüne kadar (ileri tarihli randevular henüz ciro değil)
+  const bugun = bugunStr();
+  const ayGunleri = [];
+  for (let d = new Date(ayIlk); d.getMonth() === ayIlk.getMonth(); d.setDate(d.getDate() + 1)) {
+    const t = tarihStr(d);
+    if (t > bugun) break;
+    ayGunleri.push(t);
+  }
+  const ayDevam = bugun.startsWith(ay);
+
+  document.getElementById("gunOzetBaslik").textContent = gunEtiket;
+  document.getElementById("ayOzetBaslik").textContent = ayEtiket + (ayDevam ? " (bugüne kadar)" : "");
+  document.getElementById("kasaBaslik").textContent = gunEtiket;
+
+  const gunKasa = kasa && kasa.filter((k) => k.tarih === seciliTarih);
+  const ayKasa = kasa && (ayDevam ? kasa.filter((k) => k.tarih <= bugun) : kasa);
+  document.getElementById("gunOzet").innerHTML = ozetHtml(donemOzeti([seciliTarih], gunKasa));
+  document.getElementById("ayOzet").innerHTML = ozetHtml(donemOzeti(ayGunleri, ayKasa));
+
+  document.getElementById("kasaGunListe").innerHTML = !kasa
+    ? '<div class="kasa-bos">Yükleniyor…</div>'
+    : gunKasa.length
+      ? gunKasa.map((k) => kasaSatirHtml(k, false)).join("")
+      : '<div class="kasa-bos">Bu gün için kayıt yok. Ürün satışı gibi gelirleri ya da giderleri yukarıdan ekleyin.</div>';
+  document.getElementById("kasaAyOzet").textContent = `${ayEtiket} — tüm kayıtlar (${kasa ? kasa.length : "…"})`;
+  document.getElementById("kasaAyListe").innerHTML = kasa && kasa.length
+    ? kasa.map((k) => kasaSatirHtml(k, true)).join("")
+    : '<div class="kasa-bos">Bu ay kayıt yok.</div>';
+}
+
+function kasaSatirHtml(k, tarihli) {
+  const tarih = new Date(k.tarih + "T00:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
+  return `<div class="kasa-satir ${k.tur}">
+    ${tarihli ? `<span class="k-tarih">${tarih}</span>` : ""}
+    <span class="k-ad">${k.tur === "gelir" ? "＋" : "−"} ${kacis(k.ad)}</span>
+    <span class="k-tutar">${k.tur === "gelir" ? "" : "−"}${tl(k.tutar)}</span>
+    <button type="button" class="kasa-sil" title="Sil" aria-label="${kacis(k.ad)} kaydını sil" onclick="kasaSil('${k.id}')">🗑️</button>
+  </div>`;
+}
+
+function turSec(tur) {
+  kasaTur = tur;
+  document.getElementById("turGelir").classList.toggle("aktif", tur === "gelir");
+  document.getElementById("turGider").classList.toggle("aktif", tur === "gider");
+  document.getElementById("kasaAd").placeholder = tur === "gelir" ? "Açıklama (ör. Wax satışı)" : "Açıklama (ör. Elektrik faturası)";
+}
+
+async function kasaEkle() {
+  const adEl = document.getElementById("kasaAd"), tutarEl = document.getElementById("kasaTutar");
+  const hata = document.getElementById("kasaHata");
+  const ad = adEl.value.trim();
+  const tutar = Number(tutarEl.value);
+  if (!ad) { hata.textContent = "Açıklama yazın (ör. Wax)."; adEl.focus(); return; }
+  if (!Number.isInteger(tutar) || tutar <= 0) { hata.textContent = "Tutarı tam sayı olarak yazın."; tutarEl.focus(); return; }
+  const btn = document.getElementById("kasaEkleBtn");
+  btn.disabled = true;
+  try {
+    const res = await fetch("/api/kasa", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+      body: JSON.stringify({ tarih: seciliTarih, tur: kasaTur, ad, tutar }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.hata || "HTTP " + res.status);
+    const ay = data.tarih.slice(0, 7);
+    if (kasaAylar[ay]) kasaAylar[ay].push(data);
+    adEl.value = ""; tutarEl.value = ""; hata.textContent = "";
+    ozetleriRender();
+    adEl.focus();
+  } catch (e) {
+    hata.textContent = "⚠️ Eklenemedi: " + ((e && e.message) || e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function kasaSil(id) {
+  const ay = seciliAy();
+  const k = (kasaAylar[ay] || []).find((x) => x.id === id);
+  if (!k || !confirm(`"${k.ad}" (${tl(k.tutar)}) silinsin mi?`)) return;
+  const hata = document.getElementById("kasaHata");
+  try {
+    const res = await fetch("/api/kasa/" + encodeURIComponent(id), { method: "DELETE", headers: { Authorization: "Bearer " + token } });
+    const data = await res.json();
+    if (!res.ok && res.status !== 404) throw new Error(data.hata || "HTTP " + res.status);
+    kasaAylar[ay] = kasaAylar[ay].filter((x) => x.id !== id);
+    hata.textContent = "";
+    ozetleriRender();
+  } catch (e) {
+    hata.textContent = "⚠️ Silinemedi: " + ((e && e.message) || e);
+  }
+}
+
+["kasaAd", "kasaTutar"].forEach((id) => document.getElementById(id).addEventListener("keydown", (e) => {
+  if (e.key === "Enter") kasaEkle();
+}));
 
 function grafikModuDegistir(mod) {
   grafikModu = mod;

@@ -999,8 +999,19 @@ function tarihButonlariHtml(tarihler, secFn) {
     </button>`).join("");
 }
 
+// Ustanın bazı günler almadığı hizmet (sunucudaki config kapaliHizmet; ör. Burak
+// cumartesi sadece sakal almıyor): o günler kapalı gösterilir.
+function hizmetGunKapaliMi(berberId, hizmetId, tarih) {
+  const b = BERBERLER.find((x) => x.id === berberId);
+  const gun = new Date(tarih + "T00:00:00").getDay();
+  return !!(b && b.kapaliHizmet && (b.kapaliHizmet[gun] || []).includes(hizmetId));
+}
+function hizmetKisitiUygula(tarihler, berberId, hizmetId) {
+  return tarihler.map((t) => t.kapali || !hizmetGunKapaliMi(berberId, hizmetId, t.deger) ? t : { ...t, kapali: true });
+}
+
 async function tarihListesiniDoldur() {
-  const tarihler = gelecekTarihleriUret(RANDEVU_UFUK_GUN, await acikGunleriAl());
+  const tarihler = hizmetKisitiUygula(gelecekTarihleriUret(RANDEVU_UFUK_GUN, await acikGunleriAl()), secim.berberId, secim.hizmetId);
   document.getElementById("tarihListe").innerHTML = tarihButonlariHtml(tarihler, "tarihSec");
 }
 
@@ -1334,7 +1345,7 @@ async function degistirBaslat(id) {
   document.getElementById("degisSaatBaslik").classList.add("gizli");
   document.getElementById("degisSaatListe").innerHTML = "";
   document.getElementById("degisOnayBtn").classList.add("gizli");
-  const tarihler = gelecekTarihleriUret(RANDEVU_UFUK_GUN, await acikGunleriAl());
+  const tarihler = hizmetKisitiUygula(gelecekTarihleriUret(RANDEVU_UFUK_GUN, await acikGunleriAl()), r.berberId, r.hizmetId);
   document.getElementById("degisTarihListe").innerHTML = tarihButonlariHtml(tarihler, "degisTarihSec");
   adimGoster("adimDegistir");
 }

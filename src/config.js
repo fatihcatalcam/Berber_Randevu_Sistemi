@@ -15,6 +15,9 @@
 // net: berberin kendi panelinde gördüğü günlük net gelir = (ciro - taban) * oran
 //   Resul patron olduğu için tam ciroyu görür (taban 0, oran 1).
 //
+// kapaliHizmet: { gün: [hizmetId, ...] } → müşteri o gün bu ustadan bu hizmeti
+//   alamaz (web ve bot). Gün JS getDay ile (6=Cumartesi). Panelden elle girilebilir.
+//
 // ayrildi: true → usta işi bıraktı. Silinmez (geçmiş randevuları ve cirosu
 //   panelde kalsın); müşteri sayfasında görünmez, yeni randevu ve panel girişi kapalı.
 // ---------------------------------------------------------------------------
@@ -56,7 +59,8 @@ const BERBERLER = demo ? demo.BERBERLER : [
   { id: "kaan",      ad: "Kaan Ekinci",    uzmanlik: "Saç & Sakal Tasarımı", pin: pinOku("kaan"), tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/kaan.jpeg",
     calisma: { baslangic: "10:45", bitis: "21:45", yemek: "16:00", yemekDk: 30 }, net: { taban: 100, oran: 0.60 } },
   { id: "burak",     ad: "Burak Şahin",    uzmanlik: "Saç & Sakal Tasarımı", pin: pinOku("burak"), tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/burak.jpeg",
-    calisma: { baslangic: "10:30", bitis: "21:00", yemek: "16:30", yemekDk: 45 }, net: { taban: 0, oran: 0.45 } },
+    calisma: { baslangic: "10:30", bitis: "21:00", yemek: "16:30", yemekDk: 45 }, net: { taban: 0, oran: 0.45 },
+    kapaliHizmet: { 6: ["sakal"] } }, // Cumartesi sadece sakal yok (saç + sakal olur)
   { id: "emre",      ad: "Emre Akçam",     uzmanlik: "Saç & Sakal Tasarımı", pin: pinOku("emre"), tel: null, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/emre.jpeg",
     calisma: { baslangic: "09:30", bitis: "20:45", yemek: "16:15", yemekDk: 45 }, net: { taban: 0, oran: 0.50 } },
   { id: "huseyin",   ad: "Hüseyin Dincer", uzmanlik: "Saç & Sakal Tasarımı", pin: pinOku("huseyin"), tel: null, ayrildi: true, slotDk: 45, fiyat: EKIP_FIYAT, foto: "/randevu-al/fotolar/huseyin.jpeg",
@@ -170,6 +174,17 @@ function berberCalismaSaatleri(berberId, tarih, acikSaatler = []) {
     .map((x) => x.saat);
 }
 
+// Müşteri bu gün bu ustadan bu hizmeti alamıyorsa nedenini döner (bkz. kapaliHizmet), yoksa null.
+function hizmetGunKisiti(berberId, hizmetId, tarih) {
+  const b = berber(berberId);
+  const gun = new Date(tarih + "T00:00:00").getDay();
+  if (!b || !b.kapaliHizmet || !(b.kapaliHizmet[gun] || []).includes(hizmetId)) return null;
+  const hizmet = HIZMETLER.find((h) => h.id === hizmetId);
+  const gunAdi = new Date(tarih + "T00:00:00").toLocaleDateString("tr-TR", { weekday: "long" });
+  const ad = (hizmet ? hizmet.ad : hizmetId).toLocaleLowerCase("tr");
+  return `${b.ad} ${gunAdi.toLocaleLowerCase("tr")} günleri sadece ${ad} randevusu almıyor. Başka bir hizmet ya da gün seçebilirsiniz.`;
+}
+
 // Berberin günlük net gelir hesabı: (ciro - taban) * oran
 function berberNet(berberId, ciro) {
   const b = berber(berberId);
@@ -201,5 +216,5 @@ function gelecekTarihler(kacGun = 7, acikGunler = []) {
 module.exports = {
   DEMO, DUKKAN, GERCEK_DUKKAN, BERBERLER, HIZMETLER, EKLER, SAATLER, SAATLER_45,
   berberSlotDk, berberSaatleri, berberCalismaSaatleri, berberGunSlotlari,
-  berberBaslangicSaati, berberNet, gelecekTarihler, hizmetFiyati, ADMIN_PIN, CIRO_PIN,
+  berberBaslangicSaati, berberNet, gelecekTarihler, hizmetFiyati, hizmetGunKisiti, ADMIN_PIN, CIRO_PIN,
 };

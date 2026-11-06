@@ -160,6 +160,19 @@ async function init() {
       olusturulma BIGINT
     )
   `);
+  // Kasa defteri: randevu dışı ekstra gelir (ürün satışı vb.) ve giderler — ciro sayfası
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS kasa_hareketleri (
+      id          BIGSERIAL PRIMARY KEY,
+      tarih       TEXT NOT NULL,
+      tur         TEXT NOT NULL CHECK (tur IN ('gelir', 'gider')),
+      ad          TEXT NOT NULL,
+      tutar       INTEGER NOT NULL,
+      ekleyen     TEXT,
+      olusturulma BIGINT
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_kasa_tarih ON kasa_hareketleri (tarih)`);
   console.log("✅ Veritabanı tabloları hazır.");
 }
 
@@ -180,6 +193,30 @@ function degisimSurumu() { return `${bootId}:${degisimSayaci}`; }
 // Slot dolu hatası — çağıranlar bunu yakalayıp kullanıcıya bildirir
 class SlotDoluError extends Error {
   constructor() { super("Seçilen saat dolu."); this.code = "SLOT_DOLU"; }
+}
+
+// ---------------------------------------------------------------------------
+// Kasa defteri (ekstra gelir / gider). ay: "YYYY-AA"
+// ---------------------------------------------------------------------------
+const kasaSatiri = (row) => ({ id: String(row.id), tarih: row.tarih, tur: row.tur, ad: row.ad, tutar: row.tutar, ekleyen: row.ekleyen });
+
+async function kasaListe(ay) {
+  const res = await pool.query(
+    "SELECT * FROM kasa_hareketleri WHERE tarih LIKE $1 ORDER BY tarih, id", [ay + "-%"]);
+  return res.rows.map(kasaSatiri);
+}
+
+async function kasaEkle({ tarih, tur, ad, tutar, ekleyen }) {
+  const res = await pool.query(
+    `INSERT INTO kasa_hareketleri (tarih, tur, ad, tutar, ekleyen, olusturulma)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+    [tarih, tur, ad, tutar, ekleyen || null, Date.now()]);
+  return kasaSatiri(res.rows[0]);
+}
+
+async function kasaSil(id) {
+  const res = await pool.query("DELETE FROM kasa_hareketleri WHERE id=$1", [id]);
+  return res.rowCount > 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -744,7 +781,7 @@ async function demoSifirla(randevular, gun) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    await client.query("TRUNCATE randevular, kapali_saatler, kapali_gunler, acik_gunler, acik_saatler, sabit_randevular, otp_kodlari, engelli_telefonlar");
+    await client.query("TRUNCATE randevular, kapali_saatler, kapali_gunler, acik_gunler, acik_saatler, sabit_randevular, otp_kodlari, engelli_telefonlar, kasa_hareketleri");
     await client.query(
       `INSERT INTO randevular (id, ad, telefon, berber_id, berber, hizmet_id, hizmet, tarih, saat, fiyat,
                                durum, iptal_eden, olusturulma, kaynak, hatirlatildi)
@@ -780,6 +817,9 @@ module.exports = {
   getAll,
   getRecentAndUpcoming,
   getById,
+  kasaListe,
+  kasaEkle,
+  kasaSil,
   getMusteriGecmisi,
   add,
   getBusySlots,

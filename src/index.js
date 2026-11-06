@@ -11,7 +11,7 @@ const crypto = require("crypto");
 const db = require("./db");
 const { handleMessage } = require("./bot");
 const { sendText, sendTemplate } = require("./whatsapp");
-const { DEMO, DUKKAN, BERBERLER, HIZMETLER, EKLER, SAATLER, SAATLER_45, ADMIN_PIN, CIRO_PIN, berberCalismaSaatleri, hizmetFiyati } = require("./config");
+const { DEMO, DUKKAN, BERBERLER, HIZMETLER, EKLER, SAATLER, SAATLER_45, ADMIN_PIN, CIRO_PIN, berberCalismaSaatleri, hizmetFiyati, hizmetGunKisiti } = require("./config");
 const sheets = require("./sheets");
 const sms = require("./sms");
 const eposta = require("./email");
@@ -212,8 +212,8 @@ function requireAuth(req, res, next) {
     if (token) tokens.delete(token);
     return res.status(401).json({ hata: "Yetkisiz. Lütfen tekrar giriş yapın." });
   }
-  // Ciro şifresiyle açılan oturum sadece randevu listesini okuyabilir
-  if (bilgi.role === "ciro" && !(req.method === "GET" && req.path === "/api/randevular"))
+  // Ciro şifresiyle açılan oturum sadece randevu listesini okuyabilir ve kasa defterini (ekstra gelir/gider) tutar
+  if (bilgi.role === "ciro" && !(req.method === "GET" && req.path === "/api/randevular") && !req.path.startsWith("/api/kasa"))
     return res.status(403).json({ hata: "Bu işlem için yetkiniz yok." });
   req.auth = bilgi;
   next();
@@ -484,6 +484,8 @@ app.post("/api/public/randevu", ah(async (req, res) => {
   if (!berber || berber.ayrildi || !hizmet) return res.status(400).json({ hata: "Geçersiz usta veya hizmet." });
   const secilen = hizmetEkleriyle(berber, hizmet, ekler);
   if (!secilen) return res.status(400).json({ hata: "Geçersiz ek hizmet." });
+  const kisit = hizmetGunKisiti(berberId, hizmetId, tarih);
+  if (kisit) return res.status(400).json({ hata: kisit });
 
   if (slotGectiMi(tarih, saat)) {
     return res.status(400).json({ hata: "Seçilen saat artık geçmiş. Lütfen başka bir saat seçin." });
@@ -600,6 +602,8 @@ app.post("/api/public/randevu/:id/tasi", ah(async (req, res) => {
     return res.status(400).json({ hata: "Saati geçmiş bir randevu değiştirilemez." });
   if (tarih === kayit.tarih && saat === kayit.saat)
     return res.status(400).json({ hata: "Randevunuz zaten bu gün ve saatte." });
+  const kisit = hizmetGunKisiti(kayit.berberId, kayit.hizmetId, tarih);
+  if (kisit) return res.status(400).json({ hata: kisit });
 
   if (slotGectiMi(tarih, saat)) return res.status(400).json({ hata: "Seçilen saat artık geçmiş. Lütfen başka bir saat seçin." });
   if (!ufukIcindeMi(tarih)) return res.status(400).json({ hata: `En fazla ${RANDEVU_UFUK_GUN / 7} hafta sonrasına randevu alınabilir.` });
@@ -1087,6 +1091,45 @@ app.post("/api/sheets/resync", requireAuth, ah(async (req, res) => {
   const sonuc = await sheets.tumunuYenidenSenkronla(tumu);
   await sheets.aylikOzetYaz(tumu);
   res.json({ ok: true, ...sonuc });
+}));
+
+// ---------------------------------------------------------------------------
+// Kasa defteri: randevu dışı ekstra gelir (ör. ürün satışı: Wax 250₺) ve
+// giderler. Ciro sayfasından (ciro şifresi) ya da admin tarafından tutulur;
+// ustalar göremez. Ciro sayfası bunları günlük/aylık net kazanca katar.
+// ---------------------------------------------------------------------------
+function kasaYetkili(req, res) {
+  if (req.auth.role === "ciro" || req.auth.role === "admin") return true;
+  res.status(403).json({ hata: "Bu işlem için yetkiniz yok." });
+  return false;
+}
+
+app.get("/api/kasa", requireAuth, ah(async (req, res) => {
+  if (!kasaYetkili(req, res)) return;
+  const ay = String(req.query.ay || "");
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ay)) return res.status(400).json({ hata: "Geçersiz ay (YYYY-AA)." });
+  res.json(await db.kasaListe(ay));
+}));
+
+app.post("/api/kasa", requireAuth, ah(async (req, res) => {
+  if (!kasaYetkili(req, res)) return;
+  const { tarih, tur } = req.body;
+  const ad = String(req.body.ad || "").trim();
+  const tutar = Number(req.body.tutar);
+  const gun = new Date(tarih + "T00:00:00Z"); // 2026-02-30 gibi takvimde olmayan günler de reddedilir
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tarih || "") || isNaN(gun) || gun.toISOString().slice(0, 10) !== tarih)
+    return res.status(400).json({ hata: "Geçersiz tarih." });
+  if (tur !== "gelir" && tur !== "gider") return res.status(400).json({ hata: "Tür gelir ya da gider olmalı." });
+  if (!ad || ad.length > 60) return res.status(400).json({ hata: "Açıklama 1-60 karakter olmalı." });
+  if (!Number.isInteger(tutar) || tutar <= 0 || tutar > 10000000) return res.status(400).json({ hata: "Tutar pozitif bir tam sayı olmalı." });
+  res.status(201).json(await db.kasaEkle({ tarih, tur, ad, tutar, ekleyen: req.auth.ad }));
+}));
+
+app.delete("/api/kasa/:id", requireAuth, ah(async (req, res) => {
+  if (!kasaYetkili(req, res)) return;
+  if (!/^\d+$/.test(req.params.id)) return res.status(404).json({ hata: "Kayıt bulunamadı." });
+  if (!(await db.kasaSil(req.params.id))) return res.status(404).json({ hata: "Kayıt bulunamadı." });
+  res.json({ ok: true });
 }));
 
 // Admin panelindeki "Sheets" butonu için — aktif tablonun linki (yoksa null)

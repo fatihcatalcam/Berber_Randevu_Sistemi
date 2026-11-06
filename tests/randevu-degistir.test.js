@@ -155,3 +155,21 @@ test("yeni randevudaki tarih kurallari gecerli: mesai disi, Pazar, 2 hafta, dolu
   assert.strictEqual(store[0].saat, "10:30", "hiçbiri randevuyu değiştirmemeli");
   assert.strictEqual(tasindiSmsleri.length, 0);
 });
+
+test("Burak'taki sadece sakal randevusu cumartesiye taşınamaz, saç + sakal taşınır", async (t) => {
+  await sunucu(t);
+  const cuma = sonrakiGun(5), cumartesi = sonrakiGun(6); // Burak 10:30'dan itibaren 45 dk'lık dilimler
+  const burak = { berberId: "burak", berber: "Burak Şahin", tarih: cuma };
+  store.push(webRandevu({ ...burak, hizmetId: "sakal", hizmet: "Sakal Tıraşı", saat: "11:15" }),
+    webRandevu({ ...burak, id: "r2", hizmetId: "kombin", hizmet: "Saç + Sakal", saat: "12:00" }));
+  const token = await tokenAl(TEL);
+
+  const red = await istek("POST", "/api/public/randevu/r1/tasi", { dogrulamaToken: token, tarih: cumartesi, saat: "11:15" });
+  assert.strictEqual(red.status, 400);
+  assert.match(red.body.hata, /cumartesi günleri sadece sakal tıraşı randevusu almıyor/);
+  assert.strictEqual(store[0].tarih, cuma, "randevu yerinde kalmalı");
+
+  const kombin = await istek("POST", "/api/public/randevu/r2/tasi", { dogrulamaToken: token, tarih: cumartesi, saat: "12:00" });
+  assert.strictEqual(kombin.status, 200);
+  assert.strictEqual(store[1].tarih, cumartesi);
+});

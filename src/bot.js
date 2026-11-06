@@ -1,5 +1,5 @@
 const db = require("./db");
-const { DUKKAN, BERBERLER, HIZMETLER, berberCalismaSaatleri, berberSlotDk, gelecekTarihler } = require("./config");
+const { DUKKAN, BERBERLER, HIZMETLER, berberCalismaSaatleri, berberSlotDk, gelecekTarihler, hizmetGunKisiti } = require("./config");
 const { sendText, sendButtons, sendList } = require("./whatsapp");
 const sheets = require("./sheets");
 const { bugunStr, slotEkle, MIN_ONCE_DK, slotGectiMi, acikSaatleriGetir } = require("./randevu-yardimci");
@@ -256,9 +256,11 @@ async function adimKisiHizmet(telefon, metin, s) {
 // ---------------------------------------------------------------------------
 async function tarihListesiGonder(telefon, s) {
   // O berberin o tarihteki çalışma saatlerinden en az biri hâlâ seçilebilir mi?
-  // Değilse (ör. bugünün tüm slotları geçmiş) o günü listeye alma.
+  // Değilse (ör. bugünün tüm slotları geçmiş) o günü listeye alma. Ustanın o gün
+  // almadığı hizmet seçildiyse (bkz. config kapaliHizmet) o gün de listede yok.
   const gunSecilebilir = (tarih) =>
-    berberCalismaSaatleri(s.veri.berberId, tarih).some((saat) => !slotGectiMi(tarih, saat));
+    berberCalismaSaatleri(s.veri.berberId, tarih).some((saat) => !slotGectiMi(tarih, saat)) &&
+    !(s.veri.kisiler || []).some((k) => hizmetGunKisiti(s.veri.berberId, k.hizmetId, tarih));
   const acik = typeof db.getAcikGunler === "function"
     ? await db.getAcikGunler().catch(() => [])
     : []; // özel açık günler (Pazar/bayram)
