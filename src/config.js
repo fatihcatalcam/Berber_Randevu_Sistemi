@@ -39,7 +39,7 @@ const GERCEK_DUKKAN = {
 const DUKKAN = demo ? demo.DUKKAN : GERCEK_DUKKAN;
 
 const ADMIN_PIN = process.env.ADMIN_PIN || null;
-const CIRO_PIN  = "3131"; // sadece ciro sayfası (/dashboard/ciro) — isteğe göre koda sabit
+const CIRO_PIN  = "1995"; // sadece ciro sayfası (/dashboard/ciro) — isteğe göre koda sabit
 const pinOku = (id) => process.env["PIN_" + id.toUpperCase()] || null;
 
 const RESUL_FIYAT = { sac: 900, sakal: 300, kombin: 1200 };

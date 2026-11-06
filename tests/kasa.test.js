@@ -48,7 +48,7 @@ function istek(method, path, body, token) {
 
 let ciro, admin, eren;
 test.before(async () => {
-  ciro = (await istek("POST", "/api/auth", { ciro: true, pin: "3131" })).body.token;
+  ciro = (await istek("POST", "/api/auth", { ciro: true, pin: require("../src/config").CIRO_PIN })).body.token;
   admin = (await istek("POST", "/api/auth", { admin: true, pin: process.env.ADMIN_PIN })).body.token;
   eren = (await istek("POST", "/api/auth", { berberId: "eren", pin: process.env.PIN_EREN })).body.token;
   assert.ok(ciro && admin && eren);
