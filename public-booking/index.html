@@ -177,8 +177,17 @@
   .secim-btn.secili { border-color: var(--mavi); background: var(--mavi-acik); box-shadow: 0 0 0 3px var(--mavi-halka); }
   .secim-btn small { display: block; font-weight: 400; color: var(--soluk); font-size: 12px; margin-top: 2px; }
   .secim-btn .fiyat { color: var(--mavi-koyu); font-weight: 800; white-space: nowrap; }
-  /* Hizmete ek (kaş): kartların üstünde tek kutucuk */
-  .ek-liste { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  /* Hizmete ekler (kaş, cilt bakımı, keratin): ana hizmet seçilince kartın altında açılır */
+  .secim-btn[aria-expanded="true"] { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+  .ek-acilir {
+    border: 1.5px solid var(--mavi); border-top: none; border-radius: 0 0 14px 14px;
+    background: #fff; padding: 12px 12px 14px; margin-top: -9px; /* secim-liste boşluğu: karta yapışık */
+    animation: ekAcil .22s var(--yay) both;
+  }
+  @keyframes ekAcil { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  .ek-baslik { font-size: 12px; font-weight: 700; color: var(--soluk); margin: 2px 2px 8px; }
+  .ek-acilir .btn { margin-top: 10px; }
+  .ek-liste { display: flex; flex-direction: column; gap: 8px; }
   .ek-kutu {
     display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 16px; margin: 0; /* genel label boşluğu yok */
     border: 1.5px dashed var(--cizgi); border-radius: 14px; background: #f8fafc;
@@ -521,7 +530,6 @@
     <button class="geri-btn" onclick="geriGit('adimBerber')">‹ Usta seçimine dön</button>
     <div class="secim-serit" data-serit="adimHizmet"></div>
     <p class="adim-baslik">2 / 5 — Hizmet Seçin</p>
-    <div class="ek-liste" id="ekListe"></div>
     <div class="secim-liste" id="hizmetListe"></div>
     <p class="hizmet-not" id="hizmetNot"></p>
   </div>
@@ -903,46 +911,76 @@ function berberSec(id) {
 // ============================================================
 // Adım 2: Hizmet listesi
 // ============================================================
+// Ana hizmetle birlikte alınabilecek ekler: aynı gruptan ikincisi olmaz (keratin
+// kartı seçiliyken keratin eki çıkmaz — bir randevuda tek keratin)
+function uygunEkler(hizmet) { return EKLER.filter((e) => !(hizmet && hizmet.grup && e.grup === hizmet.grup)); }
+const tabanFiyat = (berber, h) => h.fiyat ?? berber.fiyat[h.id];
+
+// Hizmet kartları. Seçilen kartın altında ekler açılır (kaş, cilt bakımı, keratin);
+// müşteri isterse işaretler, "Devam et" ile tarihe geçer.
 function hizmetListesiniDoldur() {
   const berber = BERBERLER.find((b) => b.id === secim.berberId);
-  document.getElementById("ekListe").innerHTML = EKLER.map((e) => {
-    const secili = secim.ekler.includes(e.id);
-    return `<label class="ek-kutu${secili ? " secili" : ""}">
-      <input type="checkbox" ${secili ? "checked" : ""} onchange="ekDegistir('${e.id}', this.checked)">
-      <span class="ek-ad">${kacis(e.ad)} ${daDe(e.ad)} ekle${e.aciklama ? `<small class="hizmet-aciklama">${kacis(e.aciklama)}</small>` : ""}</span>
-      <span class="ek-fiyat">+${e.fiyat}₺${e.not ? "*" : ""}</span>
-    </label>`;
-  }).join("");
-  // Keratin eklendiyse keratin kartları gizlenir (bir randevuda tek keratin)
-  const ekGruplari = seciliEkler().map((e) => e.grup).filter(Boolean);
-  const kartlar = HIZMETLER.filter((h) => !ekGruplari.includes(h.grup));
-  // Kart fiyatı seçili eklerle birlikte (müşteri ödeyeceği toplamı görsün)
-  document.getElementById("hizmetListe").innerHTML = kartlar.map((h) => `
-    <button class="secim-btn" data-id="${h.id}" onclick="hizmetSec('${h.id}')">
+  const secili = HIZMETLER.find((h) => h.id === secim.hizmetId);
+  document.getElementById("hizmetListe").innerHTML = HIZMETLER.map((h) => {
+    const acik = h === secili && ekMenuAcik;
+    const kart = `
+    <button class="secim-btn" data-id="${h.id}" onclick="hizmetSec('${h.id}')" aria-expanded="${acik}">
       <span>✂️ ${kacis(h.ad)}<small class="hizmet-sure">${kacis(h.sure || "")}</small>${h.aciklama ? `<small class="hizmet-aciklama">${kacis(h.aciklama)}</small>` : ""}</span>
-      <span class="fiyat">${hizmetFiyati(berber, h)}₺${hizmetNotu(h) ? "*" : ""}</span>
-    </button>`).join("");
-  const not = [...EKLER, ...kartlar].map((x) => x.not).find(Boolean);
+      <span class="fiyat">${tabanFiyat(berber, h)}₺${h.not ? "*" : ""}</span>
+    </button>`;
+    if (!acik) return kart;
+    const ekler = uygunEkler(h).map((e) => {
+      const isaretli = secim.ekler.includes(e.id);
+      return `<label class="ek-kutu${isaretli ? " secili" : ""}">
+        <input type="checkbox" ${isaretli ? "checked" : ""} onchange="ekDegistir('${e.id}', this.checked)">
+        <span class="ek-ad">${kacis(e.ad)} ${daDe(e.ad)} ekle${e.aciklama ? `<small class="hizmet-aciklama">${kacis(e.aciklama)}</small>` : ""}</span>
+        <span class="ek-fiyat">+${e.fiyat}₺${e.not ? "*" : ""}</span>
+      </label>`;
+    }).join("");
+    return kart + `
+    <div class="ek-acilir" id="ekAcilir">
+      ${ekler ? `<p class="ek-baslik">Ek hizmet ekleyin (isteğe bağlı)</p><div class="ek-liste">${ekler}</div>` : ""}
+      <button class="btn" onclick="hizmetDevam()">Devam et · ${hizmetFiyati(berber, h)}₺${hizmetNotu(h) ? "*" : ""} →</button>
+    </div>`;
+  }).join("");
+  const not = [...EKLER, ...HIZMETLER].map((x) => x.not).find(Boolean);
   document.getElementById("hizmetNot").textContent = not ? `* ${not}` : "";
   secilenleriIsaretle();
 }
 
-function ekDegistir(id, secili) {
+function ekDegistir(id, isaretli) {
   const ek = EKLER.find((e) => e.id === id);
-  if (secili && ek.grup) {
-    // Bir randevuda tek keratin: diğer keratin eki bırakılır, keratin kartı seçiliyse seçim kalkar
-    secim.ekler = secim.ekler.filter((x) => EKLER.find((e) => e.id === x).grup !== ek.grup);
-    const hizmet = HIZMETLER.find((h) => h.id === secim.hizmetId);
-    if (hizmet && hizmet.grup === ek.grup) { secim.hizmetId = null; secim.tarih = null; secim.saat = null; }
-  }
-  secim.ekler = secili ? [...new Set([...secim.ekler, id])] : secim.ekler.filter((x) => x !== id);
+  // Aynı gruptan tek ek (iki keratin olmaz): yenisi seçilince diğeri bırakılır
+  if (isaretli && ek.grup) secim.ekler = secim.ekler.filter((x) => EKLER.find((e) => e.id === x).grup !== ek.grup);
+  secim.ekler = isaretli ? [...new Set([...secim.ekler, id])] : secim.ekler.filter((x) => x !== id);
   hizmetListesiniDoldur();
   yanPaneliGuncelle();
   secimSeritleriniGuncelle();
 }
 
+// Karta dokununca altında ekler açılır; aynı karta tekrar dokunmak menüyü kapatır/açar.
+// Sonraki adıma yalnızca "Devam et" ile geçilir.
+let ekMenuAcik = true;
 function hizmetSec(id) {
+  if (secim.hizmetId === id) {
+    ekMenuAcik = !ekMenuAcik;
+    hizmetListesiniDoldur();
+    return;
+  }
+  ekMenuAcik = true;
+  const hizmet = HIZMETLER.find((h) => h.id === id);
   secim.hizmetId = id; secim.tarih = null; secim.saat = null;
+  const uygun = new Set(uygunEkler(hizmet).map((e) => e.id));
+  secim.ekler = secim.ekler.filter((x) => uygun.has(x));
+  hizmetListesiniDoldur();
+  yanPaneliGuncelle();
+  secimSeritleriniGuncelle();
+  const acilir = document.getElementById("ekAcilir");
+  if (acilir) acilir.scrollIntoView({ block: "nearest", behavior: AZALTILMIS_HAREKET ? "auto" : "smooth" });
+}
+
+function hizmetDevam() {
+  if (!secim.hizmetId) return;
   tarihListesiniDoldur();
   adimGoster("adimTarih");
 }

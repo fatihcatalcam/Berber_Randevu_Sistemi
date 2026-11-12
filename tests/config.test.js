@@ -13,10 +13,10 @@ test("BERBERLER en az 3 berber icerir ve fiyat alanlari tam", () => {
   }
 });
 
-test("HIZMETLER sac/sakal/kombin ve iki keratin icerir", () => {
+test("HIZMETLER sac/sakal/kombin; keratin ana hizmet degil", () => {
   assert.deepStrictEqual(
     config.HIZMETLER.map((h) => h.id),
-    ["sac", "sakal", "kombin", "keratin-yukleme", "keratin-duzlestirme"]
+    ["sac", "sakal", "kombin"]
   );
 });
 

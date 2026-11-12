@@ -1224,10 +1224,8 @@ function llmsMetni() {
 
 ## Hizmetler ve fiyatlar
 
-${HIZMETLER.map((h) => h.fiyat
-  ? `- ${h.ad} (${h.aciklama.toLocaleLowerCase("tr")}): ${tl(h.fiyat)}, tek başına ya da saç/sakal hizmetiyle aynı randevuda. ${h.not}`
-  : `- ${h.ad}: ${aralik(ustalar.map((b) => b.fiyat[h.id]))} (ustaya göre)`).join("\n")}
-${EKLER.filter((e) => !HIZMETLER.includes(e)).map((e) => `- ${e.ad}: ${tl(e.fiyat)}, saç veya sakal hizmetine eklenir`).join("\n")}
+${HIZMETLER.map((h) => `- ${h.ad}: ${aralik(ustalar.map((b) => b.fiyat[h.id]))} (ustaya göre)`).join("\n")}
+${EKLER.map((e) => `- ${e.ad}${e.aciklama ? ` (${e.aciklama.toLocaleLowerCase("tr")})` : ""}: ${tl(e.fiyat)}, saç veya sakal hizmetine eklenir${e.not ? `. ${e.not}` : ""}`).join("\n")}
 
 ## Ustalar
 

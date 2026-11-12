@@ -72,30 +72,28 @@ const eren = BERBERLER.find((b) => b.id === "eren");
 const webRandevu = (govde) => istek("POST", "/api/public/randevu",
   { ad: "Ali Veli", telefon: "0555 334 00 02", berberId: "eren", tarih: SALI, ...govde });
 
-test("config: keratinler hizmet kartı ve ek olarak gelir, fiyat ve not hizmette", async () => {
+test("config: keratinler sadece ek olarak gelir (ana hizmet kartı değil), fiyat ve not ekte", async () => {
   const { body } = await istek("GET", "/api/config");
-  const kart = body.hizmetler.find((h) => h.id === "keratin-yukleme");
-  assert.strictEqual(kart.ad, "Keratin Yükleme");
-  assert.strictEqual(kart.aciklama, "En kısa saç");
-  assert.strictEqual(kart.fiyat, 1650);
-  assert.strictEqual(kart.not, "Saç uzunluğuna göre fiyat değişiklikleri yaşanabilmektedir.");
-  assert.strictEqual(body.hizmetler.find((h) => h.id === "keratin-duzlestirme").fiyat, 1850);
-  assert.deepStrictEqual(body.ekler.map((e) => e.id), ["kas", "keratin-yukleme", "keratin-duzlestirme"]);
+  assert.ok(!body.hizmetler.some((h) => h.id.startsWith("keratin")), "keratin ana hizmet olmamalı");
+  const ek = body.ekler.find((e) => e.id === "keratin-yukleme");
+  assert.strictEqual(ek.ad, "Keratin Yükleme");
+  assert.strictEqual(ek.aciklama, "En kısa saç");
+  assert.strictEqual(ek.fiyat, 1650);
+  assert.strictEqual(ek.not, "Saç uzunluğuna göre fiyat değişiklikleri yaşanabilmektedir.");
+  assert.strictEqual(body.ekler.find((e) => e.id === "keratin-duzlestirme").fiyat, 1850);
+  assert.deepStrictEqual(body.ekler.map((e) => e.id), ["kas", "cilt-bakimi", "keratin-yukleme", "keratin-duzlestirme"]);
 });
 
-test("web: tek başına keratin tek dilim; kayıtta 200₺ eksik, kesinti ayrıca saklanır", async () => {
-  const r = await webRandevu({ hizmetId: "keratin-yukleme", saat: "09:45" });
-  assert.strictEqual(r.status, 201);
-  assert.strictEqual(r.body.hizmet, "Keratin Yükleme");
-  assert.strictEqual(r.body.fiyat, 1450);
-  assert.strictEqual(r.body.kesinti, 200);
-  assert.strictEqual(onaySmsleri.at(-1).hizmet, "Keratin Yükleme");
+test("web: keratin tek başına alınamaz; ekte kayda 200₺ eksik yazılır, fiyat ustadan bağımsız", async () => {
+  assert.strictEqual((await webRandevu({ hizmetId: "keratin-yukleme", saat: "09:45" })).status, 400);
 
-  // Fiyat ustadan bağımsız: Resul'de de aynı (onun dilimi 30 dk)
-  const resul = await webRandevu({ berberId: "resul", tarih: CARSAMBA, hizmetId: "keratin-duzlestirme", saat: "09:00" });
+  // Resul'de de aynı keratin fiyatı (onun dilimi 30 dk)
+  const resul = await webRandevu({ berberId: "resul", tarih: CARSAMBA, hizmetId: "sakal", ekler: ["keratin-duzlestirme"], saat: "09:00" });
   assert.strictEqual(resul.status, 201);
-  assert.strictEqual(resul.body.fiyat, 1650);
+  assert.strictEqual(resul.body.hizmet, "Sakal Tıraşı + Keratin Düzleştirme");
+  assert.strictEqual(resul.body.fiyat, BERBERLER.find((b) => b.id === "resul").fiyat.sakal + 1850 - 200);
   assert.strictEqual(resul.body.kesinti, 200);
+  assert.strictEqual(onaySmsleri.at(-1).hizmet, "Sakal Tıraşı + Keratin Düzleştirme");
 });
 
 test("web: saç/sakala keratin eklenir, aynı dilimde; kaşla birlikte de olur", async () => {
@@ -122,9 +120,9 @@ test("panel: elle keratin randevusunda fiyat alanı müşterinin ödediği, kayd
   const token = (await istek("POST", "/api/auth", { berberId: "eren", pin: process.env.PIN_EREN })).body.token;
   const elle = (govde) => istek("POST", "/api/randevular", { ad: "Mehmet", berberId: "eren", tarih: SALI, ...govde }, token);
 
-  const standart = await elle({ hizmetId: "keratin-yukleme", saat: "16:30" }); // fiyat gönderilmedi
+  const standart = await elle({ hizmetId: "sac", ekler: ["keratin-yukleme"], saat: "16:30" }); // fiyat gönderilmedi
   assert.strictEqual(standart.status, 201);
-  assert.strictEqual(standart.body.fiyat, 1450);
+  assert.strictEqual(standart.body.fiyat, eren.fiyat.sac + 1650 - 200);
   assert.strictEqual(standart.body.kesinti, 200);
 
   // Uzun saç: müşteri 2000₺ öder, ciroya 1800₺
@@ -139,7 +137,8 @@ test("panel: elle keratin randevusunda fiyat alanı müşterinin ödediği, kayd
   assert.strictEqual((await elle({ hizmetId: "sakal", ekler: ["kas"], saat: "10:30" })).body.fiyat, eren.fiyat.sakal + 300);
   assert.ok(!store.at(-1).kesinti, "keratinsiz randevuda kesinti yok");
 
-  for (const govde of [{ hizmetId: "keratin-yukleme", ekler: ["keratin-duzlestirme"] }, { hizmetId: "keratin-yukleme", ekler: ["keratin-yukleme"] }])
+  // Keratin ana hizmet olamaz; bir randevuda iki keratin olmaz
+  for (const govde of [{ hizmetId: "keratin-yukleme" }, { hizmetId: "sac", ekler: ["keratin-yukleme", "keratin-duzlestirme"] }])
     assert.strictEqual((await elle({ ...govde, saat: "18:45" })).status, 400, JSON.stringify(govde));
   // Sabit müşteri keratinle tanımlanamaz
   const sabit = await istek("POST", "/api/sabit", { ad: "Mehmet", hizmetId: "keratin-yukleme", gun: 2, saat: "18:45" }, token);
@@ -148,7 +147,8 @@ test("panel: elle keratin randevusunda fiyat alanı müşterinin ödediği, kayd
 
 test("llms.txt keratini fiyatı ve notuyla bir kez yazar", async () => {
   const { body } = await istek("GET", "/llms.txt");
-  assert.ok(body.includes("- Keratin Yükleme (en kısa saç): 1.650 ₺, tek başına ya da saç/sakal hizmetiyle aynı randevuda. Saç uzunluğuna göre fiyat değişiklikleri yaşanabilmektedir."), body);
+  assert.ok(body.includes("- Keratin Yükleme (en kısa saç): 1.650 ₺, saç veya sakal hizmetine eklenir. Saç uzunluğuna göre fiyat değişiklikleri yaşanabilmektedir."), body);
+  assert.ok(body.includes("- Profesyonel Cilt Bakımı: 1.500 ₺, saç veya sakal hizmetine eklenir"));
   assert.ok(body.includes("- Keratin Düzleştirme (kısa saç): 1.850 ₺"));
   assert.strictEqual(body.split("Keratin Yükleme").length - 1, 1, "ekler satırında tekrar yok");
   assert.ok(body.includes("- Kaş Tasarımı: 300 ₺, saç veya sakal hizmetine eklenir"));

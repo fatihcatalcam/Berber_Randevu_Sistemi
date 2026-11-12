@@ -82,6 +82,18 @@ test("web: kaş eklenince hizmet adı ve fiyatı birleşir, onay SMS'i birleşik
   assert.strictEqual(sade.body.fiyat, eren.fiyat.sac);
 });
 
+// Web ucu IP başına dakikada 5 istek kabul eder: bu dosyadaki web istekleri toplam 5.
+test("Profesyonel Cilt Bakımı 1500₺ ek olarak alınır, kaşla birlikte de olur", async () => {
+  const { body } = await istek("GET", "/api/config");
+  assert.deepStrictEqual(body.ekler.find((e) => e.id === "cilt-bakimi"), { id: "cilt-bakimi", ad: "Profesyonel Cilt Bakımı", fiyat: 1500 });
+  assert.ok(!body.hizmetler.some((h) => h.id === "cilt-bakimi"), "tek başına hizmet kartı değil");
+
+  const r = await webRandevu({ hizmetId: "sakal", ekler: ["kas", "cilt-bakimi"], saat: "12:45" });
+  assert.strictEqual(r.status, 201);
+  assert.strictEqual(r.body.hizmet, "Sakal Tıraşı + Kaş Tasarımı + Profesyonel Cilt Bakımı");
+  assert.strictEqual(r.body.fiyat, eren.fiyat.sakal + 300 + 1500);
+});
+
 test("web: bilinmeyen ek 400, kaş tek başına hizmet değil", async () => {
   assert.strictEqual((await webRandevu({ hizmetId: "sac", ekler: ["masaj"], saat: "11:15" })).status, 400);
   assert.strictEqual((await webRandevu({ hizmetId: "kas", saat: "11:15" })).status, 400);
