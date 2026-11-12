@@ -389,6 +389,13 @@
     .usta-ad { font-size: 13.5px; }
     .secim-liste { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .saat-grid { grid-template-columns: repeat(4, 1fr); gap: 10px; }
+
+    /* Izgarada ek menüsü kartın içine sıkışmasın: kartların altında tam genişlikte
+       ayrı satır (dense: sonraki kartlar üst satırdaki boşluğu doldurur) */
+    #hizmetListe { grid-auto-flow: row dense; }
+    #hizmetListe .ek-acilir { grid-column: 1 / -1; margin-top: 0; border-top: 1.5px solid var(--mavi); border-radius: 14px; padding: 14px 16px 16px; }
+    #hizmetListe .secim-btn[aria-expanded="true"] { border-radius: 14px; }
+    #hizmetListe .ek-liste { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   }
 
   /* ---------------------------------------------------------------------
@@ -939,7 +946,7 @@ function hizmetListesiniDoldur() {
     }).join("");
     return kart + `
     <div class="ek-acilir" id="ekAcilir">
-      ${ekler ? `<p class="ek-baslik">Ek hizmet ekleyin (isteğe bağlı)</p><div class="ek-liste">${ekler}</div>` : ""}
+      ${ekler ? `<p class="ek-baslik">${kacis(h.ad)} için ek hizmet ekleyin (isteğe bağlı)</p><div class="ek-liste">${ekler}</div>` : ""}
       <button class="btn" onclick="hizmetDevam()">Devam et · ${hizmetFiyati(berber, h)}₺${hizmetNotu(h) ? "*" : ""} →</button>
     </div>`;
   }).join("");
