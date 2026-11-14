@@ -501,7 +501,7 @@ app.post("/api/public/randevu", ah(async (req, res) => {
   const engel = await webRandevuEngeli(telefon, tarih);
   if (engel) return res.status(engel.status).json({ hata: engel.hata });
   const dolu = await db.getBusySlots(berberId, tarih);
-  if (dolu.includes(saat)) return res.status(409).json({ hata: "Seçilen saat dolu." });
+  if (dolu.includes(saat)) return res.status(409).json({ hata: "Seçilen saat dolu.", kod: "saat_dolu" });
 
   try {
     const kayit = await db.add({
@@ -525,7 +525,7 @@ app.post("/api/public/randevu", ah(async (req, res) => {
     if (kayit.email) eposta.randevuOnayMaili(kayit, tarihStr).catch(() => {});
     res.status(201).json(kayit);
   } catch (e) {
-    if (e.code === "SLOT_DOLU") return res.status(409).json({ hata: "Seçilen saat dolu." });
+    if (e.code === "SLOT_DOLU") return res.status(409).json({ hata: "Seçilen saat dolu.", kod: "saat_dolu" });
     throw e;
   }
 }));

@@ -554,6 +554,7 @@
     <button class="geri-btn" onclick="geriGit('adimTarih')">‹ Tarih seçimine dön</button>
     <div class="secim-serit" data-serit="adimSaat"></div>
     <p class="adim-baslik">4 / 5 — Saat Seçin</p>
+    <div class="hata" id="saatHata" role="alert"></div>
     <div class="saat-grid" id="saatListe"><div class="yukleniyor">Yükleniyor…</div></div>
   </div>
 
@@ -678,6 +679,8 @@ function hizmetNotu(hizmet) { return [hizmet, ...seciliEkler()].map((x) => x && 
 function daDe(s) { return /[aıou][^aeıioöuü]*$/.test(s.toLocaleLowerCase("tr")) ? "da" : "de"; }
 let secim = { berberId: null, hizmetId: null, ekler: [], tarih: null, saat: null };
 let dogrulamaToken = null;
+let dogrulamaZamani = 0;
+const DOGRULAMA_GECERLI_MS = 14 * 60 * 1000; // sunucuda 15 dk; 1 dk pay
 let geriSayimTimer = null;
 
 // Sunucudaki OTP_AKTIF env değişkeninden /api/config üzerinden okunur — iki
@@ -1062,6 +1065,7 @@ async function tarihListesiniDoldur() {
 
 async function tarihSec(deger) {
   secim.tarih = deger; secim.saat = null;
+  document.getElementById("saatHata").textContent = "";
   adimGoster("adimSaat");
   const kutu = document.getElementById("saatListe");
   kutu.innerHTML = '<div class="saat-iskelet"></div>'.repeat(9);
@@ -1119,10 +1123,13 @@ function ozetGoster() {
       <div>📅 ${kacis(tarihStr)} ⏰ ${secim.saat}</div>
       ${hizmetNotu(hizmet) ? `<div class="ozet-not">* ${kacis(hizmetNotu(hizmet))}</div>` : ""}
     </div>`;
-  document.getElementById("bilgiForm").classList.remove("gizli");
+  // Telefon az önce doğrulandıysa (saat dolup yeni saat seçildiyse) yeniden kod istenmez
+  const dogrulu = OTP_AKTIF && dogrulamaToken && Date.now() - dogrulamaZamani < DOGRULAMA_GECERLI_MS;
+  document.getElementById("bilgiForm").classList.toggle("gizli", !!dogrulu);
   document.getElementById("otpForm").classList.add("gizli");
-  document.getElementById("onayForm").classList.add("gizli");
+  document.getElementById("onayForm").classList.toggle("gizli", !dogrulu);
   document.getElementById("bilgiHata").textContent = "";
+  document.getElementById("onayHata").textContent = "";
 }
 
 // Tekrar gelen müşteri formu dolu bulsun: ad/telefon SADECE bu tarayıcıda (localStorage)
@@ -1512,9 +1519,13 @@ async function kodDogrula() {
     if (!res.ok) { hataEl.textContent = data.hata || "Doğrulama başarısız."; return; }
 
     dogrulamaToken = data.dogrulamaToken;
+    dogrulamaZamani = Date.now();
     clearInterval(geriSayimTimer);
     document.getElementById("otpForm").classList.add("gizli");
     document.getElementById("onayForm").classList.remove("gizli");
+    // Kod doğrulanınca randevu hemen oluşturulur. Eskiden müşteri "Telefon numaranız
+    // doğrulandı" ekranını randevu onayı sanıp "Randevuyu Onayla"ya basmadan çıkabiliyordu.
+    randevuOlustur();
   } catch (e) {
     hataEl.textContent = "Bağlantı hatası, tekrar deneyin.";
     btn.disabled = false;
@@ -1542,7 +1553,26 @@ async function randevuOlustur() {
     });
     const data = await res.json();
     butonBekliyor(btn);
-    if (!res.ok) { hataEl.textContent = data.hata || "Randevu oluşturulamadı."; return; }
+    if (!res.ok) {
+      // Saat müşteri işlem yaparken doldu: açıkça söyle, güncel saatlerle saat seçimine dön
+      if (data.kod === "saat_dolu") {
+        const dolanSaat = secim.saat;
+        await tarihSec(secim.tarih);
+        document.getElementById("saatHata").textContent =
+          `⚠️ Randevunuz oluşturulamadı: ${dolanSaat} siz işlem yaparken doldu. Lütfen başka bir saat seçin.`;
+        return;
+      }
+      // Doğrulama süresi doldu: kodu yeniden iste
+      if (res.status === 401 && OTP_AKTIF) {
+        dogrulamaToken = null;
+        ozetGoster();
+        document.getElementById("bilgiHata").textContent = data.hata || "Doğrulama süresi doldu. Lütfen tekrar kod isteyin.";
+        return;
+      }
+      hataEl.textContent = "⚠️ Randevunuz oluşturulamadı: " + (data.hata || "bilinmeyen hata.");
+      return;
+    }
+    dogrulamaToken = null; // sunucuda tek kullanımlık; sonraki randevu yeni kodla alınır
 
     const berber = BERBERLER.find((b) => b.id === secim.berberId);
     const hizmet = HIZMETLER.find((h) => h.id === secim.hizmetId);

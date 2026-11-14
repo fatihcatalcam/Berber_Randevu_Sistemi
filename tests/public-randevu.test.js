@@ -169,6 +169,14 @@ test("dolu slota randevu denemesi 409 doner", async (t) => {
     dogrulamaToken: token, ad: "Test", berberId: "resul", hizmetId: "sac", tarih, saat: "10:00",
   });
   assert.strictEqual(res.status, 409);
+  // Sayfa bu kodla müşteriyi açık bir uyarıyla saat seçimine geri döndürür
+  assert.strictEqual(res.body.kod, "saat_dolu");
+
+  // Doğrulama tek kullanımlık: başarısız denemede yanmaz, müşteri yeni saati aynı kodla alır
+  const ikinci = await istek("POST", "/api/public/randevu", {
+    dogrulamaToken: token, ad: "Test", berberId: "resul", hizmetId: "sac", tarih, saat: "10:30",
+  });
+  assert.strictEqual(ikinci.status, 201);
 });
 
 test("gecmis saate randevu denemesi 400 doner", async (t) => {
