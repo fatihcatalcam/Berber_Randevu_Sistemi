@@ -58,6 +58,13 @@ Module._load = function (req) {
   return orig.apply(this, arguments);
 };
 
+// Saat gündüze sabitlenir (bugün 12:00). Gerçek saatle çalışınca test 23:30'dan sonra
+// kırılıyordu: "30 dk sonrası" gece yarısını aşıp ertesi güne taşıyor, bugünün
+// hatırlatma penceresine girmiyordu. Sadece Date sabitlenir; setTimeout gerçek kalır.
+const sabitSaat = new Date();
+sabitSaat.setHours(12, 0, 0, 0);
+test.mock.timers.enable({ apis: ["Date"], now: sabitSaat });
+
 // Randevu saatini "şimdiden 30dk sonrası" yapar (hatirlatma penceresi: 0-60dk)
 function otuzDkSonra() {
   const d = new Date();
