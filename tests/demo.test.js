@@ -161,3 +161,12 @@ test("demo randevuları: aynı gün aynı veri, Pazar yok, çift randevu yok, sa
   assert.ok(a.some((r) => r.tarih < bugun && r.ad === "Kemal Yurt"), "sabit müşterinin geçmişi var");
   assert.ok(a.every((r) => r.olusturulma <= Date.now()));
 });
+
+test("uyanık tutma sadece DEMO_UYANIK=true iken (ücretsiz planın saat hakkı)", () => {
+  const { uyanikTutmaAdresi } = require("../src/demo");
+  const dis = "https://randevu.catalcamyazilim.online";
+  assert.strictEqual(uyanikTutmaAdresi({ RENDER_EXTERNAL_URL: dis }), null, "varsayılan: demo uyur");
+  assert.strictEqual(uyanikTutmaAdresi({ RENDER_EXTERNAL_URL: dis, DEMO_UYANIK: "false" }), null);
+  assert.strictEqual(uyanikTutmaAdresi({ DEMO_UYANIK: "true" }), null, "Render dışında adres yok");
+  assert.strictEqual(uyanikTutmaAdresi({ RENDER_EXTERNAL_URL: dis, DEMO_UYANIK: "true" }), dis + "/saglik");
+});

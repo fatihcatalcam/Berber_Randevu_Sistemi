@@ -5,8 +5,12 @@
 //   - SMS gönderilmez: istek sırasında "gidecek" SMS'ler yanıta demoSms olarak
 //     eklenir, sayfa bunları ekranda gösterir.
 //   - Her gece 03:00'te veriler silinip demo randevuları yüklenir.
-//   - Render'ın ücretsiz planı 15 dk istek gelmeyince uyur; 10 dk'da bir kendi
-//     /saglik adresine istek atılır. /saglik veritabanına dokunmaz, Neon uyuyabilir.
+//   - Render'ın ücretsiz planı 15 dk istek gelmeyince uyur (ilk açılış 30-60 sn).
+//     Ücretsiz planın aylık saat hakkı (750 saat, çalışma alanı başına) hep açık bir
+//     servise yetmediği için demo normalde uyur. Sunum günleri DEMO_UYANIK=true
+//     verilirse 10 dk'da bir kendi /saglik adresine istek atıp uyanık kalır.
+//     /saglik veritabanına dokunmaz, Neon uyuyabilir.
+//   - Uyurken 03:00 geçerse sıfırlama, servis ilk uyandığında yapılır.
 // ---------------------------------------------------------------------------
 const fs = require("fs");
 const path = require("path");
@@ -103,9 +107,15 @@ function baslat({ sabitUret }) {
   kontrol();
   setInterval(kontrol, 10 * 60 * 1000).unref();
 
-  // Render, servisin dış adresini RENDER_EXTERNAL_URL olarak verir
-  const dis = process.env.RENDER_EXTERNAL_URL;
-  if (dis) setInterval(() => fetch(`${dis}/saglik`).catch(() => {}), 10 * 60 * 1000).unref();
+  // Uyanık tutma yalnızca DEMO_UYANIK=true iken (bkz. dosya başı: saat hakkı).
+  // Render, servisin dış adresini RENDER_EXTERNAL_URL olarak verir.
+  const adres = uyanikTutmaAdresi(process.env);
+  if (adres) setInterval(() => fetch(adres).catch(() => {}), 10 * 60 * 1000).unref();
 }
 
-module.exports = { kur, baslat, sifirla, sifirlamaGunu };
+// Kendine istek atılacak adres; uyanık tutma kapalıysa null
+function uyanikTutmaAdresi(env) {
+  return env.RENDER_EXTERNAL_URL && env.DEMO_UYANIK === "true" ? `${env.RENDER_EXTERNAL_URL}/saglik` : null;
+}
+
+module.exports = { kur, baslat, sifirla, sifirlamaGunu, uyanikTutmaAdresi };
